@@ -98,8 +98,8 @@ path_to_data = "/Users/saumya/Desktop/SolarProject/Data"
 path_to_missing_days_file = path_to_data+"/missing_days_files.pkl"
 list_of_missing_days_for_all_cities={}
 
-cities = ['Boulder_CO','Sioux_Falls_SD']
-years = [2006,2007,2008,2009]
+cities = ['Penn_State_PA']
+years = [2005,2006,2007,2008,2009]
 for city in cities:
     days_with_missing_days_for_this_city=[]
     for year in years:

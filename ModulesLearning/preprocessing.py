@@ -30,6 +30,8 @@ def adjust_boundary_values(dataframe):
     '''
     adjust outlier values, precisely negative solar and negative clear_ghi
     '''
+    print(len(dataframe.loc[(dataframe.dw_solar < 0)]))
+    print(len(dataframe.loc[(dataframe.clear_ghi <= 0)]))
     dataframe.loc[(dataframe.dw_solar < 0), 'dw_solar'] = 0.0
     dataframe.loc[(dataframe.clear_ghi <= 0), 'clear_ghi'] = 1.0 #4.0
     return dataframe
@@ -47,18 +49,22 @@ def extract_study_period(dataframe,startmonth, startyear, endmonth, endyear):
         yearlist.append(tempvar)
         del tempvar
     df_yearly = pd.concat(yearlist)
+    ## added this sorting just to be sure
+    # df_yearly = df_yearly.sort_values(by=['year', 'month', 'day', 'hour', 'MinFlag'])
     return df_yearly
 
+#
+# def filter_day_values(dataframe, zenith_threhsold = 85):
+#     '''
+#     selecting the valid tuples for day-time----------- not during training
+#     '''
+#     dataframe = dataframe[dataframe['zen'] < zenith_threhsold]
+#     return dataframe
 
-def filter_day_values(dataframe, zenith_threhsold = 85):
-    '''
-    selecting the valid tuples for day-time----------- not during training
-    '''
-    dataframe = dataframe[dataframe['zen'] < zenith_threhsold]
-    return dataframe
 
-
-def adjust_outliers(dataframe):
+def adjust_outlier_clearness_index(dataframe):
+    print(len(dataframe.loc[(dataframe.clearness_index < 0.0)]))
+    print(len(dataframe.loc[(dataframe.clearness_index >= 5)]))
     dataframe.loc[(dataframe.clearness_index < 0.0), 'clearness_index'] = 0.0
     dataframe.loc[(dataframe.clearness_index >= 5), 'clearness_index'] = 4.0
     return dataframe
@@ -67,68 +73,76 @@ def adjust_outliers(dataframe):
 def create_lead_dataset(dataframe, lead, final_set_of_features, target):
     '''
     create dataset for the given lead by adjusting the lead between the input features and target irradiance
+    Imp: I am changing thr weay lead target is calculated
     '''
     dataframe_lead = dataframe[final_set_of_features]
     target = np.asarray(dataframe[target])
     # for target, it is rolled by lead (Y var)
     target = np.roll(target, -lead)
+    # target = dataframe[target]
+    # target_with_lead = np.full((len(target)),np.nan)
+    # for i in range(len(target)-lead):
+    #     target_with_lead[i] = target[i+lead]
     dataframe_lead['clearness_index'] = target
 
     # remove rows which have any value as NaN
-    dataframe_lead.dropna()
+    print(len(dataframe_lead))
+    dataframe_lead = dataframe_lead.dropna()
     print("*****************")
-    print(dataframe_lead.tail)
+    print(len(dataframe_lead))
     return dataframe_lead
 
+#
+# def get_df_for_all_seasons(dataframe):
+#     '''
+#     create dataframes for the four seasons (fall, winter, spring, summer)
+#     '''
+#     # extracting the data on month scale
+#     df_sep = dataframe[dataframe.month == 9]
+#     df_oct = dataframe[dataframe.month == 10]
+#     df_nov = dataframe[dataframe.month == 11]
+#     df_dec = dataframe[dataframe.month == 12]
+#     df_jan = dataframe[dataframe.month == 1]
+#     df_feb = dataframe[dataframe.month == 2]
+#     df_mar = dataframe[dataframe.month == 3]
+#     df_apr = dataframe[dataframe.month == 4]
+#     df_may = dataframe[dataframe.month == 5]
+#     df_jun = dataframe[dataframe.month == 6]
+#     df_jul = dataframe[dataframe.month == 7]
+#     df_aug = dataframe[dataframe.month == 8]
+#     # season formation
+#     df_fall = pd.concat([df_sep, df_oct, df_nov])
+#     df_winter = pd.concat([df_dec, df_jan, df_feb])
+#     df_spring = pd.concat([df_mar, df_apr, df_may])
+#     df_summer = pd.concat([df_jun, df_jul, df_aug])
+#     return df_fall, df_winter, df_spring, df_summer
 
-def get_df_for_all_seasons(dataframe):
-    '''
-    create dataframes for the four seasons (fall, winter, spring, summer)
-    '''
-    # extracting the data on month scale
-    df_sep = dataframe[dataframe.month == 9]
-    df_oct = dataframe[dataframe.month == 10]
-    df_nov = dataframe[dataframe.month == 11]
-    df_dec = dataframe[dataframe.month == 12]
-    df_jan = dataframe[dataframe.month == 1]
-    df_feb = dataframe[dataframe.month == 2]
-    df_mar = dataframe[dataframe.month == 3]
-    df_apr = dataframe[dataframe.month == 4]
-    df_may = dataframe[dataframe.month == 5]
-    df_jun = dataframe[dataframe.month == 6]
-    df_jul = dataframe[dataframe.month == 7]
-    df_aug = dataframe[dataframe.month == 8]
-    # season formation
-    df_fall = pd.concat([df_sep, df_oct, df_nov])
-    df_winter = pd.concat([df_dec, df_jan, df_feb])
-    df_spring = pd.concat([df_mar, df_apr, df_may])
-    df_summer = pd.concat([df_jun, df_jul, df_aug])
-    return df_fall, df_winter, df_spring, df_summer
 
+def get_yearly_or_season_data(df_lead, season_flag):
 
-def get_yearly_or_season_data(df_lead, df_fall, df_winter, df_spring, df_summer, season_flag):
     if season_flag == 'year' or season_flag == 'yearly':
         df = df_lead
         start_date = date(2008, 9, 1)
         end_date = date(2009, 8, 31)
     elif season_flag == 'fall':
-        df = df_fall
+        df = df_lead[df_lead.month.isin([9,10,11])]
         start_date = date(2008, 9, 1)
         end_date = date(2008, 11, 30)
     elif season_flag == 'winter':
-        df = df_winter
+        df = df_lead[df_lead.month.isin([12,1,2])]
         start_date = date(2008, 12, 1)
         end_date = date(2009, 2, 28)
     elif season_flag == 'spring':
-        df = df_spring
+        df = df_lead[df_lead.month.isin([3,4,5])]
         start_date = date(2009, 3, 1)
         end_date = date(2009, 5, 31)
     elif season_flag == 'summer':
-        df = df_summer
+        df = df_lead[df_lead.month.isin([6,7,8])]
         start_date = date(2009, 6, 1)
         end_date = date(2009, 8, 31)
     else:
         print("Please provide a valid season...")
+
     return df, start_date, end_date
 
 
@@ -153,11 +167,12 @@ def train_test_spilt(dataframe, season_flag, testyear):
                     (dataframe.year == testyear + 1) & (dataframe.month >= 1) & (dataframe.month <= 8))]
         dataframe_train = pd.concat([dataframe, dataframe_test, dataframe_test]).drop_duplicates(keep=False)
 
-    # removing the tuples with the GHI(dw_solar) variable as Null
-    dataframe_train_dropna = dataframe_train[dataframe_train['dw_solar'].isnull() == False]
-    dataframe_test_dropna = dataframe_test[dataframe_test['dw_solar'].isnull() == False]
+    # removing the rows with the GHI(dw_solar) variable as Null (why would it be NULL??)
+    # print(len(dataframe_train[dataframe_train['dw_solar'].isnull()]))
+    # dataframe_train_dropna = dataframe_train[dataframe_train['dw_solar'].isnull() == False]
+    # dataframe_test_dropna = dataframe_test[dataframe_test['dw_solar'].isnull() == False]
     #     dataframe_test_s.reset_index(inplace=True)
-    return [dataframe_train_dropna, dataframe_test_dropna]
+    return dataframe_train, dataframe_test
 
 
 def get_train_test_data(dataframe_train, dataframe_test, lead, final_set_of_features, target):
@@ -203,9 +218,9 @@ def select_daytimes(X, index_zen, zenith_threhsold = 85):
     return daytimes
 
 
-def filter_dayvalues_and_remove_outliers(X_train_all, y_train_all, X_test_all, y_test_all, index_daytimes_train, index_daytimes_test):
+def filter_dayvalues(X_train_all, y_train_all, X_test_all, y_test_all, index_daytimes_train, index_daytimes_test):
     '''
-    filter only the day time data and remove outliers
+    filter only the day time data
     '''
     # remove outliers from training samples(y_train<=0.0)
     out_ind = []
@@ -215,6 +230,7 @@ def filter_dayvalues_and_remove_outliers(X_train_all, y_train_all, X_test_all, y
     # subtracting ignore list from day times
     a = set(index_daytimes_train)
     b = set(out_ind)
+    print(len(b))
     final_daytime_train = list(a - b)
 
     X_train = []

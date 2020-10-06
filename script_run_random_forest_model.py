@@ -6,7 +6,7 @@ from SolarForecasting.ModulesLearning import postprocessing as postprocess
 from SolarForecasting.ModulesLearning import model as models
 
 # All the variables and hyper-parameters
-path = "/Users/saumya/Desktop/SolarProject/Data"
+path = "/Users/saumya/Desktop/SolarProject/Data/"
 
 # city
 city = 'Penn_State_PA'
@@ -19,7 +19,7 @@ seasons =['fall'] #from ['fall', 'winter', 'spring', 'summer', 'year']
 
 # file locations
 processed_file_path = path+'processed/'+city
-clearsky_file_path = 'clear-sky/'+city+'_15mins_original.csv'
+clearsky_file_path = path+'clear-sky/'+city+'_15mins_original.csv'
 
 # scan all the features (except the flags)
 features = ['year','month','day','hour','min','zen','dw_solar','uw_solar','direct_n','diffuse','dw_ir','dw_casetemp','dw_dometemp','uw_ir','uw_casetemp','uw_dometemp','uvb','par','netsolar','netir','totalnet','temp','rh','windspd','winddir','pressure']
@@ -50,19 +50,21 @@ def main():
 
     # extract the input data files (SURFAD data)
     combined_csv = preprocess.extract_frame(processed_file_path)
-    # print("The columns of the initial data file: ", combined_csv.columns)
+    print("The columns of the initial data file: ", combined_csv.columns)
 
     # extract the features from the input
     dataset = combined_csv[features]
+    print(len(dataset))
 
     # 15 mins resolution
     dataset['MinFlag'] = dataset['min'].apply(preprocess.generateFlag)
     dataset = dataset.groupby(['year', 'month', 'day', 'hour', 'MinFlag']).mean()
     dataset.reset_index(inplace=True)
+    print(len(dataset))
 
     # read the clear-sky values
     clearsky = pd.read_csv(clearsky_file_path, skiprows=37, delimiter=';')
-    # print("The cplumns of the clear sky file: ", clearsky.columns)
+    print("The columns of the clear sky file: ", clearsky.columns)
 
     # divide the observation period in form of year, month, day, hour, min (adding them as vaiablesr)
     clearsky[['year', 'month', 'day', 'hour', 'min']] = clearsky['# Observation period'].apply(preprocess.extract_time)
@@ -70,80 +72,82 @@ def main():
 
     # merging the clear sky values with SURFAD input dataset
     df = dataset.merge(clearsky, on=['year', 'month', 'day', 'hour', 'MinFlag'], how='inner')
-    # print(adjusted_frame.tail)
+    # print(df.tail)
 
     # renaming the clear sky GHI
     df = df.rename(columns={'Clear sky GHI': 'clear_ghi'})
 
     # selecting only the required columns
     df = df[final_features]
-    #     print(adjusted_frame.tail)
+
 
     # adjust the boundary values
     df = preprocess.adjust_boundary_values(df)
-    #     print(adjusted_frame.tail)
+    print(df.tail)
+    # df: 175073 rows x 14 columns
+    # half of them are outliers??!!
+    # 87569
+    # 85792
 
     # adding the clearness index as a feature
     df['clearness_index'] = df['dw_solar'] / df['clear_ghi']
-    #     print("clearness_index: ", df['clearness_index'] )
+    print("clearness_index: ", df['clearness_index'] )
 
     # get dataset for the study period
-    df = preprocess.extract_study_period(df)
-    #     print("\n\n after extract_study_period")
-    #     print(df.tail)
+    df = preprocess.extract_study_period(df,startmonth, startyear, endmonth, endyear)
+    print("\n\n after extracting study period")
+    df.reset_index(drop=True, inplace=True)
+    print(df.tail)
+    # 140077 rows x 15 columns
 
     # adjust the outliers
-    df = preprocess.adjust_outliers(df)
-    #     print("\n\n after adjust_outliers")
-    #     print(adjusted_frame.tail)
+    df = preprocess.adjust_outlier_clearness_index(df)
+    print("\n\n after adjusting outliers of clearness index")
+    print(df.tail)
 
     for season_flag in seasons:
         for lead in lead_times:
             # create dataset with lead
             df_lead = preprocess.create_lead_dataset(df, lead, final_features, target_feature)
+            # (no drop with dropna)
             #     print("\n\n after create_lead_dataset")
-            #     print(df_lead.tail)
-
-            # get df for different seasons
-            df_fall, df_winter, df_spring, df_summer = preprocess.get_df_for_all_seasons(df_lead)
-            #     print("\n\n after segregating_seasons")
-            #     print(df_fall.tail)
+            #     print(len(df_lead))
 
             # get the seasonal data you want
-            df, test_startdate, test_enddate = preprocess.get_yearly_or_season_data(df_lead, df_fall, df_winter, df_spring, df_summer,
-                                                               season_flag)
-            #     print("\n\n after get_yearly_or_season_data (test_startdate; test_enddate)", test_startdate, test_enddate)
-            #     print(df.tail)
+            df, test_startdate, test_enddate = preprocess.get_yearly_or_season_data(df_lead, season_flag)
+            print("\n\n after getting seasonal data (test_startdate; test_enddate)", test_startdate, test_enddate)
+            print(df.tail)
 
-            # dividing into training and test set, and removing the Null tuples
-            df_train, df_test = preprocess.train_test_spilt(df, season_flag,testyear)
-            #     print("\n\n after dividing_training_test")
-            #     print("train_set\n",df_train.tail)
-            #     print("test_set\n",df_test.tail)
+            # dividing into training and test set
+            df_train, df_test = preprocess.train_test_spilt(df, season_flag, testyear)
+            print("\n\n after dividing_training_test")
+            print("train_set\n",len(df_train))
+            print("test_set\n",len(df_test))
 
             # extract the X_train, y_train, X_test, y_test for training
             X_train_all, y_train_all, X_test_all, y_test_all, index_clearghi, index_ghi, index_zen = preprocess.get_train_test_data(
                 df_train, df_test, lead, final_features, target_feature)
-            #     print("\n\n train and test df shapes ")
-            #     print(X_train_all.shape, y_train_all.shape, X_test_all.shape, y_test_all.shape)
+            print("\n\n train and test df shapes ")
+            print(X_train_all.shape, y_train_all.shape, X_test_all.shape, y_test_all.shape)
 
             # get the day times
             index_daytimes_train = preprocess.select_daytimes(X_train_all, index_zen)
             index_daytimes_test = preprocess.select_daytimes(X_test_all, index_zen)
 
             # filter the training and test set to have only day values
-            X_train, y_train, X_test, y_test = preprocess.filter_dayvalues_and_remove_outliers(X_train_all, y_train_all, X_test_all, y_test_all,
+            X_train, y_train, X_test, y_test = preprocess.filter_dayvalues(X_train_all, y_train_all, X_test_all, y_test_all,
                                                                                   index_daytimes_train,
                                                                                   index_daytimes_test)
-            #     print("\n\n after filter_dayvalues_remove_outliers")
-            #         print("Final size: ", X_train.shape, y_train.shape, X_test.shape, y_test.shape)
+            print("\n\n after filter_dayvalues_remove_outliers")
+            print("Final size: ", X_train.shape, y_train.shape, X_test.shape, y_test.shape)
 
-            #     # call the gridSearch with finerparameter
-            model = models.rfGridSearch_model(X_train, y_train)
-            #     print("GridSearch best parameters: ", model.best_params_)
+            y_train  = np.reshape(y_train, -1)
+            y_test = np.reshape(y_test, -1)
 
-            test_len = y_test.shape[0]
-            y_true = np.reshape(y_test, (test_len, 1))
+    #         #     # call the gridSearch with finerparameter
+            model = models.rf_model(X_train, y_train)
+
+            y_true = y_test
             y_pred = model.predict(X_test)
 
             # plotting a few analysis results
@@ -161,7 +165,7 @@ def main():
             plt.hist(y_pred, density=True, bins=1000)
             plt.xlabel("pred test set")
             plt.show()
-
+    #
             [y_true, y_pred] = postprocess.postprocessing_target(y_pred, y_true, X_test, index_ghi, index_clearghi, lead)
             #     print("after X, y_true, y_pred: ",X_test[:2], y_true[:2], y_pred[:2])
 
@@ -210,3 +214,7 @@ def main():
 
 if __name__=='__main__':
     main()
+
+
+# see if sorting according to dates is essential in the very beginning
+# check if the lead is correctly created

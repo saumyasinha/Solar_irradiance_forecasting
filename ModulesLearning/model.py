@@ -3,11 +3,11 @@ from sklearn.linear_model import LinearRegression, LassoCV
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.model_selection import GridSearchCV
-import xgboost as xgb
+# import xgboost as xgb
 from random import seed
 from random import random
 from keras.models import Sequential
-from keras.layers import Dense, Conv2D, Dropout, MaxPooling2D, Flatten, BatchNormalization, Activation
+from keras.layers import Dense, Dropout, BatchNormalization, Activation
 from keras.optimizers import Adam, sgd
 import matplotlib.pyplot as plt
 
@@ -63,7 +63,7 @@ def rfSearch_model(X, y):
 
 
 def rfGridSearch_model(X, y):
-    # Create the parameter grid based on the results of random search
+
     param_grid = {
         'bootstrap': [True],
         'max_depth': [80, 100, 120],
@@ -79,13 +79,6 @@ def rfGridSearch_model(X, y):
     grid_search.fit(X, y)
     print("params:", grid_search.best_params_)
     return grid_search
-
-
-def xg_model(X, y):
-    reg = xgb.XGBRegressor(objective='reg:linear', colsample_bytree=0.3, learning_rate=0.001, \
-                           max_depth=10, n_estimators=100)  # alpha = 10,max_depth=5, random_state=0)
-    reg.fit(X, y)
-    return reg
 
 
 # neural network based model........
