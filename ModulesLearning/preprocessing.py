@@ -30,8 +30,8 @@ def adjust_boundary_values(dataframe):
     '''
     adjust outlier values, precisely negative solar and negative clear_ghi
     '''
-    print(len(dataframe.loc[(dataframe.dw_solar < 0)]))
-    print(len(dataframe.loc[(dataframe.clear_ghi <= 0)]))
+    # print(len(dataframe.loc[(dataframe.dw_solar < 0)]))
+    # print(len(dataframe.loc[(dataframe.clear_ghi <= 0)]))
     dataframe.loc[(dataframe.dw_solar < 0), 'dw_solar'] = 0.0
     dataframe.loc[(dataframe.clear_ghi <= 0), 'clear_ghi'] = 1.0 #4.0
     return dataframe
@@ -63,22 +63,23 @@ def extract_study_period(dataframe,startmonth, startyear, endmonth, endyear):
 
 
 def adjust_outlier_clearness_index(dataframe):
-    print(len(dataframe.loc[(dataframe.clearness_index < 0.0)]))
-    print(len(dataframe.loc[(dataframe.clearness_index >= 5)]))
+    # print(len(dataframe.loc[(dataframe.clearness_index < 0.0)]))
+    # print(len(dataframe.loc[(dataframe.clearness_index >= 5)]))
     dataframe.loc[(dataframe.clearness_index < 0.0), 'clearness_index'] = 0.0
-    dataframe.loc[(dataframe.clearness_index >= 5), 'clearness_index'] = 4.0
+    dataframe.loc[(dataframe.clearness_index >= 5), 'clearness_index'] = 4.0 # is 4.0 arbitrary here?
     return dataframe
 
 
 def create_lead_dataset(dataframe, lead, final_set_of_features, target):
     '''
     create dataset for the given lead by adjusting the lead between the input features and target irradiance
-    Imp: I am changing thr weay lead target is calculated
     '''
     dataframe_lead = dataframe[final_set_of_features]
     target = np.asarray(dataframe[target])
-    # for target, it is rolled by lead (Y var)
+    print("for target, it is rolled by lead (Y var) \n")
+    print(target[-10:])
     target = np.roll(target, -lead)
+    print(target[-10:])
     # target = dataframe[target]
     # target_with_lead = np.full((len(target)),np.nan)
     # for i in range(len(target)-lead):
@@ -199,9 +200,11 @@ def get_train_test_data(dataframe_train, dataframe_test, lead, final_set_of_feat
     y_train = np.asarray(dataframe_train[target]).astype(np.float)
     y_test = np.asarray(dataframe_test[target]).astype(np.float)
 
-    # add clearness_index beyond lead as a feature input (important)
+    # add clearness_index beyond lead as a feature input (important) -- are we adding the current time clearness index here?
     y_train_roll = np.roll(y_train, lead)
     y_test_roll = np.roll(y_test, lead)
+    # print("checking clearness index roll: \n")
+    # print(y_train[-15:], y_train_roll[-15:])
     X_train = np.concatenate((X_train, y_train_roll), axis=1)
     X_test = np.concatenate((X_test, y_test_roll), axis=1)
 
@@ -220,7 +223,7 @@ def select_daytimes(X, index_zen, zenith_threhsold = 85):
 
 def filter_dayvalues(X_train_all, y_train_all, X_test_all, y_test_all, index_daytimes_train, index_daytimes_test):
     '''
-    filter only the day time data
+    filter only the day time data (can be implemented faster)
     '''
     # remove outliers from training samples(y_train<=0.0)
     out_ind = []
@@ -230,7 +233,6 @@ def filter_dayvalues(X_train_all, y_train_all, X_test_all, y_test_all, index_day
     # subtracting ignore list from day times
     a = set(index_daytimes_train)
     b = set(out_ind)
-    print(len(b))
     final_daytime_train = list(a - b)
 
     X_train = []
@@ -248,31 +250,54 @@ def filter_dayvalues(X_train_all, y_train_all, X_test_all, y_test_all, index_day
     X_test = np.asarray(X_test).astype(np.float)
     y_test = np.asarray(y_test).astype(np.float)
     #     print("After removal of night values and training outliers: train and test: ",X_train.shape, X_test.shape)
-    return [X_train, y_train, X_test, y_test]
+    return X_train, y_train, X_test, y_test
 
-# This should go into post processing
-def ignore_indices_for_Test(df, startdate, enddate, lead):
-    # select the values with zen<85
-    #     print("*****",df.shape)
-    df = df[df.zen < 85]
-    #     print("#######",df.shape)
-    df = df.reset_index(drop=True)
+# # This should go into post processing
+# def ignore_indices_for_Test(df, startdate, enddate, lead):
+#     # select the values with zen<85
+#     #     print("*****",df.shape)
+#     df = df[df.zen < 85]
+#     #     print("#######",df.shape)
+#     df = df.reset_index(drop=True)
+#
+#     # generate all the days between start and end date
+#     all_days = []
+#     delta = enddate - startdate  # as timedelta
+#     for i in range(delta.days + 1):
+#         day = startdate + timedelta(days=i)
+#         all_days.append(day)
+#     # ignore first lead no. of samples of each day (as they might give false error )
+#     ignore_test_indices = []
+#     for day in all_days:
+#         curdate = day
+#         ind = df.index[(df.year == curdate.year) & (df.month == curdate.month) & (df.day == curdate.day)].tolist()[0]
+#         for i in range(lead):
+#             ignore_test_indices.append(ind + i)
+#     #     print("number of ignore test index ",len(ignore_test_indices))
+#     return ignore_test_indices
 
-    # generate all the days between start and end date
-    all_days = []
-    delta = enddate - startdate  # as timedelta
-    for i in range(delta.days + 1):
-        day = startdate + timedelta(days=i)
-        all_days.append(day)
-    # ignore first lead no. of samples of each day (as they might give false error )
-    ignore_test_indices = []
-    for day in all_days:
-        curdate = day
-        ind = df.index[(df.year == curdate.year) & (df.month == curdate.month) & (df.day == curdate.day)].tolist()[0]
-        for i in range(lead):
-            ignore_test_indices.append(ind + i)
-    #     print("number of ignore test index ",len(ignore_test_indices))
-    return ignore_test_indices
+
+
+def standardize_from_train(X_train, X_test):
+    '''
+    Standardize (or 'normalize') the feature matrices.
+    '''
+    cols = X_train.shape[1]
+
+    for i in range(cols):
+
+        mean = np.mean(X_train[:,i])
+        std = np.std(X_train[:,i])
+        print(mean, std)
+        X_train[:,i] = (X_train[:,i] - mean)/std
+        X_test[:,i] = (X_test[:,i] - mean)/std
+
+
+    return X_train, X_test
+
+def shuffle(X,y):
+    p = np.random.permutation(len(X))
+    return X[p], y[p]
 
 
 def generateFlag(x):

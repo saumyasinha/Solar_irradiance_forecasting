@@ -65,12 +65,18 @@ def rfSearch_model(X, y):
 def rfGridSearch_model(X, y):
 
     param_grid = {
-        'bootstrap': [True],
-        'max_depth': [80, 100, 120],
+        # 'bootstrap': [True],
+        # 'max_depth': [80, 100, 120],
+        # 'max_features': [3, 5],
+        # 'min_samples_leaf': [8, 10, 15],
+        # 'min_samples_split': [8, 10, 15],
+        # 'n_estimators': [100, 150, 200, 250]
+        # 'bootstrap': [True],
+        'max_depth': [100, 120],
         'max_features': [3, 5],
-        'min_samples_leaf': [8, 10, 15],
-        'min_samples_split': [8, 10, 15],
-        'n_estimators': [100, 150, 200, 250]
+        'min_samples_leaf': [10,15],
+        'min_samples_split': [10, 15],
+        'n_estimators': [150, 200, 250]
     }
     # Create a based model
     rf = RandomForestRegressor()

@@ -85,9 +85,6 @@ def main():
     df = preprocess.adjust_boundary_values(df)
     print(df.tail)
     # df: 175073 rows x 14 columns
-    # half of them are outliers??!!
-    # 87569
-    # 85792
 
     # adding the clearness index as a feature
     df['clearness_index'] = df['dw_solar'] / df['clear_ghi']
@@ -104,6 +101,7 @@ def main():
     df = preprocess.adjust_outlier_clearness_index(df)
     print("\n\n after adjusting outliers of clearness index")
     print(df.tail)
+
 
     for season_flag in seasons:
         for lead in lead_times:
@@ -124,6 +122,7 @@ def main():
             print("train_set\n",len(df_train))
             print("test_set\n",len(df_test))
 
+
             # extract the X_train, y_train, X_test, y_test for training
             X_train_all, y_train_all, X_test_all, y_test_all, index_clearghi, index_ghi, index_zen = preprocess.get_train_test_data(
                 df_train, df_test, lead, final_features, target_feature)
@@ -138,36 +137,45 @@ def main():
             X_train, y_train, X_test, y_test = preprocess.filter_dayvalues(X_train_all, y_train_all, X_test_all, y_test_all,
                                                                                   index_daytimes_train,
                                                                                   index_daytimes_test)
-            print("\n\n after filter_dayvalues_remove_outliers")
+
+            print("\n\n after filtering dayvalues")
+            print("Final size: ", X_train.shape, y_train.shape, X_test.shape, y_test.shape)
+
+            ## normalize and shuffle the training dataset
+            X_train, X_test = preprocess.standardize_from_train(X_train, X_test)
+            X_train, y_train = preprocess.shuffle(X_train, y_train)
+
+            print("\n\n after filtering dayvalues")
             print("Final size: ", X_train.shape, y_train.shape, X_test.shape, y_test.shape)
 
             y_train  = np.reshape(y_train, -1)
             y_test = np.reshape(y_test, -1)
 
-    #         #     # call the gridSearch with finerparameter
-            model = models.rf_model(X_train, y_train)
+            # call the gridSearch
+            model = models.rfGridSearch_model(X_train, y_train)
 
             y_true = y_test
             y_pred = model.predict(X_test)
 
-            # plotting a few analysis results
-            plt.figure(figsize=(20,10))
-            plt.hist(y_train, density=True, bins=1000)
-            plt.xlabel("train set")
-            plt.show()
-
-            plt.figure(figsize=(20,10))
-            plt.hist(y_test, density=True, bins=1000)
-            plt.xlabel("true test set")
-            plt.show()
-
-            plt.figure(figsize=(20,10))
-            plt.hist(y_pred, density=True, bins=1000)
-            plt.xlabel("pred test set")
-            plt.show()
+            # # plotting a few analysis results
+            # plt.figure(figsize=(20,10))
+            # plt.hist(y_train, density=True, bins=1000)
+            # plt.xlabel("train set")
+            # plt.show()
+            #
+            # plt.figure(figsize=(20,10))
+            # plt.hist(y_test, density=True, bins=1000)
+            # plt.xlabel("true test set")
+            # plt.show()
+            #
+            # plt.figure(figsize=(20,10))
+            # plt.hist(y_pred, density=True, bins=1000)
+            # plt.xlabel("pred test set")
+            # plt.show()
     #
-            [y_true, y_pred] = postprocess.postprocessing_target(y_pred, y_true, X_test, index_ghi, index_clearghi, lead)
-            #     print("after X, y_true, y_pred: ",X_test[:2], y_true[:2], y_pred[:2])
+            y_true, y_pred = postprocess.postprocessing_target(y_pred, y_true, X_test, index_ghi, index_clearghi, lead)
+            print("after postprocessing: X, y_true, y_pred - ",X_test.shape, y_true.shape, y_pred.shape)
+
 
             # normal and smart persistence model
             y_np = postprocess.normal_persistence_model(X_test, index_ghi, lead)
@@ -178,29 +186,27 @@ def main():
 
             # extracting the daytimes values and removal of outliers
             #     [true_day, pred_day, np_day, sp_day] = select_pred_daytimes_remove_outliers(y_true, y_pred, y_np, y_sp, index_daytimes)
-            true_day, pred_day1, np_day, sp_day = postprocess.check_and_remove_outliers(y_true, y_pred, y_np, y_sp)
-            true_day_valid = true_day[:500]
-            true_day_test = true_day[500:]
-            pred_day_valid = pred_day1[:500]
-            pred_day_test = pred_day1[500:]
-            sp_day_valid = sp_day[:500]
-            sp_day_test = sp_day[500:]
-            np_day_test = np_day[500:]
+            true_day, pred_day, np_day, sp_day = postprocess.check_and_remove_outliers(y_true, y_pred, y_np, y_sp)
+            true_day_valid = true_day[:1000]
+            true_day_test = true_day[1000:]
+            pred_day_valid = pred_day[:1000]
+            pred_day_test = pred_day[1000:]
+            sp_day_valid = sp_day[:1000]
+            sp_day_test = sp_day[1000:]
+            np_day_valid = np_day[:1000]
+            np_day_test = np_day[1000:]
 
-            #     print(true_day.mean(), pred_day1.mean(), sp_day.mean(), pred_day.mean())
-
-            #     plot_results(true_day_test, pred_day_test, sp_day_test)
             print("\n\n\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
             # calculate the error measures................................................
-            rmse_our, mae_our, mb_our, std_our = postprocess.evaluation_metrics(true_day_test, pred_day_test)
+            rmse_our, mae_our, mb_our, std_our = postprocess.evaluation_metrics(true_day_valid, pred_day_valid)
             print("Performance of our model (rmse, mae, mb, std): \n\n", round(rmse_our, 1), round(mae_our, 1),
                   round(mb_our, 1), round(std_our, 1))
 
-            rmse_sp, mae_sp, mb_sp, std_sp = postprocess.evaluation_metrics(true_day_test, sp_day_test)
+            rmse_sp, mae_sp, mb_sp, std_sp = postprocess.evaluation_metrics(true_day_valid, sp_day_valid)
             print("Performance of smart persistence model (rmse, mae, mb): \n\n", round(rmse_sp, 1), round(mae_sp, 1),
                   round(mb_sp, 1), round(std_sp, 1))
 
-            rmse_np, mae_np, mb_np, std_np = postprocess.evaluation_metrics(true_day_test, np_day_test)
+            rmse_np, mae_np, mb_np, std_np = postprocess.evaluation_metrics(true_day_valid, np_day_valid)
             print("Performance of normal persistence model (rmse, mae, mb): \n\n", round(rmse_np, 1), round(mae_np, 1),
                   round(mb_np, 1), round(std_np, 1))
 
@@ -212,9 +218,22 @@ def main():
             print("\nSkill of our model over normal persistence: ", round(skill_np, 1))
 
 
+            # postprocess.plot_results(true_day_test,pred_day_test,sp_day_test)
+
+
 if __name__=='__main__':
     main()
 
 
-# see if sorting according to dates is essential in the very beginning
-# check if the lead is correctly created
+# there should be 0 checks for sp-day too in check outlier function for postprocessing, since we might end up getting 0s in our postprcoessed values because of rolling
+
+# Penn_State_PA at Lead 2 and fall Season
+# Performance of our model (rmse, mae, mb, std):
+#
+#  0.8 0.5 -0.0 0.6
+# Performance of smart persistence model (rmse, mae, mb):
+#
+#  0.7 0.4 0.0 0.6
+# Performance of normal persistence model (rmse, mae, mb):
+#
+#  2.9 2.4 2.4 1.5

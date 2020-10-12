@@ -8,25 +8,27 @@ def postprocessing_target(pred, true, X, index_ghi, index_clearghi, lead):
     postprocess the target clearness index to solar irradiance (unit should be watt/m2)
     '''
     # Calculating the predicted dw_solar by multiplying the predicted clearness index with GHi clear of current time
-    true_temp = np.roll(true, lead)
-    true_temp = np.reshape(true_temp, (true_temp.shape[0], 1))
-    pred_temp = np.roll(pred, lead)
-    pred_temp = np.reshape(pred_temp, (pred_temp.shape[0], 1))
+    true = np.roll(true, lead)
+    true = np.reshape(true, (true.shape[0], 1))
+    pred = np.roll(pred, lead)
+    pred = np.reshape(pred, (pred.shape[0], 1))
 
     clearsky = np.reshape(X[:, index_clearghi], (X[:, index_clearghi].shape[0], 1))  # clear sky GHI
-    y_true = np.multiply(true_temp, clearsky)
-    y_pred = np.multiply(pred_temp, clearsky)
+    y_true = np.multiply(true, clearsky)
+    y_pred = np.multiply(pred, clearsky)
     return y_true, y_pred
 
 
 def smart_persistence_model(X, y, index_clearghi, lead):
-    clearnessind = np.asarray(y)  # this is adjusted according to lead
-    clearnessind = np.roll(clearnessind, lead + 1)
+    clearness_index = np.asarray(y)
+    clearness_index = np.roll(clearness_index, lead + 1) # why lead + 1??
+    clearness_index = np.reshape(clearness_index, (clearness_index.shape[0], 1))
     clearghi = np.asarray(X[:, index_clearghi])
     clearghi = np.reshape(clearghi, (clearghi.shape[0], 1))
-    y_persis = np.multiply(clearnessind, clearghi)
-    y_persis = np.reshape(y_persis, (y_persis.shape[0], 1))
-    return y_persis
+
+    y_persistance = np.multiply(clearness_index, clearghi)
+    y_persistance = np.reshape(y_persistance, (y_persistance.shape[0], 1))
+    return y_persistance
 
 
 def normal_persistence_model(X, index_ghi, lead):
@@ -37,7 +39,11 @@ def normal_persistence_model(X, index_ghi, lead):
 
 
 def check_and_remove_outliers(true_day, pred_day, np_day, sp_day):
+    '''
+    can be implemented faster
+    '''
     # filter persistent values when 0 (filtering the outliers)
+    print(true_day.shape, pred_day.shape, np_day.shape, sp_day.shape)
     ind = []
     for i in range(len(sp_day)):
         if true_day[i] <= 0.1 or pred_day[i] <= 0.0:  # or sp_day1[i]<=0.0:
@@ -139,10 +145,14 @@ def plot_results(true_day, pred_day, sp_day):
     x = np.asarray(range(true_day.shape[0]))
     x = np.reshape(x, (1, x.shape[0]))
 
-    print(x.shape, t.shape, p.shape, s.shape)
+    # print(x.shape, t.shape, p.shape, s.shape)
     plt.figure(figsize=(20, 10))
-    plt.plot(x[:, 150:250], t[:, 150:250], 'g<')
-    plt.plot(x[:, 150:250], p[:, 150:250], 'b*')
-    plt.plot(x[:, 150:250], s[:, 150:250], 'r.')
-    plt.show()
+    # plt.plot(x[:, 150:250], t[:, 150:250], 'g<')
+    # plt.plot(x[:, 150:250], p[:, 150:250], 'b*')
+    # plt.plot(x[:, 150:250], s[:, 150:250], 'r.')
+    plt.plot(x, t, "-b", label="true values")
+    plt.plot(x, p, "-r", label="predicted values")
+    plt.plot(x, s, "g", label="smart persistence values")
+    plt.legend(loc="upper left")
+    plt.savefig("final_comparison_plots")
     return
