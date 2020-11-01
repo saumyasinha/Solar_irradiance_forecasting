@@ -7,6 +7,10 @@ from datetime import datetime
 import datetime
 from datetime import date, timedelta
 
+pd.set_option('display.max_rows', 500)
+pd.set_option('display.max_columns', 500)
+pd.set_option('display.width', 1000)
+
 
 def extract_frame(dir_path):
     '''
@@ -30,10 +34,12 @@ def adjust_boundary_values(dataframe):
     '''
     adjust outlier values, precisely negative solar and negative clear_ghi
     '''
-    # print(len(dataframe.loc[(dataframe.dw_solar < 0)]))
-    # print(len(dataframe.loc[(dataframe.clear_ghi <= 0)]))
+
     dataframe.loc[(dataframe.dw_solar < 0), 'dw_solar'] = 0.0
-    dataframe.loc[(dataframe.clear_ghi <= 0), 'clear_ghi'] = 1.0 #4.0
+    dataframe.loc[(dataframe.clear_ghi <= 0), 'clear_ghi'] = 1.0  #or 4.0
+
+
+    ## plot the clear ghi and remove the outliers, doesn't need to be normalized between 0 and 1 (4 might be better)
     return dataframe
 
 
@@ -66,7 +72,9 @@ def adjust_outlier_clearness_index(dataframe):
     # print(len(dataframe.loc[(dataframe.clearness_index < 0.0)]))
     # print(len(dataframe.loc[(dataframe.clearness_index >= 5)]))
     dataframe.loc[(dataframe.clearness_index < 0.0), 'clearness_index'] = 0.0
-    dataframe.loc[(dataframe.clearness_index >= 5), 'clearness_index'] = 4.0 # is 4.0 arbitrary here?
+    dataframe.loc[(dataframe.clearness_index >= 4), 'clearness_index'] = 4.0 # is 4.0 arbitrary here?
+
+    ## look at the outlier again by plotting
     return dataframe
 
 
@@ -77,9 +85,8 @@ def create_lead_dataset(dataframe, lead, final_set_of_features, target):
     dataframe_lead = dataframe[final_set_of_features]
     target = np.asarray(dataframe[target])
     print("for target, it is rolled by lead (Y var) \n")
-    print(target[-10:])
     target = np.roll(target, -lead)
-    print(target[-10:])
+    target[-lead:] = np.nan
     # target = dataframe[target]
     # target_with_lead = np.full((len(target)),np.nan)
     # for i in range(len(target)-lead):
@@ -87,10 +94,9 @@ def create_lead_dataset(dataframe, lead, final_set_of_features, target):
     dataframe_lead['clearness_index'] = target
 
     # remove rows which have any value as NaN
-    print(len(dataframe_lead))
     dataframe_lead = dataframe_lead.dropna()
     print("*****************")
-    print(len(dataframe_lead))
+    print("dataframe with lead size: ",len(dataframe_lead))
     return dataframe_lead
 
 #
@@ -173,10 +179,11 @@ def train_test_spilt(dataframe, season_flag, testyear):
     # dataframe_train_dropna = dataframe_train[dataframe_train['dw_solar'].isnull() == False]
     # dataframe_test_dropna = dataframe_test[dataframe_test['dw_solar'].isnull() == False]
     #     dataframe_test_s.reset_index(inplace=True)
+    print(len(pd.merge(dataframe_train, dataframe_test, how='inner')))
     return dataframe_train, dataframe_test
 
 
-def get_train_test_data(dataframe_train, dataframe_test, lead, final_set_of_features, target):
+def get_train_test_data(dataframe_train, dataframe_test, final_set_of_features, target):
     '''
     Get X_train, y_train, X_test, y_test
     '''
@@ -197,60 +204,79 @@ def get_train_test_data(dataframe_train, dataframe_test, lead, final_set_of_feat
     # Selecting the final features and target variables
     X_train = np.asarray(dataframe_train[final_features]).astype(np.float)
     X_test = np.asarray(dataframe_test[final_features]).astype(np.float)
-    y_train = np.asarray(dataframe_train[target]).astype(np.float)
-    y_test = np.asarray(dataframe_test[target]).astype(np.float)
+
+    print(type(dataframe_train[target].iloc[0]))
+
+    y_train = np.asarray(np.vstack(dataframe_train[target].values.tolist())).astype(np.float)
+    y_test = np.asarray(np.vstack(dataframe_test[target].values.tolist())).astype(np.float)
+    print(y_train)
 
     # add clearness_index beyond lead as a feature input (important) -- are we adding the current time clearness index here?
-    y_train_roll = np.roll(y_train, lead)
-    y_test_roll = np.roll(y_test, lead)
-    # print("checking clearness index roll: \n")
-    # print(y_train[-15:], y_train_roll[-15:])
-    X_train = np.concatenate((X_train, y_train_roll), axis=1)
-    X_test = np.concatenate((X_test, y_test_roll), axis=1)
+    # y_train_roll = np.roll(y_train, lead)
+    # y_test_roll = np.roll(y_test, lead)
+    # X_train = np.concatenate((X_train, y_train_roll), axis=1)
+    # X_test = np.concatenate((X_test, y_test_roll), axis=1)
 
     return X_train, y_train, X_test, y_test, index_clearghi, index_ghi, index_zen
 
 
-def select_daytimes(X, index_zen, zenith_threhsold = 85):
-    zen = np.asarray(X[:, index_zen])
-    daytimes = []
-    for i in range(zen.shape[0]):
-        if zen[i] < zenith_threhsold:
-            daytimes.append(i)
-    #     print("Only daytimes: ", len(daytimes))
-    return daytimes
+# ## Don't need this anymore
+# def select_daytimes(X, index_zen, zenith_threhsold = 85):
+#     zen = np.asarray(X[:, index_zen])
+#     daytimes = []
+#     for i in range(zen.shape[0]):
+#         if zen[i] < zenith_threhsold:
+#             daytimes.append(i)
+#     #     print("Only daytimes: ", len(daytimes))
+#     return daytimes
 
 
-def filter_dayvalues(X_train_all, y_train_all, X_test_all, y_test_all, index_daytimes_train, index_daytimes_test):
+def filter_dayvalues_and_zero_clearghi(X_train_all, y_train_all, index_zen, index_clearghi, zenith_threhsold = 85):
     '''
-    filter only the day time data (can be implemented faster)
+    filter only the day time data and remove 0 clear_ghi from training samples
     '''
-    # remove outliers from training samples(y_train<=0.0)
-    out_ind = []
-    for i in range(y_train_all.shape[0]):
-        if y_train_all[i, 0] <= 0.0:
-            out_ind.append(i)
-    # subtracting ignore list from day times
-    a = set(index_daytimes_train)
-    b = set(out_ind)
-    final_daytime_train = list(a - b)
+    # out_ind = []
+    # for i in range(y_train_all.shape[0]):
+    #     if y_train_all[i, 0] <= 0.0:
+    #         out_ind.append(i)
+    # # subtracting ignore list from day times
+    # a = set(index_daytimes_train)
+    # b = set(out_ind)
+    # final_daytime_train = list(a - b)
+    #
+    # X_train = []
+    # y_train = []
+    # X_test = []
+    # y_test = []
+    # for i in final_daytime_train:
+    #     X_train.append(X_train_all[i, :])
+    #     y_train.append(y_train_all[i, :])
+    # for i in index_daytimes_test:
+    #     X_test.append(X_test_all[i, :])
+    #     y_test.append(y_test_all[i, :])
+    # X_train = np.asarray(X_train).astype(np.float)
+    # y_train = np.asarray(y_train).astype(np.float)
+    # X_test = np.asarray(X_test).astype(np.float)
+    # y_test = np.asarray(y_test).astype(np.float)
 
-    X_train = []
-    y_train = []
-    X_test = []
-    y_test = []
-    for i in final_daytime_train:
-        X_train.append(X_train_all[i, :])
-        y_train.append(y_train_all[i, :])
-    for i in index_daytimes_test:
-        X_test.append(X_test_all[i, :])
-        y_test.append(y_test_all[i, :])
-    X_train = np.asarray(X_train).astype(np.float)
-    y_train = np.asarray(y_train).astype(np.float)
-    X_test = np.asarray(X_test).astype(np.float)
-    y_test = np.asarray(y_test).astype(np.float)
-    #     print("After removal of night values and training outliers: train and test: ",X_train.shape, X_test.shape)
-    return X_train, y_train, X_test, y_test
+    # Faster implementation
+    # print("After removal of night values and training outliers: train and test: ",X_train.shape, X_test.shape)
+    X_train = X_train_all[np.where(X_train_all[:, index_clearghi] >0)]
+    y_train = y_train_all[np.where(X_train_all[:,index_clearghi] >0)]
+
+    print("After removing 0 clear ghi: ",len(X_train))
+
+    X_train = X_train[np.where(X_train[:,index_zen] < zenith_threhsold)]
+    y_train = y_train[np.where(X_train[:,index_zen] < zenith_threhsold)]
+
+    print("After further removing any daytimes left: ", len(X_train))
+    # X_test = X_test_all[np.where(X_test_all[:, index_zen] < zenith_threhsold)]
+    # y_test = y_test_all[np.where(X_test_all[:, index_zen] < zenith_threhsold)]
+
+
+    ### try without removing clearness index when its 0
+
+    return X_train, y_train
 
 # # This should go into post processing
 # def ignore_indices_for_Test(df, startdate, enddate, lead):
@@ -288,7 +314,9 @@ def standardize_from_train(X_train, X_test):
 
         mean = np.mean(X_train[:,i])
         std = np.std(X_train[:,i])
-        print(mean, std)
+        max = np.max(X_train[:,i])
+        min = np.min(X_train[:,i])
+        ##normalize or standarize ?
         X_train[:,i] = (X_train[:,i] - mean)/std
         X_test[:,i] = (X_test[:,i] - mean)/std
 
@@ -309,3 +337,13 @@ def generateFlag(x):
         return 3
     elif int(x) <= 60 and int(x) >= 45:
         return 4
+
+## not used anymore
+def remove_outliers(df,features):
+
+    df_to_filter = df[features]
+    print(len(features))
+
+    df[features] = df_to_filter.mask(df_to_filter.sub(df_to_filter.mean()).div(df_to_filter.std()).abs().gt(2))
+
+    return df

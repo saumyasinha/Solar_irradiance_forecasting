@@ -76,9 +76,9 @@ class SurfradDataCollector:
                         self.download_file(download_dir_path, name)
         return True
 
-### has to be shifted to scripts
-path_to_data = "/Users/saumya/Desktop/SolarProject/Data"
-object = SurfradDataCollector([2005,2006,2007,2008,2009], ['Penn_State_PA'], path_to_data)
-
-object.download_data()
+# ### has to be shifted to scripts
+# path_to_data = "/Users/saumya/Desktop/SolarProject/Data"
+# object = SurfradDataCollector([2005,2006,2007,2008,2009], ['Penn_State_PA'], path_to_data)
+#
+# object.download_data()
 

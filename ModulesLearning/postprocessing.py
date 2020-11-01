@@ -1,5 +1,5 @@
 import numpy as np
-from sklearn.metrics import mean_squared_error, mean_absolute_error
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from math import sqrt
 import matplotlib.pyplot as plt
 
@@ -12,110 +12,59 @@ def postprocessing_target(pred, true, X, index_ghi, index_clearghi, lead):
     true = np.reshape(true, (true.shape[0], 1))
     pred = np.roll(pred, lead)
     pred = np.reshape(pred, (pred.shape[0], 1))
-
     clearsky = np.reshape(X[:, index_clearghi], (X[:, index_clearghi].shape[0], 1))  # clear sky GHI
     y_true = np.multiply(true, clearsky)
     y_pred = np.multiply(pred, clearsky)
+    print(np.sum(y_true), np.sum(y_pred))
     return y_true, y_pred
 
 
 def smart_persistence_model(X, y, index_clearghi, lead):
+
     clearness_index = np.asarray(y)
-    clearness_index = np.roll(clearness_index, lead + 1) # why lead + 1??
+    clearness_index = np.roll(clearness_index, 2*lead) # should be lead*2 since S(t) = clearness_index(t-lead)*clear_ghi(t)
     clearness_index = np.reshape(clearness_index, (clearness_index.shape[0], 1))
     clearghi = np.asarray(X[:, index_clearghi])
     clearghi = np.reshape(clearghi, (clearghi.shape[0], 1))
 
     y_persistance = np.multiply(clearness_index, clearghi)
     y_persistance = np.reshape(y_persistance, (y_persistance.shape[0], 1))
+    print(np.sum(y_persistance))
     return y_persistance
 
 
 def normal_persistence_model(X, index_ghi, lead):
-    ghi = np.asarray(X[:, index_ghi])
+    ## index_ghi is dw_solar's index
+    ghi = X[:,index_ghi]
     pred_ghi = np.roll(ghi, lead)
     pred_ghi = np.reshape(pred_ghi, (pred_ghi.shape[0], 1))
+    print(np.sum(pred_ghi))
     return pred_ghi
 
 
-def check_and_remove_outliers(true_day, pred_day, np_day, sp_day):
-    '''
-    can be implemented faster
-    '''
-    # filter persistent values when 0 (filtering the outliers)
-    print(true_day.shape, pred_day.shape, np_day.shape, sp_day.shape)
-    ind = []
-    for i in range(len(sp_day)):
-        if true_day[i] <= 0.1 or pred_day[i] <= 0.0:  # or sp_day1[i]<=0.0:
-            ind.append(i)
-    all_dt = list(range(sp_day.shape[0]))
+def final_true_pred_sp_np(true, pred, np, sp, lead, X, index_zen, index_clearghi, zenith_threshold=85):
 
-    # index with no outliers
-    final_index = [x for x in all_dt if x not in ind]
-    #     print("all, outliers and final", len(all_elt), len(ind), len(final_index))
+    ## This roll is important since I only want to select those rows where X would have been in daytime when making prediction(not too sure)
+    # X = np.roll(X, lead, axis = 0)
+    true = true[2*lead:]
+    pred = pred[2*lead:]
+    np = np[2 * lead:]
+    sp = sp[2 * lead:]
+    X = X[2 * lead:]
 
-    # selecting the final tuples for the daytime and without outliers
-    true_day_final = []
-    pred_day_final = []
-    np_day_final = []
-    sp_day_final = []
-    for dt in final_index:
-        true_day_final.append(true_day[dt])
-        pred_day_final.append(pred_day[dt])
-        np_day_final.append(np_day[dt])
-        sp_day_final.append(sp_day[dt])
-    true_day_final = np.asarray(true_day_final).astype(np.float)
-    pred_day_final = np.asarray(pred_day_final).astype(np.float)
-    np_day_final = np.asarray(np_day_final).astype(np.float)
-    sp_day_final = np.asarray(sp_day_final).astype(np.float)
+    print(true.shape, pred.shape, np.shape, sp.shape, X.shape)
+
+    # nonnegative_and_daytime_predictions = np.where(pred >= 0)
+    # print(nonnegative_and_daytime_predictions[:5])
+    true_day_final = true[pred >= 0]
+    pred_day_final = pred[pred >= 0]
+    np_day_final = np[pred >= 0]
+    sp_day_final = sp[pred >= 0]
+
+    print(true_day_final.shape, pred_day_final.shape, np_day_final.shape, sp_day_final.shape)
+
     return true_day_final, pred_day_final, np_day_final, sp_day_final
 
-
-def select_pred_daytimes_and_remove_outliers(y_true, y_pred, y_np, y_sp, index_daytimes):
-    '''
-    select the day times values only, and remove outliers
-    '''
-    true_day = []
-    pred_day = []
-    np_day = []
-    sp_day = []
-    for dt in index_daytimes:
-        true_day.append(y_true[dt])
-        pred_day.append(y_pred[dt])
-        np_day.append(y_np[dt])
-        sp_day.append(y_sp[dt])
-    true_day = np.asarray(true_day).astype(np.float)
-    pred_day = np.asarray(pred_day).astype(np.float)
-    np_day = np.asarray(np_day).astype(np.float)
-    sp_day = np.asarray(sp_day).astype(np.float)
-
-    # filter persistent values when 0 (filtering the outliers)
-    ind = []
-    for i in range(len(sp_day)):
-        if sp_day[i] <= 0.0 or true_day[i] <= 0.0 or pred_day[i] <= 0.0 or np_day[i] <= 0.0 or pred_day[i] >= 1050.0:
-            ind.append(i)
-    #     print("shape of all the pred: ",y_true.shape, y_pred.shape,y_np.shape, y_sp.shape)
-    all_dt = list(range(sp_day.shape[0]))
-
-    # indices with no outliers
-    final_index = [x for x in all_dt if x not in ind]
-
-    # selecting the final tuples for the daytime and without outliers
-    true_day_final = []
-    pred_day_final = []
-    np_day_final = []
-    sp_day_final = []
-    for dt in final_index:
-        true_day_final.append(true_day[dt])
-        pred_day_final.append(pred_day[dt])
-        np_day_final.append(np_day[dt])
-        sp_day_final.append(sp_day[dt])
-
-    true_day_final = np.asarray(true_day_final).astype(np.float)
-    pred_day_final = np.asarray(pred_day_final).astype(np.float)
-    np_day_final = np.asarray(np_day_final).astype(np.float)
-    sp_day_final = np.asarray(sp_day_final).astype(np.float)
-    return true_day_final, pred_day_final, np_day_final, sp_day_final
 
 
 def evaluation_metrics(true, pred):
@@ -124,8 +73,9 @@ def evaluation_metrics(true, pred):
     diff = (true - pred)
     abs_diff = np.abs(true - pred)
     mb = diff.mean()
-    sd = np.std(abs_diff)
-    return rmse, mae, mb, sd
+    # sd = np.std(abs_diff)
+    r2 = r2_score(true, pred)
+    return rmse, mae, mb, r2
 
 
 def skill_score(our, persis):
@@ -137,22 +87,25 @@ def skill_score(our, persis):
     return skill
 
 
-def plot_results(true_day, pred_day, sp_day):
-    t = np.reshape(true_day, (1, true_day.shape[0]))
-    p = np.reshape(pred_day, (1, pred_day.shape[0]))
-    s = np.reshape(sp_day, (1, sp_day.shape[0]))
+def plot_results(true_day, pred_day, sp_day, lead, season, model):
+    # t = np.reshape(true_day, (1, true_day.shape[0]))
+    # p = np.reshape(pred_day, (1, pred_day.shape[0]))
+    # s = np.reshape(sp_day, (1, sp_day.shape[0]))
 
+    t = true_day.flatten()
+    p = pred_day.flatten()
+    s = sp_day.flatten()
     x = np.asarray(range(true_day.shape[0]))
-    x = np.reshape(x, (1, x.shape[0]))
+    # x = np.reshape(x, (1, x.shape[0]))
 
     # print(x.shape, t.shape, p.shape, s.shape)
     plt.figure(figsize=(20, 10))
     # plt.plot(x[:, 150:250], t[:, 150:250], 'g<')
     # plt.plot(x[:, 150:250], p[:, 150:250], 'b*')
     # plt.plot(x[:, 150:250], s[:, 150:250], 'r.')
-    plt.plot(x, t, "-b", label="true values")
-    plt.plot(x, p, "-r", label="predicted values")
-    plt.plot(x, s, "g", label="smart persistence values")
+    plt.plot(x, t, label="true values")
+    plt.plot(x, p, label="predicted values")
+    plt.plot(x, s, label="smart persistence values")
     plt.legend(loc="upper left")
-    plt.savefig("final_comparison_plots")
+    plt.savefig("final_comparison_plots_for_lead"+str(lead)+"_season"+str(season)+"_with_"+str(model))
     return

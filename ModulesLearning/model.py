@@ -65,18 +65,13 @@ def rfSearch_model(X, y):
 def rfGridSearch_model(X, y):
 
     param_grid = {
-        # 'bootstrap': [True],
-        # 'max_depth': [80, 100, 120],
-        # 'max_features': [3, 5],
-        # 'min_samples_leaf': [8, 10, 15],
-        # 'min_samples_split': [8, 10, 15],
-        # 'n_estimators': [100, 150, 200, 250]
-        # 'bootstrap': [True],
-        'max_depth': [100, 120],
-        'max_features': [3, 5],
-        'min_samples_leaf': [10,15],
-        'min_samples_split': [10, 15],
-        'n_estimators': [150, 200, 250]
+        'bootstrap': [True],
+        'max_depth': [80, 100, 120],
+        'max_features': [3, 5, 7],
+        'min_samples_leaf': [8, 10, 15],
+        'min_samples_split': [8, 10, 15],
+        'n_estimators': [100, 200, 300]
+
     }
     # Create a based model
     rf = RandomForestRegressor()
@@ -88,7 +83,7 @@ def rfGridSearch_model(X, y):
 
 
 # neural network based model........
-def FNN_model(X_train, y_train, bs, epochs):
+def FNN_model(X_train, y_train, bs, epochs, lr):
     # Model Structure
     model = Sequential()
     model.add(Dense(X_train.shape[1], input_dim=X_train.shape[1]))
@@ -111,5 +106,5 @@ def FNN_model(X_train, y_train, bs, epochs):
     opt = Adam(lr=lr)
     model.compile(optimizer=opt, loss='mean_squared_error', metrics=['mse'])
     model.summary()
-    history = model.fit(X_train, y_train, batch_size=bs, epochs=epochs, verbose=2)
-    return [model, history]
+    model.fit(X_train, y_train, batch_size=bs, epochs=epochs, verbose=2)
+    return model

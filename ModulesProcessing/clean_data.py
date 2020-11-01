@@ -93,23 +93,23 @@ class SurfradDataCleaner:
             return None
 
 
-### has to be shifted to scripts
-path_to_data = "/Users/saumya/Desktop/SolarProject/Data"
-path_to_missing_days_file = path_to_data+"/missing_days_files.pkl"
-list_of_missing_days_for_all_cities={}
-
-cities = ['Penn_State_PA']
-years = [2005,2006,2007,2008,2009]
-for city in cities:
-    days_with_missing_days_for_this_city=[]
-    for year in years:
-        object = SurfradDataCleaner(city, year, path_to_data)
-        days_with_missing_days_for_this_city_year = object.process(path_to_column_names = 'column_names.pkl')
-
-        if days_with_missing_days_for_this_city_year:
-            days_with_missing_days_for_this_city.extend(days_with_missing_days_for_this_city_year)
-
-    list_of_missing_days_for_all_cities[city] = days_with_missing_days_for_this_city
-
-with open(path_to_missing_days_file, 'wb') as file:
-    pickle.dump(list_of_missing_days_for_all_cities, file)
+# ### has to be shifted to scripts
+# path_to_data = "/Users/saumya/Desktop/SolarProject/Data"
+# path_to_missing_days_file = path_to_data+"/missing_days_files.pkl"
+# list_of_missing_days_for_all_cities={}
+#
+# cities = ['Penn_State_PA']
+# years = [2005,2006,2007,2008,2009]
+# for city in cities:
+#     days_with_missing_days_for_this_city=[]
+#     for year in years:
+#         object = SurfradDataCleaner(city, year, path_to_data)
+#         days_with_missing_days_for_this_city_year = object.process(path_to_column_names = 'column_names.pkl')
+#
+#         if days_with_missing_days_for_this_city_year:
+#             days_with_missing_days_for_this_city.extend(days_with_missing_days_for_this_city_year)
+#
+#     list_of_missing_days_for_all_cities[city] = days_with_missing_days_for_this_city
+#
+# with open(path_to_missing_days_file, 'wb') as file:
+#     pickle.dump(list_of_missing_days_for_all_cities, file)
