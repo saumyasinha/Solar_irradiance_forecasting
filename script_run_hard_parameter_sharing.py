@@ -18,15 +18,16 @@ pd.set_option('display.width', 1000)
 city = 'Penn_State_PA'
 
 # lead time
-lead_times = [2,3,4] #from [1,2,3,4]
+lead_times = [3,4,5,6] #from [1,2,3,4]
 
 # season
-seasons =['summer'] #from ['fall', 'winter', 'spring', 'summer', 'year']
+seasons =['winter', 'summer'] #from ['fall', 'winter', 'spring', 'summer', 'year']
 
 # file locations
 path_project = "/Users/saumya/Desktop/SolarProject/"
 path = path_project+"Data/"
 folder_saving = path_project + "Models/"
+folder_plots = path_project + "Plots/"
 clearsky_file_path = path+'clear-sky/'+city+'_15mins_original.csv'
 
 # scan all the features (except the flags)
@@ -204,7 +205,7 @@ def main():
             input_size = X_train.shape[1]
             hidden_size = 8
             n_hidden = 1
-            # train_model.train(X_train, y_train, X_valid, y_valid, input_size, hidden_size, n_hidden, n_tasks = len(lead_times),folder_saving = folder_saving+season_flag + "/", model_saved = "hard_parameter_sharing", n_epochs = epochs, lr = lr, batch_size = bs)
+            train_model.train(X_train, y_train, X_valid, y_valid, input_size, hidden_size, n_hidden, n_tasks = len(lead_times),folder_saving = folder_saving+season_flag + "/", model_saved = "hard_parameter_sharing", n_epochs = epochs, lr = lr, batch_size = bs)
             #
             predictions = test_and_save_predictions.get_predictions_on_test("hard_parameter_sharing",X_test,y_test, input_size, hidden_size, n_hidden, len(lead_times), folder_saving+season_flag + "/")
 
@@ -241,7 +242,7 @@ def main():
                 np_day_valid = np_day[:valid_samples]
                 np_day_test = np_day[valid_samples:]
 
-                print("n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
+                print("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
 
                 print("##########VALID##########")
                 # calculate the error measures................................................
@@ -289,28 +290,43 @@ def main():
                 # skill_np = postprocess.skill_score(rmse_our, rmse_np)
                 # print("\nSkill of our model over normal persistence: ", round(skill_np, 1))
 
-                postprocess.plot_results(true_day_test, pred_day_test, sp_day_test, lead, season_flag, model = "multi_task_model")
+                postprocess.plot_results(true_day_test, pred_day_test, sp_day_test, lead, season_flag, folder_plots, model = "multi_task_model")
 
 
 if __name__=='__main__':
     main()
 
-
-#
 # Penn_State_PA at Lead 2 and summer Season
 # Skill of our model over smart persistence:  9.9
 #
 # Skill of our model over normal persistence:  15.7
 
-
-# Penn_State_PA at Lead 3 and summer Season
-# Skill of our model over smart persistence:  5.8
+# nPenn_State_PA at Lead 3 and summer Season
+# Skill of our model over smart persistence:  5.0
 #
-# Skill of our model over normal persistence:  22.3
-
-
-# Penn_State_PA at Lead 4 and summer Season
+# Skill of our model over normal persistence:  21.7
+# nPenn_State_PA at Lead 4 and summer Season
 #
-# Skill of our model over smart persistence:  6.2
+# Skill of our model over smart persistence:  4.4
 #
-# Skill of our model over normal persistence:  27.1
+# Skill of our model over normal persistence:  25.7
+
+#
+# Penn_State_PA at Lead 2 and winter Season
+#
+# Skill of our model over smart persistence:  7.2
+#
+# Skill of our model over normal persistence:  18.0
+
+# Penn_State_PA at Lead 3 and winter Season
+#
+# Skill of our model over smart persistence:  0.1
+#
+# Skill of our model over normal persistence:  23.4
+#
+# Penn_State_PA at Lead 4 and winter Season
+#
+# Skill of our model over smart persistence:  -4.2
+#
+# Skill of our model over normal persistence:  27.0
+

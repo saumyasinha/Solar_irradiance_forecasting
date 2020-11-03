@@ -15,7 +15,6 @@ def postprocessing_target(pred, true, X, index_ghi, index_clearghi, lead):
     clearsky = np.reshape(X[:, index_clearghi], (X[:, index_clearghi].shape[0], 1))  # clear sky GHI
     y_true = np.multiply(true, clearsky)
     y_pred = np.multiply(pred, clearsky)
-    print(np.sum(y_true), np.sum(y_pred))
     return y_true, y_pred
 
 
@@ -29,7 +28,7 @@ def smart_persistence_model(X, y, index_clearghi, lead):
 
     y_persistance = np.multiply(clearness_index, clearghi)
     y_persistance = np.reshape(y_persistance, (y_persistance.shape[0], 1))
-    print(np.sum(y_persistance))
+
     return y_persistance
 
 
@@ -38,28 +37,42 @@ def normal_persistence_model(X, index_ghi, lead):
     ghi = X[:,index_ghi]
     pred_ghi = np.roll(ghi, lead)
     pred_ghi = np.reshape(pred_ghi, (pred_ghi.shape[0], 1))
-    print(np.sum(pred_ghi))
+
     return pred_ghi
 
 
 def final_true_pred_sp_np(true, pred, np, sp, lead, X, index_zen, index_clearghi, zenith_threshold=85):
 
-    ## This roll is important since I only want to select those rows where X would have been in daytime when making prediction(not too sure)
     # X = np.roll(X, lead, axis = 0)
     true = true[2*lead:]
     pred = pred[2*lead:]
     np = np[2 * lead:]
     sp = sp[2 * lead:]
     X = X[2 * lead:]
+    #
+    print((pred<0).sum())
+    # print(true.shape, pred.shape, np.shape, sp.shape, X.shape)
+    # #
+    # # ## remove 0 clear ghi
+    # true_day = true[X[:, index_clearghi] >0]
+    # pred_day = pred[X[:, index_clearghi] >0]
+    # np_day = np[X[:, index_clearghi] >0]
+    # sp_day = sp[X[:, index_clearghi] >0]
+    # X = X[X[:, index_clearghi] > 0]
+    # #
+    # # # ## remove further daytimes
+    # true_day = true_day[(X[:, index_zen] < zenith_threshold)]
+    # pred_day = pred_day[X[:, index_zen] < zenith_threshold]
+    # np_day = np_day[X[:, index_zen] < zenith_threshold]
+    # sp_day = sp_day[X[:, index_zen] < zenith_threshold]
 
-    print(true.shape, pred.shape, np.shape, sp.shape, X.shape)
+    #
+    # ## remove negative predictions
+    true_day_final = true[(pred>=0)]
+    pred_day_final = pred[(pred>=0)]
+    np_day_final = np[(pred>=0) ]
+    sp_day_final = sp[(pred>=0)]
 
-    # nonnegative_and_daytime_predictions = np.where(pred >= 0)
-    # print(nonnegative_and_daytime_predictions[:5])
-    true_day_final = true[pred >= 0]
-    pred_day_final = pred[pred >= 0]
-    np_day_final = np[pred >= 0]
-    sp_day_final = sp[pred >= 0]
 
     print(true_day_final.shape, pred_day_final.shape, np_day_final.shape, sp_day_final.shape)
 
@@ -87,7 +100,7 @@ def skill_score(our, persis):
     return skill
 
 
-def plot_results(true_day, pred_day, sp_day, lead, season, model):
+def plot_results(true_day, pred_day, sp_day, lead, season, folder_plots, model):
     # t = np.reshape(true_day, (1, true_day.shape[0]))
     # p = np.reshape(pred_day, (1, pred_day.shape[0]))
     # s = np.reshape(sp_day, (1, sp_day.shape[0]))
@@ -107,5 +120,5 @@ def plot_results(true_day, pred_day, sp_day, lead, season, model):
     plt.plot(x, p, label="predicted values")
     plt.plot(x, s, label="smart persistence values")
     plt.legend(loc="upper left")
-    plt.savefig("final_comparison_plots_for_lead"+str(lead)+"_season"+str(season)+"_with_"+str(model))
+    plt.savefig(folder_plots+"/final_comparison_plots_for_lead"+str(lead)+"_season"+str(season)+"_with_"+str(model))
     return

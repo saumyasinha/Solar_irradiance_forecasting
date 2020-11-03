@@ -30,6 +30,7 @@ def extract_time(x):
     return pd.Series((dt.year, dt.month, dt.day, dt.hour, dt.minute))
 
 
+## not used anymore
 def adjust_boundary_values(dataframe):
     '''
     adjust outlier values, precisely negative solar and negative clear_ghi
@@ -59,15 +60,8 @@ def extract_study_period(dataframe,startmonth, startyear, endmonth, endyear):
     # df_yearly = df_yearly.sort_values(by=['year', 'month', 'day', 'hour', 'MinFlag'])
     return df_yearly
 
-#
-# def filter_day_values(dataframe, zenith_threhsold = 85):
-#     '''
-#     selecting the valid tuples for day-time----------- not during training
-#     '''
-#     dataframe = dataframe[dataframe['zen'] < zenith_threhsold]
-#     return dataframe
 
-
+# not used anymore
 def adjust_outlier_clearness_index(dataframe):
     # print(len(dataframe.loc[(dataframe.clearness_index < 0.0)]))
     # print(len(dataframe.loc[(dataframe.clearness_index >= 5)]))
@@ -87,10 +81,6 @@ def create_lead_dataset(dataframe, lead, final_set_of_features, target):
     print("for target, it is rolled by lead (Y var) \n")
     target = np.roll(target, -lead)
     target[-lead:] = np.nan
-    # target = dataframe[target]
-    # target_with_lead = np.full((len(target)),np.nan)
-    # for i in range(len(target)-lead):
-    #     target_with_lead[i] = target[i+lead]
     dataframe_lead['clearness_index'] = target
 
     # remove rows which have any value as NaN
@@ -179,7 +169,7 @@ def train_test_spilt(dataframe, season_flag, testyear):
     # dataframe_train_dropna = dataframe_train[dataframe_train['dw_solar'].isnull() == False]
     # dataframe_test_dropna = dataframe_test[dataframe_test['dw_solar'].isnull() == False]
     #     dataframe_test_s.reset_index(inplace=True)
-    print(len(pd.merge(dataframe_train, dataframe_test, how='inner')))
+    # print(len(pd.merge(dataframe_train, dataframe_test, how='inner')))
     return dataframe_train, dataframe_test
 
 
@@ -205,7 +195,6 @@ def get_train_test_data(dataframe_train, dataframe_test, final_set_of_features, 
     X_train = np.asarray(dataframe_train[final_features]).astype(np.float)
     X_test = np.asarray(dataframe_test[final_features]).astype(np.float)
 
-    print(type(dataframe_train[target].iloc[0]))
 
     y_train = np.asarray(np.vstack(dataframe_train[target].values.tolist())).astype(np.float)
     y_test = np.asarray(np.vstack(dataframe_test[target].values.tolist())).astype(np.float)
@@ -231,9 +220,9 @@ def get_train_test_data(dataframe_train, dataframe_test, final_set_of_features, 
 #     return daytimes
 
 
-def filter_dayvalues_and_zero_clearghi(X_train_all, y_train_all, index_zen, index_clearghi, zenith_threhsold = 85):
+def filter_dayvalues_and_zero_clearghi(X_all, y_all, index_zen, index_clearghi, zenith_threshold = 85):
     '''
-    filter only the day time data and remove 0 clear_ghi from training samples
+    filter only the day time data and remove 0 clear_ghi from data
     '''
     # out_ind = []
     # for i in range(y_train_all.shape[0]):
@@ -261,46 +250,22 @@ def filter_dayvalues_and_zero_clearghi(X_train_all, y_train_all, index_zen, inde
 
     # Faster implementation
     # print("After removal of night values and training outliers: train and test: ",X_train.shape, X_test.shape)
-    X_train = X_train_all[np.where(X_train_all[:, index_clearghi] >0)]
-    y_train = y_train_all[np.where(X_train_all[:,index_clearghi] >0)]
+    X = X_all[np.where(X_all[:, index_clearghi] >0)]
+    y = y_all[np.where(X_all[:,index_clearghi] >0)]
 
-    print("After removing 0 clear ghi: ",len(X_train))
+    # X_train = X_train_all[np.where(y_train_all[:, 0] > 0)]
+    # y_train = y_train_all[np.where(y_train_all[:, 0] > 0)]
 
-    X_train = X_train[np.where(X_train[:,index_zen] < zenith_threhsold)]
-    y_train = y_train[np.where(X_train[:,index_zen] < zenith_threhsold)]
+    print("After removing 0 clear ghi: ",len(X))
 
-    print("After further removing any daytimes left: ", len(X_train))
-    # X_test = X_test_all[np.where(X_test_all[:, index_zen] < zenith_threhsold)]
-    # y_test = y_test_all[np.where(X_test_all[:, index_zen] < zenith_threhsold)]
+    X = X[np.where(X[:,index_zen] < zenith_threshold)]
+    y = y[np.where(X[:,index_zen] < zenith_threshold)]
+
+    print("After further removing any daytimes left: ", len(X))
 
 
-    ### try without removing clearness index when its 0
+    return X, y
 
-    return X_train, y_train
-
-# # This should go into post processing
-# def ignore_indices_for_Test(df, startdate, enddate, lead):
-#     # select the values with zen<85
-#     #     print("*****",df.shape)
-#     df = df[df.zen < 85]
-#     #     print("#######",df.shape)
-#     df = df.reset_index(drop=True)
-#
-#     # generate all the days between start and end date
-#     all_days = []
-#     delta = enddate - startdate  # as timedelta
-#     for i in range(delta.days + 1):
-#         day = startdate + timedelta(days=i)
-#         all_days.append(day)
-#     # ignore first lead no. of samples of each day (as they might give false error )
-#     ignore_test_indices = []
-#     for day in all_days:
-#         curdate = day
-#         ind = df.index[(df.year == curdate.year) & (df.month == curdate.month) & (df.day == curdate.day)].tolist()[0]
-#         for i in range(lead):
-#             ignore_test_indices.append(ind + i)
-#     #     print("number of ignore test index ",len(ignore_test_indices))
-#     return ignore_test_indices
 
 
 
@@ -338,12 +303,3 @@ def generateFlag(x):
     elif int(x) <= 60 and int(x) >= 45:
         return 4
 
-## not used anymore
-def remove_outliers(df,features):
-
-    df_to_filter = df[features]
-    print(len(features))
-
-    df[features] = df_to_filter.mask(df_to_filter.sub(df_to_filter.mean()).div(df_to_filter.std()).abs().gt(2))
-
-    return df

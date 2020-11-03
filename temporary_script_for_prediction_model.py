@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 import os
-from sklearn.externals import joblib
 import matplotlib.pyplot as plt
 from SolarForecasting.ModulesProcessing import collect_data,clean_data
 from SolarForecasting.ModulesLearning import preprocessing as preprocess
@@ -19,16 +18,13 @@ pd.set_option('display.width', 1000)
 city = 'Penn_State_PA'
 
 # lead time
-lead_times = [2,3,4] #from [1,2,3,4]
+lead_times = [2] #from [1,2,3,4]
 
 # season
-seasons =['winter'] #from ['fall', 'winter', 'spring', 'summer', 'year']
+seasons =['summer'] #from ['fall', 'winter', 'spring', 'summer', 'year']
 
 # file locations
-path_project = "/Users/saumya/Desktop/SolarProject/"
-path = path_project+"Data/"
-folder_saving = path_project + "Models/"
-folder_plots = path_project + "Plots/"
+path = "/Users/saumya/Desktop/SolarProject/Data/"
 clearsky_file_path = path+'clear-sky/'+city+'_15mins_original.csv'
 
 # scan all the features (except the flags)
@@ -36,7 +32,7 @@ features = ['year','month','day','hour','min','zen','dw_solar','uw_solar','direc
 
 # selected features for the study
 # final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','dw_ir','temp','rh','windspd','winddir','pressure','clear_ghi']
-## exploring more features
+## explore more features, but a lot of them are categorical so might want to remove those
 final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
 
 
@@ -117,8 +113,8 @@ def main():
 
     # get dataset for the study period
     df = preprocess.extract_study_period(df,startmonth, startyear, endmonth, endyear)
-    print("\n\n after extracting study period")
     df.reset_index(drop=True, inplace=True)
+    print("\n\n after extracting study period")
     print(df.tail)
 
 
@@ -135,22 +131,12 @@ def main():
     # df = preprocess.adjust_boundary_values(df)
 
 
-    # adding the clearness index and dropping rows with 0 clear_ghi and taking only daytimes
-    df = df[df['clear_ghi'] > 0]
-    df = df[df['zen']<85]
+    # adding the clearness index
+    # df = df[df['clear_ghi'] > 0]
+    # df = df[df['zen']<85]
     df['clearness_index'] = df['dw_solar'] / df['clear_ghi']
-    df.reset_index(drop=True, inplace=True)
-    print("after removing data points with 0 clear_ghi and selecting daytimes",len(df))
-
-    # df.hist(column=['clearness_index'], bins = 50)
-    # print(df['clearness_index'].value_counts())
-    # print(df['clearness_index'].max(), df['clearness_index'].min())
-    # plt.savefig("histogram plots for clearness index")
-
-    # adjust the outliers for clearness index (no need to do this anymore -- since I am already taking care of 0 clear_ghi)
-    # df = preprocess.adjust_outlier_clearness_index(df)
-    # print("\n\n after adjusting outliers of clearness index")
-    # print(df.tail)
+    df.loc[df.clear_ghi == 0, 'clearness_index'] = 0.0
+    print(len(df[df.clear_ghi==0]), len(df[df.clearness_index==0]))
 
 
     for season_flag in seasons:
@@ -160,6 +146,7 @@ def main():
 
             # get the seasonal data you want
             df, test_startdate, test_enddate = preprocess.get_yearly_or_season_data(df_lead, season_flag)
+            df.reset_index(drop=True, inplace=True)
             print("\n\n after getting seasonal data (test_startdate; test_enddate)", test_startdate, test_enddate)
             print(df.tail)
 
@@ -172,15 +159,18 @@ def main():
             print("test_set\n",len(df_test))
 
             if len(df_train)>0 and len(df_test)>0:
-                # extract the X_train, y_train, X_test, y_test
+                # extract the X_train, y_train, X_test, y_test for training
                 X_train, y_train, X_test, y_test, index_clearghi, index_ghi, index_zen = preprocess.get_train_test_data(
                     df_train, df_test, final_features, target_feature)
                 print("\n\n train and test df shapes ")
                 print(X_train.shape, y_train.shape, X_test.shape, y_test.shape)
 
                 # filter the training to have only day values
-                # X_train, y_train = preprocess.filter_dayvalues_and_zero_clearghi(X_train_all, y_train_all,
-                #                                                                       index_zen, index_clearghi)
+                X_train, y_train = preprocess.filter_dayvalues_and_zero_clearghi(X_train, y_train,
+                                                                                      index_zen, index_clearghi)
+
+                X_test, y_test = preprocess.filter_dayvalues_and_zero_clearghi(X_test, y_test,
+                                                                                 index_zen, index_clearghi)
 
                 print("\n\n after filtering dayvalues")
                 print("Final size: ", X_train.shape, y_train.shape)
@@ -190,7 +180,7 @@ def main():
                 print(pd.DataFrame(y_test).describe())
 
 
-                ## normalize data and shuffle the training dataset
+                ## normalize and shuffle the training dataset
                 X_test_before_normalized = X_test.copy()
                 X_train, X_test = preprocess.standardize_from_train(X_train, X_test)
                 X_train, y_train = preprocess.shuffle(X_train, y_train)
@@ -198,18 +188,32 @@ def main():
                 y_train  = np.reshape(y_train, -1)
                 y_test = np.reshape(y_test, -1)
 
-                # call the gridSearch and saving model
-                model = models.rfGridSearch_model(X_train, y_train)
-                for name, importance in zip(final_features[5:], model.best_estimator_.feature_importances_):
-                    print(name, "=", importance)
-                # model = models.lr_model(X_train, y_train)
-
-                joblib.dump(model.best_estimator_, folder_saving+season_flag + "/rf_model_for_lead_"+str(lead))
+                # call the gridSearch
+                # model = models.rfGridSearch_model(X_train, y_train)
+                # for name, importance in zip(final_features[5:], model.best_estimator_.feature_importances_):
+                #     print(name, "=", importance)
+                model = models.lr_model(X_train, y_train)
 
                 y_true = y_test
                 y_pred = model.predict(X_test)
 
                 print(np.sum(y_true), np.sum(y_pred))
+
+                # # plotting a few analysis results
+                # plt.figure(figsize=(20,10))
+                # plt.hist(y_train, density=True, bins=1000)
+                # plt.xlabel("train set")
+                # plt.show()
+                #
+                # plt.figure(figsize=(20,10))
+                # plt.hist(y_test, density=True, bins=1000)
+                # plt.xlabel("true test set")
+                # plt.show()
+                #
+                # plt.figure(figsize=(20,10))
+                # plt.hist(y_pred, density=True, bins=1000)
+                # plt.xlabel("pred test set")
+                # plt.show()
         #
                 y_true, y_pred = postprocess.postprocessing_target(y_pred, y_true, X_test_before_normalized, index_ghi, index_clearghi, lead)
 
@@ -258,7 +262,7 @@ def main():
                 print("\nSkill of our model over normal persistence: ", round(skill_np, 1))
 
 
-                postprocess.plot_results(true_day_test,pred_day_test,sp_day_test,lead, season_flag, folder_plots, model = "random_forest")
+                postprocess.plot_results(true_day_test,pred_day_test,sp_day_test,lead, season_flag, model = "random_forest")
 
             else:
                 print("not enough data for the season: ", season_flag, "and lead: ", lead)
@@ -267,84 +271,3 @@ def main():
 if __name__=='__main__':
     main()
 
-
-
-## Random forest at lead 1hr, when I create the labels after removing night values(and 0 clear ghi)
-# zen = 0.026805467467606377
-# dw_solar = 0.14623739713830416
-# uw_solar = 0.03415672822315075
-# direct_n = 0.4221217767347047
-# dw_ir = 0.1750496021390561
-# uw_ir = 0.028178971092687077
-# temp = 0.021594004217624068
-# rh = 0.032349670893714884
-# windspd = 0.02307408960519046
-# winddir = 0.028486328681947837
-# pressure = 0.03992012027098664
-# clear_ghi = 0.02202584353502679
-# 6838.368237405001 6890.262778476584
-# 644878.8403857381 649456.7856263025
-# 645034.6266666667
-# 637133.857044817
-# validation data size:  1563
-#
-#
-#
-# Penn_State_PA at Lead 4 and winter Season
-# Performance of our model (rmse, mae, mb, r2):
-#
-#  66.0 46.9 -2.6 0.7
-# Performance of smart persistence model (rmse, mae, mb, r2):
-#
-#  72.7 48.0 1.7 0.7
-# Performance of normal persistence model (rmse, mae, mb, r2):
-#
-#  94.7 70.4 -0.1 0.5
-#
-# Skill of our model over smart persistence:  9.2
-#
-# Skill of our model over normal persistence:  30.3
-
-
-# Random forest (to compare with multi task model)
-#
-# Penn_State_PA at Lead 2 and summer Season
-#
-# Skill of our model over smart persistence:  12.1
-#
-# Skill of our model over normal persistence:  17.7
-
-#
-# Penn_State_PA at Lead 3 and summer Season
-#
-# Skill of our model over smart persistence:  5.1
-#
-# Skill of our model over normal persistence:  21.7
-
-
-# Penn_State_PA at Lead 4 and summer Season
-#
-# Skill of our model over smart persistence:  1.3
-#
-# Skill of our model over normal persistence:  23.2
-
-#
-# Penn_State_PA at Lead 2 and winter Season
-#
-# Skill of our model over smart persistence:  11.3
-#
-# Skill of our model over normal persistence:  21.6
-
-
-# Penn_State_PA at Lead 3 and winter Season
-#
-# Skill of our model over smart persistence:  1.3
-#
-# Skill of our model over normal persistence:  24.2
-
-#
-# Penn_State_PA at Lead 4 and winter Season
-#
-# Skill of our model over smart persistence:  -6.1
-#
-# Skill of our model over normal persistence:  25.6
