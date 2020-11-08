@@ -6,6 +6,8 @@ from SolarForecasting.ModulesProcessing import collect_data,clean_data
 from SolarForecasting.ModulesLearning import preprocessing as preprocess
 from SolarForecasting.ModulesLearning import postprocessing as postprocess
 from SolarForecasting.ModulesMultiTaskLearning import train_model,test_and_save_predictions
+from SolarForecasting.ModulesLearning import model as models
+
 
 
 pd.set_option('display.max_rows', 500)
@@ -18,10 +20,10 @@ pd.set_option('display.width', 1000)
 city = 'Penn_State_PA'
 
 # lead time
-lead_times = [3,4,5,6] #from [1,2,3,4]
+lead_times = [4,5,6] #from [1,2,3,4]
 
 # season
-seasons =['winter', 'summer'] #from ['fall', 'winter', 'spring', 'summer', 'year']
+seasons =['winter','summer'] #from ['fall', 'winter', 'spring', 'summer', 'year']
 
 # file locations
 path_project = "/Users/saumya/Desktop/SolarProject/"
@@ -54,7 +56,7 @@ testyear = 2008  # i.e all of Fall(Sep2008-Nov2008), Winter(Dec2008-Feb2009), Sp
 # hyperparameters
 bs = 32
 epochs = 500
-lr = 0.0001
+lr = 0.0001 #0.0001
 
 
 def get_data():
@@ -157,13 +159,11 @@ def main():
     df.reset_index(drop=True, inplace=True)
     print("after removing data points with 0 clear_ghi and selecting daytimes",len(df))
 
-
+    # create dataset with lead
+    df_lead = create_mulitple_lead_dataset(df, final_features, target_feature)
 
 
     for season_flag in seasons:
-
-        # create dataset with lead
-        df_lead = create_mulitple_lead_dataset(df, final_features, target_feature)
 
         # get the seasonal data you want
         df, test_startdate, test_enddate = preprocess.get_yearly_or_season_data(df_lead, season_flag)
@@ -203,15 +203,21 @@ def main():
             # y_test = y_test[valid_samples:]
 
             input_size = X_train.shape[1]
-            hidden_size = 8
+            hidden_size = input_size
             n_hidden = 1
             train_model.train(X_train, y_train, X_valid, y_valid, input_size, hidden_size, n_hidden, n_tasks = len(lead_times),folder_saving = folder_saving+season_flag + "/", model_saved = "hard_parameter_sharing", n_epochs = epochs, lr = lr, batch_size = bs)
             #
             predictions = test_and_save_predictions.get_predictions_on_test("hard_parameter_sharing",X_test,y_test, input_size, hidden_size, n_hidden, len(lead_times), folder_saving+season_flag + "/")
 
+            # model = models.rfGridSearch_model(X_train, y_train)
+            # model = models.multi_output_model(X_train,y_train)
+            # predictions = model.predict(X_test)
+
+
             for n in range(len(lead_times)):
 
                 y_pred = predictions[n]
+                # y_pred = predictions[:,n]
                 lead = lead_times[n]
                 y_test_for_this_lead = y_test[:,n]
                 y_true = y_test_for_this_lead
@@ -268,27 +274,27 @@ def main():
                 print("\nSkill of our model over normal persistence: ", round(skill_np, 1))
 
 
-                # print("#####TEST#################")
-                # rmse_our, mae_our, mb_our, r2_our = postprocess.evaluation_metrics(true_day_test, pred_day_test)
-                # print("Performance of our model (rmse, mae, mb, r2): \n\n", round(rmse_our, 1), round(mae_our, 1),
-                #       round(mb_our, 1), round(r2_our, 1))
-                #
-                # rmse_sp, mae_sp, mb_sp, r2_sp = postprocess.evaluation_metrics(true_day_test, sp_day_test)
-                # print("Performance of smart persistence model (rmse, mae, mb, r2): \n\n", round(rmse_sp, 1),
-                #       round(mae_sp, 1),
-                #       round(mb_sp, 1), round(r2_sp, 1))
-                #
-                # rmse_np, mae_np, mb_np, r2_np = postprocess.evaluation_metrics(true_day_test, np_day_test)
-                # print("Performance of normal persistence model (rmse, mae, mb, r2): \n\n", round(rmse_np, 1),
-                #       round(mae_np, 1),
-                #       round(mb_np, 1), round(r2_np, 1))
-                #
-                # # calculate the skill score of our model over persistence model
-                # skill_sp = postprocess.skill_score(rmse_our, rmse_sp)
-                # print("\nSkill of our model over smart persistence: ", round(skill_sp, 1))
-                #
-                # skill_np = postprocess.skill_score(rmse_our, rmse_np)
-                # print("\nSkill of our model over normal persistence: ", round(skill_np, 1))
+                print("#####TEST#################")
+                rmse_our, mae_our, mb_our, r2_our = postprocess.evaluation_metrics(true_day_test, pred_day_test)
+                print("Performance of our model (rmse, mae, mb, r2): \n\n", round(rmse_our, 1), round(mae_our, 1),
+                      round(mb_our, 1), round(r2_our, 1))
+
+                rmse_sp, mae_sp, mb_sp, r2_sp = postprocess.evaluation_metrics(true_day_test, sp_day_test)
+                print("Performance of smart persistence model (rmse, mae, mb, r2): \n\n", round(rmse_sp, 1),
+                      round(mae_sp, 1),
+                      round(mb_sp, 1), round(r2_sp, 1))
+
+                rmse_np, mae_np, mb_np, r2_np = postprocess.evaluation_metrics(true_day_test, np_day_test)
+                print("Performance of normal persistence model (rmse, mae, mb, r2): \n\n", round(rmse_np, 1),
+                      round(mae_np, 1),
+                      round(mb_np, 1), round(r2_np, 1))
+
+                # calculate the skill score of our model over persistence model
+                skill_sp = postprocess.skill_score(rmse_our, rmse_sp)
+                print("\nSkill of our model over smart persistence: ", round(skill_sp, 1))
+
+                skill_np = postprocess.skill_score(rmse_our, rmse_np)
+                print("\nSkill of our model over normal persistence: ", round(skill_np, 1))
 
                 postprocess.plot_results(true_day_test, pred_day_test, sp_day_test, lead, season_flag, folder_plots, model = "multi_task_model")
 
@@ -296,37 +302,4 @@ def main():
 if __name__=='__main__':
     main()
 
-# Penn_State_PA at Lead 2 and summer Season
-# Skill of our model over smart persistence:  9.9
-#
-# Skill of our model over normal persistence:  15.7
-
-# nPenn_State_PA at Lead 3 and summer Season
-# Skill of our model over smart persistence:  5.0
-#
-# Skill of our model over normal persistence:  21.7
-# nPenn_State_PA at Lead 4 and summer Season
-#
-# Skill of our model over smart persistence:  4.4
-#
-# Skill of our model over normal persistence:  25.7
-
-#
-# Penn_State_PA at Lead 2 and winter Season
-#
-# Skill of our model over smart persistence:  7.2
-#
-# Skill of our model over normal persistence:  18.0
-
-# Penn_State_PA at Lead 3 and winter Season
-#
-# Skill of our model over smart persistence:  0.1
-#
-# Skill of our model over normal persistence:  23.4
-#
-# Penn_State_PA at Lead 4 and winter Season
-#
-# Skill of our model over smart persistence:  -4.2
-#
-# Skill of our model over normal persistence:  27.0
-
+## with just random regressors to get multiple outputs - I only get the first y as I want and not the rest two

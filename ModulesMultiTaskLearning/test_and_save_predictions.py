@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
-from SolarForecasting.ModulesMultiTaskLearning import hard_parameter_sharing
+from SolarForecasting.ModulesMultiTaskLearning import hard_parameter_sharing,soft_parameter_sharing
 
 
 
@@ -15,6 +15,12 @@ def get_predictions_on_test(PATH, X_test,y_test, input_size, hidden_size, n_hidd
         hidden_size=hidden_size,
         n_hidden=n_hidden,
         n_outputs=n_tasks)
+    # model = soft_parameter_sharing.SoftSharing(
+    #     input_size=input_size,
+    #     hidden_size = hidden_size,
+    #     n_hidden = n_hidden
+    #     # n_outputs= n_tasks
+    # )
 
     if train_on_gpu:
         model.cuda()
@@ -52,7 +58,7 @@ def get_predictions_on_test(PATH, X_test,y_test, input_size, hidden_size, n_hidd
         task_specific_test_loss[n] = loss.item()
         total_loss.append(loss)
 
-    loss = sum(total_loss) / len(total_loss)
+    loss = (sum(total_loss)) / len(total_loss)
     # update validation loss
     test_loss = loss.item()
 

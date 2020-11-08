@@ -44,6 +44,7 @@ def normal_persistence_model(X, index_ghi, lead):
 def final_true_pred_sp_np(true, pred, np, sp, lead, X, index_zen, index_clearghi, zenith_threshold=85):
 
     # X = np.roll(X, lead, axis = 0)
+    # X =  X_test[lead:]
     true = true[2*lead:]
     pred = pred[2*lead:]
     np = np[2 * lead:]
@@ -54,17 +55,17 @@ def final_true_pred_sp_np(true, pred, np, sp, lead, X, index_zen, index_clearghi
     # print(true.shape, pred.shape, np.shape, sp.shape, X.shape)
     # #
     # # ## remove 0 clear ghi
-    # true_day = true[X[:, index_clearghi] >0]
-    # pred_day = pred[X[:, index_clearghi] >0]
-    # np_day = np[X[:, index_clearghi] >0]
-    # sp_day = sp[X[:, index_clearghi] >0]
+    # true = true[X[:, index_clearghi] >0]
+    # pred= pred[X[:, index_clearghi] >0]
+    # np = np[X[:, index_clearghi] >0]
+    # sp = sp[X[:, index_clearghi] >0]
     # X = X[X[:, index_clearghi] > 0]
     # #
     # # # ## remove further daytimes
-    # true_day = true_day[(X[:, index_zen] < zenith_threshold)]
-    # pred_day = pred_day[X[:, index_zen] < zenith_threshold]
-    # np_day = np_day[X[:, index_zen] < zenith_threshold]
-    # sp_day = sp_day[X[:, index_zen] < zenith_threshold]
+    # true = true[(X[:, index_zen] < zenith_threshold)]
+    # pred = pred[X[:, index_zen] < zenith_threshold]
+    # np = np[X[:, index_zen] < zenith_threshold]
+    # sp = sp[X[:, index_zen] < zenith_threshold]
 
     #
     # ## remove negative predictions

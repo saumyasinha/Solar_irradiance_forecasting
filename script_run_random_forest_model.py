@@ -19,10 +19,10 @@ pd.set_option('display.width', 1000)
 city = 'Penn_State_PA'
 
 # lead time
-lead_times = [2,3,4] #from [1,2,3,4]
+lead_times = [4,5,6] #from [1,2,3,4]
 
 # season
-seasons =['winter'] #from ['fall', 'winter', 'spring', 'summer', 'year']
+seasons =['winter', 'summer'] #from ['fall', 'winter', 'spring', 'summer', 'year']
 
 # file locations
 path_project = "/Users/saumya/Desktop/SolarProject/"
@@ -137,10 +137,10 @@ def main():
 
     # adding the clearness index and dropping rows with 0 clear_ghi and taking only daytimes
     df = df[df['clear_ghi'] > 0]
-    df = df[df['zen']<85]
-    df['clearness_index'] = df['dw_solar'] / df['clear_ghi']
-    df.reset_index(drop=True, inplace=True)
-    print("after removing data points with 0 clear_ghi and selecting daytimes",len(df))
+    df_final = df[df['zen']<85]
+    df_final['clearness_index'] = df_final['dw_solar'] / df_final['clear_ghi']
+    df_final.reset_index(drop=True, inplace=True)
+    print("after removing data points with 0 clear_ghi and selecting daytimes",len(df_final))
 
     # df.hist(column=['clearness_index'], bins = 50)
     # print(df['clearness_index'].value_counts())
@@ -156,7 +156,7 @@ def main():
     for season_flag in seasons:
         for lead in lead_times:
             # create dataset with lead
-            df_lead = preprocess.create_lead_dataset(df, lead, final_features, target_feature)
+            df_lead = preprocess.create_lead_dataset(df_final, lead, final_features, target_feature)
 
             # get the seasonal data you want
             df, test_startdate, test_enddate = preprocess.get_yearly_or_season_data(df_lead, season_flag)
@@ -199,13 +199,13 @@ def main():
                 y_test = np.reshape(y_test, -1)
 
                 # call the gridSearch and saving model
-                model = models.rfGridSearch_model(X_train, y_train)
-                for name, importance in zip(final_features[5:], model.best_estimator_.feature_importances_):
-                    print(name, "=", importance)
-                # model = models.lr_model(X_train, y_train)
-
-                joblib.dump(model.best_estimator_, folder_saving+season_flag + "/rf_model_for_lead_"+str(lead))
-
+                # model = models.rfGridSearch_model(X_train, y_train)
+                # for name, importance in zip(final_features[5:], model.best_estimator_.feature_importances_):
+                #     print(name, "=", importance)
+                # # model = models.lr_model(X_train, y_train)
+                #
+                # joblib.dump(model.best_estimator_, folder_saving+season_flag + "/rf_model_for_lead_"+str(lead))
+                model = joblib.load(folder_saving+season_flag + "/rf_model_for_lead_"+str(lead))
                 y_true = y_test
                 y_pred = model.predict(X_test)
 
@@ -236,18 +236,22 @@ def main():
                 np_day_valid = np_day[:valid_samples]
                 np_day_test = np_day[valid_samples:]
 
-                print("\n\n\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
+                print("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
+
+                print("##########VALID##########")
                 # calculate the error measures................................................
                 rmse_our, mae_our, mb_our, r2_our = postprocess.evaluation_metrics(true_day_valid, pred_day_valid)
                 print("Performance of our model (rmse, mae, mb, r2): \n\n", round(rmse_our, 1), round(mae_our, 1),
                       round(mb_our, 1), round(r2_our, 1))
 
                 rmse_sp, mae_sp, mb_sp, r2_sp = postprocess.evaluation_metrics(true_day_valid, sp_day_valid)
-                print("Performance of smart persistence model (rmse, mae, mb, r2): \n\n", round(rmse_sp, 1), round(mae_sp, 1),
+                print("Performance of smart persistence model (rmse, mae, mb, r2): \n\n", round(rmse_sp, 1),
+                      round(mae_sp, 1),
                       round(mb_sp, 1), round(r2_sp, 1))
 
                 rmse_np, mae_np, mb_np, r2_np = postprocess.evaluation_metrics(true_day_valid, np_day_valid)
-                print("Performance of normal persistence model (rmse, mae, mb, r2): \n\n", round(rmse_np, 1), round(mae_np, 1),
+                print("Performance of normal persistence model (rmse, mae, mb, r2): \n\n", round(rmse_np, 1),
+                      round(mae_np, 1),
                       round(mb_np, 1), round(r2_np, 1))
 
                 # calculate the skill score of our model over persistence model
@@ -257,8 +261,31 @@ def main():
                 skill_np = postprocess.skill_score(rmse_our, rmse_np)
                 print("\nSkill of our model over normal persistence: ", round(skill_np, 1))
 
+                print("#####TEST#################")
+                rmse_our, mae_our, mb_our, r2_our = postprocess.evaluation_metrics(true_day_test, pred_day_test)
+                print("Performance of our model (rmse, mae, mb, r2): \n\n", round(rmse_our, 1), round(mae_our, 1),
+                      round(mb_our, 1), round(r2_our, 1))
 
-                postprocess.plot_results(true_day_test,pred_day_test,sp_day_test,lead, season_flag, folder_plots, model = "random_forest")
+                rmse_sp, mae_sp, mb_sp, r2_sp = postprocess.evaluation_metrics(true_day_test, sp_day_test)
+                print("Performance of smart persistence model (rmse, mae, mb, r2): \n\n", round(rmse_sp, 1),
+                      round(mae_sp, 1),
+                      round(mb_sp, 1), round(r2_sp, 1))
+
+                rmse_np, mae_np, mb_np, r2_np = postprocess.evaluation_metrics(true_day_test, np_day_test)
+                print("Performance of normal persistence model (rmse, mae, mb, r2): \n\n", round(rmse_np, 1),
+                      round(mae_np, 1),
+                      round(mb_np, 1), round(r2_np, 1))
+
+                # calculate the skill score of our model over persistence model
+                skill_sp = postprocess.skill_score(rmse_our, rmse_sp)
+                print("\nSkill of our model over smart persistence: ", round(skill_sp, 1))
+
+                skill_np = postprocess.skill_score(rmse_our, rmse_np)
+                print("\nSkill of our model over normal persistence: ", round(skill_np, 1))
+
+                postprocess.plot_results(true_day_test, pred_day_test, sp_day_test, lead, season_flag, folder_plots,
+                                         model="random_forest_model")
+
 
             else:
                 print("not enough data for the season: ", season_flag, "and lead: ", lead)
@@ -269,31 +296,11 @@ if __name__=='__main__':
 
 
 
-## Random forest at lead 1hr, when I create the labels after removing night values(and 0 clear ghi)
-# zen = 0.026805467467606377
-# dw_solar = 0.14623739713830416
-# uw_solar = 0.03415672822315075
-# direct_n = 0.4221217767347047
-# dw_ir = 0.1750496021390561
-# uw_ir = 0.028178971092687077
-# temp = 0.021594004217624068
-# rh = 0.032349670893714884
-# windspd = 0.02307408960519046
-# winddir = 0.028486328681947837
-# pressure = 0.03992012027098664
-# clear_ghi = 0.02202584353502679
-# 6838.368237405001 6890.262778476584
-# 644878.8403857381 649456.7856263025
-# 645034.6266666667
-# 637133.857044817
-# validation data size:  1563
-#
-#
-#
+## Winter
 # Penn_State_PA at Lead 4 and winter Season
 # Performance of our model (rmse, mae, mb, r2):
 #
-#  66.0 46.9 -2.6 0.7
+#  66.0 47.0 -2.5 0.7
 # Performance of smart persistence model (rmse, mae, mb, r2):
 #
 #  72.7 48.0 1.7 0.7
@@ -301,50 +308,121 @@ if __name__=='__main__':
 #
 #  94.7 70.4 -0.1 0.5
 #
-# Skill of our model over smart persistence:  9.2
+# Skill of our model over smart persistence:  9.3
 #
-# Skill of our model over normal persistence:  30.3
+# Skill of our model over normal persistence:  30.4
+
+#Test
+#
+# Skill of our model over smart persistence:  7.9
+#
+# Skill of our model over normal persistence:  35.8
+# #
+#
+# Penn_State_PA at Lead 5 and winter Season
+# Performance of our model (rmse, mae, mb, r2):
+#
+#  69.1 50.1 -3.1 0.7
+# Performance of smart persistence model (rmse, mae, mb, r2):
+#
+#  78.0 51.6 2.0 0.6
+# Performance of normal persistence model (rmse, mae, mb, r2):
+#
+#  107.0 80.2 -0.1 0.3
+#
+# Skill of our model over smart persistence:  11.5
+#
+# Skill of our model over normal persistence:  35.4
+#
+# Test
+# Skill of our model over smart persistence:  8.9
+#
+# Skill of our model over normal persistence:  41.7
+
+#
+# Penn_State_PA at Lead 6 and winter Season
+# Performance of our model (rmse, mae, mb, r2):
+#
+#  72.9 54.0 -3.7 0.7
+# Performance of smart persistence model (rmse, mae, mb, r2):
+#
+#  81.5 54.8 2.4 0.6
+# Performance of normal persistence model (rmse, mae, mb, r2):
+#
+#  117.6 89.5 -0.2 0.2
+#
+# Skill of our model over smart persistence:  10.5
+#
+# Skill of our model over normal persistence:  38.0
+#Test
+# Skill of our model over smart persistence:  8.9
+#
+# Skill of our model over normal persistence:  45.6
 
 
-# Random forest (to compare with multi task model)
-#
-# Penn_State_PA at Lead 2 and summer Season
-#
-# Skill of our model over smart persistence:  12.1
-#
-# Skill of our model over normal persistence:  17.7
 
-#
-# Penn_State_PA at Lead 3 and summer Season
-#
-# Skill of our model over smart persistence:  5.1
-#
-# Skill of our model over normal persistence:  21.7
-
-
+## Summer
 # Penn_State_PA at Lead 4 and summer Season
+# Performance of our model (rmse, mae, mb, r2):
 #
-# Skill of our model over smart persistence:  1.3
+#  148.9 106.3 -1.0 0.8
+# Performance of smart persistence model (rmse, mae, mb, r2):
 #
-# Skill of our model over normal persistence:  23.2
+#  174.0 108.7 0.7 0.7
+# Performance of normal persistence model (rmse, mae, mb, r2):
+#
+#  203.9 153.6 -0.2 0.6
+#
+# Skill of our model over smart persistence:  14.4
+#
+# Skill of our model over normal persistence:  27.0
+#
+#Test:
+# Skill of our model over smart persistence:  16.8
+#
+# Skill of our model over normal persistence:  31.1
+#
 
+
+# Penn_State_PA at Lead 5 and summer Season
+# Performance of our model (rmse, mae, mb, r2):
 #
-# Penn_State_PA at Lead 2 and winter Season
+#  152.7 111.0 -2.1 0.8
+# Performance of smart persistence model (rmse, mae, mb, r2):
 #
-# Skill of our model over smart persistence:  11.3
+#  177.4 111.6 1.0 0.7
+# Performance of normal persistence model (rmse, mae, mb, r2):
 #
-# Skill of our model over normal persistence:  21.6
+#  220.0 169.8 -0.4 0.5
+#
+# Skill of our model over smart persistence:  13.9
+#
+# Skill of our model over normal persistence:  30.6
+#
+#Test:
+# Skill of our model over smart persistence:  16.0
+#
+# Skill of our model over normal persistence:  34.4
 
 
-# Penn_State_PA at Lead 3 and winter Season
-#
-# Skill of our model over smart persistence:  1.3
-#
-# Skill of our model over normal persistence:  24.2
 
+# Penn_State_PA at Lead 6 and summer Season
+# Performance of our model (rmse, mae, mb, r2):
 #
-# Penn_State_PA at Lead 4 and winter Season
+#  161.6 119.4 -3.4 0.7
+# Performance of smart persistence model (rmse, mae, mb, r2):
 #
-# Skill of our model over smart persistence:  -6.1
+#  184.9 118.0 1.4 0.6
+# Performance of normal persistence model (rmse, mae, mb, r2):
 #
-# Skill of our model over normal persistence:  25.6
+#  240.2 189.5 -0.7 0.4
+#
+# Skill of our model over smart persistence:  12.6
+#
+# Skill of our model over normal persistence:  32.7
+
+# #Test:
+#
+# Skill of our model over smart persistence:  16.3
+#
+# Skill of our model over normal persistence:  38.2

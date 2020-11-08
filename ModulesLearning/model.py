@@ -10,6 +10,8 @@ from keras.models import Sequential
 from keras.layers import Dense, Dropout, BatchNormalization, Activation
 from keras.optimizers import Adam, sgd
 import matplotlib.pyplot as plt
+from sklearn.multioutput import MultiOutputRegressor, RegressorChain
+from sklearn.svm import LinearSVR
 
 
 def lr_model(X, y):
@@ -76,7 +78,7 @@ def rfGridSearch_model(X, y):
     # Create a based model
     rf = RandomForestRegressor()
     # Instantiate the grid search model
-    grid_search = GridSearchCV(estimator=rf, param_grid=param_grid, cv=3, n_jobs=-1, verbose=2)
+    grid_search = RandomizedSearchCV(estimator=rf, param_distributions=param_grid, scoring = 'neg_mean_squared_error')
     grid_search.fit(X, y)
     print("params:", grid_search.best_params_)
     return grid_search
@@ -107,4 +109,11 @@ def FNN_model(X_train, y_train, bs, epochs, lr):
     model.compile(optimizer=opt, loss='mean_squared_error', metrics=['mse'])
     model.summary()
     model.fit(X_train, y_train, batch_size=bs, epochs=epochs, verbose=2)
+    return model
+
+
+def multi_output_model(X_train, y_train):
+    ## might want to try different regressors here
+    model = RegressorChain(LinearSVR()).fit(X_train, y_train)
+
     return model

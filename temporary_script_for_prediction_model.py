@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import os
+from sklearn.externals import joblib
 import matplotlib.pyplot as plt
 from SolarForecasting.ModulesProcessing import collect_data,clean_data
 from SolarForecasting.ModulesLearning import preprocessing as preprocess
@@ -169,8 +170,8 @@ def main():
                 X_train, y_train = preprocess.filter_dayvalues_and_zero_clearghi(X_train, y_train,
                                                                                       index_zen, index_clearghi)
 
-                X_test, y_test = preprocess.filter_dayvalues_and_zero_clearghi(X_test, y_test,
-                                                                                 index_zen, index_clearghi)
+                # X_test, y_test = preprocess.filter_dayvalues_and_zero_clearghi(X_test, y_test,
+                #                                                                  index_zen, index_clearghi)
 
                 print("\n\n after filtering dayvalues")
                 print("Final size: ", X_train.shape, y_train.shape)
@@ -189,10 +190,11 @@ def main():
                 y_test = np.reshape(y_test, -1)
 
                 # call the gridSearch
-                # model = models.rfGridSearch_model(X_train, y_train)
-                # for name, importance in zip(final_features[5:], model.best_estimator_.feature_importances_):
-                #     print(name, "=", importance)
-                model = models.lr_model(X_train, y_train)
+                model = models.rfGridSearch_model(X_train, y_train)
+                for name, importance in zip(final_features[5:], model.best_estimator_.feature_importances_):
+                    print(name, "=", importance)
+                # model = models.lr_model(X_train, y_train)
+                joblib.dump(model.best_estimator_, 'rf_model_testing')
 
                 y_true = y_test
                 y_pred = model.predict(X_test)

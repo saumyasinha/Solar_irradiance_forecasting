@@ -93,7 +93,7 @@ class HardSharing(nn.Module):
         hidden_size,
         n_hidden,
         n_outputs,
-        n_task_specific_layers=0,
+        n_task_specific_layers=1,
         task_specific_hidden_size=None,
         dropout_rate=.1,
     ):

@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import math
 from collections import defaultdict
-from SolarForecasting.ModulesMultiTaskLearning import hard_parameter_sharing
+from SolarForecasting.ModulesMultiTaskLearning import hard_parameter_sharing, soft_parameter_sharing
 
 
 
@@ -74,11 +74,15 @@ def train(X_train, y_train, X_valid, y_valid, input_size, hidden_size, n_hidden,
         input_size=input_size,
         hidden_size = hidden_size,
         n_hidden = n_hidden,
-        n_outputs= n_tasks)
+        n_outputs= n_tasks
+    )
 
     print(model)
 
     optimizer = optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.999), eps=1e-08)
+    # optimizer = optim.Adam([
+    #     {'params': model.base.parameters()},
+    #     {'params': model.task_specific.task_nets.parameters(), 'lr': 1e-3}], lr=lr, betas=(0.9, 0.999), eps=1e-08)
 
     if train_on_gpu:
         model.cuda()
@@ -125,7 +129,8 @@ def train(X_train, y_train, X_valid, y_valid, input_size, hidden_size, n_hidden,
             # clear the gradients of all optimized variables
             optimizer.zero_grad()
             # forward pass: compute predicted outputs by passing inputs to the model
-            output = model(data)
+            output= model(data)
+            # print(output.shape)
             total_loss = []
             for n in range(n_tasks):
                 y_pred = output[:,n]
@@ -134,7 +139,7 @@ def train(X_train, y_train, X_valid, y_valid, input_size, hidden_size, n_hidden,
                 task_specific_train_loss[n]+=loss.item() * data.size(0)
                 total_loss.append(loss)
 
-            loss = sum(total_loss)/len(total_loss)
+            loss = (sum(total_loss))/len(total_loss)
             # backward pass: compute gradient of the loss with respect to model parameters
             loss.backward()
             # perform a single optimization step (parameter update)
@@ -163,7 +168,7 @@ def train(X_train, y_train, X_valid, y_valid, input_size, hidden_size, n_hidden,
             task_specific_valid_loss[n] = loss.item()
             total_loss.append(loss)
 
-        loss = sum(total_loss)/len(total_loss)
+        loss = (sum(total_loss))/len(total_loss)
         # update validation loss
         valid_loss = loss.item()
 
