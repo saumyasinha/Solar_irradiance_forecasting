@@ -253,7 +253,7 @@ def main():
                 # cluster_labels_test = clustering.get_closest_clusters(X_test, kmeans, features_indices_to_cluster_on)
                 #
                 # X_train, X_valid, X_test = clustering.normalizing_per_cluster(X_train, X_valid, X_test, cluster_labels,
-                #                                                               cluster_labels_valid, cluster_labels_test,folder_saving+season_flag + "/ML_models_2008/nn/",reg, lead)
+                #                                                               cluster_labels_valid, cluster_labels_test,folder_saving+season_flag + "/ML_models_2008/rf/clustering",reg, lead)
                 #
                 #
                 # model_dict = clustering.train(X_train,y_train, cluster_labels, n_clusters)

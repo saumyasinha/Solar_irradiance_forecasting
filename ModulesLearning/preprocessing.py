@@ -271,7 +271,7 @@ def filter_dayvalues_and_zero_clearghi(X_all, y_all, index_zen, index_clearghi, 
 
 
 
-def standardize_from_train(X_train, X_valid, X_test, folder_saving, model, lead):
+def standardize_from_train(X_train, X_valid, X_test, folder_saving, model, lead=""):
     '''
     Standardize (or 'normalize') the feature matrices.
     '''

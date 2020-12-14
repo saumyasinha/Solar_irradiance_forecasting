@@ -4,16 +4,23 @@ import numpy as np
 from SolarForecasting.ModulesMultiTaskLearning import hard_parameter_sharing,soft_parameter_sharing
 
 
-def get_predictions_on_test(PATH, X_test,y_test, input_size, hidden_size, n_hidden,n_tasks, folder_saving, soft_loss_weight=0):
+def get_predictions_on_test(PATH, X_test,y_test, n_tasks, input_size, hidden_sizes, task_specific_hidden_sizes, folder_saving, soft_loss_weight=0):
 
     train_on_gpu = torch.cuda.is_available()
     print(train_on_gpu)
 
-    model = soft_parameter_sharing.SoftSharing(
+    # model = soft_parameter_sharing.SoftSharing(
+    #     input_size=input_size,
+    #     hidden_size = hidden_size,
+    #     n_hidden = n_hidden,
+    #     n_outputs= n_tasks
+    # )
+
+    model = hard_parameter_sharing.HardSharing(
         input_size=input_size,
-        hidden_size = hidden_size,
-        n_hidden = n_hidden,
-        n_outputs= n_tasks
+        hidden_sizes=hidden_sizes,
+        n_outputs=n_tasks,
+        task_specific_hidden_sizes=task_specific_hidden_sizes
     )
 
     if train_on_gpu:
@@ -26,7 +33,6 @@ def get_predictions_on_test(PATH, X_test,y_test, input_size, hidden_size, n_hidd
     model.eval()
 
     predictions = {}
-    task_specific_test_loss = {}
     count_test = X_test.shape[0]
 
     X_test = torch.from_numpy(X_test)
@@ -39,8 +45,8 @@ def get_predictions_on_test(PATH, X_test,y_test, input_size, hidden_size, n_hidd
     if train_on_gpu:
         data, target = data.cuda(), target.cuda()
     # forward pass: compute predicted outputs by passing inputs to the model
-    # output = model(data)
-    output, soft_loss = model(data)
+    output = model(data)
+    # output, soft_loss = model(data)
     total_loss = []
 
 
@@ -54,13 +60,13 @@ def get_predictions_on_test(PATH, X_test,y_test, input_size, hidden_size, n_hidd
         # task_specific_test_loss[n] = loss.item()
         total_loss.append(loss)
 
-    # loss = (sum(total_loss) / len(total_loss))
-    loss = (sum(total_loss)) + soft_loss_weight*(soft_loss)
+    loss = sum(total_loss)
+    # loss = (sum(total_loss)) + soft_loss_weight*(soft_loss)
     test_loss = loss.item()
 
 
     print("test total loss is: ", str(test_loss))
-    print("test soft loss is: ", str(soft_loss))
+    # print("test soft loss is: ", str(soft_loss))
 
     return predictions
 
@@ -71,7 +77,7 @@ def get_predictions_with_clustering_on_test(PATH, X_test,y_test, input_size, hid
     train_on_gpu = torch.cuda.is_available()
     print(train_on_gpu)
     #
-    model = hard_parameter_sharing.Custom_HardSharing(
+    model = hard_parameter_sharing.HardSharing(
         input_size=input_size,
         hidden_sizes=hidden_sizes,
         n_outputs=n_clusters,
@@ -110,6 +116,7 @@ def get_predictions_with_clustering_on_test(PATH, X_test,y_test, input_size, hid
         pred = model(data[i].reshape(1, -1))
         y_pred.append(pred[:,cluster_label].item())
 
+    print(np.araay(y_pred).shape)
     return y_pred
 
 

@@ -23,7 +23,7 @@ pd.set_option('display.width', 1000)
 city = 'Penn_State_PA'
 
 # lead time
-lead_times = [5,6] #from [1,2,3,4,5,6]
+lead_times = [3,4,5,6] #from [1,2,3,4,5,6]
 
 # season
 seasons =['summer'] #from ['fall', 'winter', 'spring', 'summer', 'year']
@@ -42,8 +42,7 @@ features = ['year','month','day','hour','min','zen','dw_solar','uw_solar','direc
 # final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','dw_ir','temp','rh','windspd','winddir','pressure','clear_ghi']
 ## explore more features, but a lot of them are categorical so might want to remove those
 final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
-features_to_cluster_on = ['dw_solar','dw_ir', 'temp','pressure', 'windspd']
-n_clusters = 6
+
 # target or Y
 target_feature = ['clearness_index']
 
@@ -60,11 +59,11 @@ testyear = 2008  # i.e all of Fall(Sep2008-Nov2008), Winter(Dec2008-Feb2009), Sp
 bs = 16
 epochs = 750
 lr_list = [0.001, 0.0001]
-hidden_sizes_list = [[64,16]]   ## whatever I get from the STL model for that forecast period
+hidden_sizes_list = [[64,16],[32,32],[24,16]]   ## whatever I get from the STL model for that forecast period
 task_specific_hidden_sizes_list = [None,[8],[16]]
 weight_decay_list = [1e-5 ,1e-4]
 
-reg = "mtl_fine_tuned"
+reg = "vanilla_mtl"
 
 
 def get_data():
@@ -81,6 +80,27 @@ def get_data():
         object = clean_data.SurfradDataCleaner(city, year, path)
         object.process(path_to_column_names='ModulesProcessing/column_names.pkl')
 
+def create_mulitple_lead_dataset(dataframe, final_set_of_features, target):
+    dataframe_lead = dataframe[final_set_of_features]
+    target = np.asarray(dataframe[target])
+
+    y_list = []
+    for lead in lead_times:
+        print("rolling by: ",lead)
+        target = np.roll(target, -lead)
+        y_list.append(target)
+
+    dataframe_lead['clearness_index'] = np.column_stack(y_list).tolist()
+    dataframe_lead['clearness_index'] = dataframe_lead['clearness_index'].apply(tuple)
+    max_lead = np.max(lead_times)
+    dataframe_lead['clearness_index'].values[-max_lead:] = np.nan
+    print(dataframe_lead['clearness_index'])
+
+    # remove rows which have any value as NaN
+    dataframe_lead = dataframe_lead.dropna()
+    print("*****************")
+    print("dataframe with lead size: ", len(dataframe_lead))
+    return dataframe_lead
 
 def include_previous_features(X):
 
@@ -97,6 +117,7 @@ def include_previous_features(X):
     # X = X[max_lead:]
     print("X shape after adding t-1,t-2 features: ", X.shape)
     return X
+
 
 
 def main():
@@ -172,6 +193,8 @@ def main():
     # print("\n\n after adjusting outliers of clearness index")
     # print(df.tail)
 
+    # create dataset with lead
+    df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
 
     for season_flag in seasons:
         # current date
@@ -181,117 +204,107 @@ def main():
         os.makedirs(folder_saving, exist_ok=True)
         f = open(folder_saving + 'results.txt', 'a')
 
-        for lead in lead_times:
-            # create dataset with lead
-            df_lead = preprocess.create_lead_dataset(df_final, lead, final_features, target_feature)
 
-            # get the seasonal data you want
-            df, test_startdate, test_enddate = preprocess.get_yearly_or_season_data(df_lead, season_flag, testyear)
-            print("\n\n after getting seasonal data (test_startdate; test_enddate)", test_startdate, test_enddate)
-            print(df.tail)
+        # get the seasonal data you want
+        df, test_startdate, test_enddate = preprocess.get_yearly_or_season_data(df_lead, season_flag, testyear)
+        print("\n\n after getting seasonal data (test_startdate; test_enddate)", test_startdate, test_enddate)
+        print(df.tail)
 
 
 
-            # dividing into training and test set
-            df_train, df_heldout = preprocess.train_test_spilt(df, season_flag, testyear)
-            print("\n\n after dividing_training_test")
-            print("train_set\n",len(df_train))
-            print("test_set\n",len(df_heldout))
+        # dividing into training and test set
+        df_train, df_heldout = preprocess.train_test_spilt(df, season_flag, testyear)
+        print("\n\n after dividing_training_test")
+        print("train_set\n",len(df_train))
+        print("test_set\n",len(df_heldout))
 
-            if len(df_train)>0 and len(df_heldout)>0:
-                X_train, y_train, X_heldout, y_heldout, index_clearghi, index_ghi, index_zen, col_to_indices_mapping = preprocess.get_train_test_data(
-                    df_train, df_heldout, final_features, target_feature)
-                print("\n\n train and test df shapes ")
-                print(X_train.shape, y_train.shape, X_heldout.shape, y_heldout.shape)
-
-
-                ## including features from t-1 and t-2 timestamps
-                X_train = include_previous_features(X_train)
-                X_heldout = include_previous_features(X_heldout)
-
-                print("Final train size: ", X_train.shape, y_train.shape)
-                print("Final heldout size: ", X_heldout.shape, y_heldout.shape)
+        if len(df_train)>0 and len(df_heldout)>0:
+            X_train, y_train, X_heldout, y_heldout, index_clearghi, index_ghi, index_zen, col_to_indices_mapping = preprocess.get_train_test_data(
+                df_train, df_heldout, final_features, target_feature)
+            print("\n\n train and test df shapes ")
+            print(X_train.shape, y_train.shape, X_heldout.shape, y_heldout.shape)
 
 
-                ## dividing the X_train data into train(70%)/valid(15/5)/test(15%), the heldout data is kept hidden
-                X_train, X_test, y_train, y_test = train_test_split(X_train, y_train, test_size=0.3, random_state=42)
-                X_valid, X_test, y_valid, y_test = train_test_split(X_test, y_test, test_size=0.5, random_state=42)
+            ## including features from t-1 and t-2 timestamps
+            X_train = include_previous_features(X_train)
+            X_heldout = include_previous_features(X_heldout)
 
-                print("train/valid/test sizes: ", len(X_train), " ", len(X_valid), " ", len(X_test))
-
-                y_train  = np.reshape(y_train, -1)
-                y_test = np.reshape(y_test, -1)
-                y_valid = np.reshape(y_valid, -1)
-
-                input_size = X_train.shape[1]
-
-                features_indices_to_cluster_on = [col_to_indices_mapping[f] for f in features_to_cluster_on]
-                print(features_indices_to_cluster_on)
-                kmeans = clustering.clustering(X_train, features_indices_to_cluster_on,
-                                                               n_clusters=n_clusters)
-                pickle.dump(kmeans, open(folder_saving + "kmeans_for_lead_"+str(lead)+".pkl", "wb"))
-                cluster_labels = kmeans.labels_
-
-                print(Counter(cluster_labels))
-
-                cluster_labels_valid = clustering.get_closest_clusters(X_valid, kmeans, features_indices_to_cluster_on)
-                cluster_labels_test = clustering.get_closest_clusters(X_test, kmeans, features_indices_to_cluster_on)
-
-                X_train, X_valid, X_test = clustering.normalizing_per_cluster(X_train, X_valid, X_test, cluster_labels,
-                                                                              cluster_labels_valid, cluster_labels_test, folder_saving, reg, lead)
-                pretrained_path = primary_folder_saving + season_flag + "/" + "ML_models_2008/nn/FNN_single_task_at_lead_" + str(
-                    lead)+".pkl"
-
-                counter = 1
-                for lr in lr_list:
-                    for hidden_sizes in hidden_sizes_list:
-                        for task_specific_hidden_sizes in task_specific_hidden_sizes_list:
-                            for weight_decay in weight_decay_list:
-                                folder_saving = folder_saving+"hyperparameter_tuning_"+str(counter)
-                                counter = counter+1
-
-                                train_model.train_with_clusters(X_train, y_train, X_valid, y_valid, cluster_labels, cluster_labels_valid, n_clusters, input_size, hidden_sizes, task_specific_hidden_sizes,folder_saving = folder_saving, model_saved = reg + "_for_lead_" + str(
-                        lead), n_epochs = epochs, lr = lr, batch_size = bs, weight_decay = weight_decay, lead = lead, pretrained_path = pretrained_path)
-
-                                y_valid_pred = test_and_save_predictions.get_predictions_with_clustering_on_test(
-                                    reg+"_for_lead_"+str(lead), X_valid,
-                                    y_valid, input_size, hidden_sizes,task_specific_hidden_sizes, n_clusters,cluster_labels_valid ,
-                                    folder_saving, pretrained_path)
-
-                                y_pred = test_and_save_predictions.get_predictions_with_clustering_on_test(
-                                    reg+"_for_lead_"+str(lead), X_test,
-                                    y_test, input_size, hidden_sizes,task_specific_hidden_sizes, n_clusters, cluster_labels_test,
-                                    folder_saving, pretrained_path)
+            print("Final train size: ", X_train.shape, y_train.shape)
+            print("Final heldout size: ", X_heldout.shape, y_heldout.shape)
 
 
-                                f.write("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
-                                f.write("\n"+reg)
-                                f.write("\nArchitecture:\n")
-                                f.write("hidden size: " + str(hidden_sizes) + ",")
-                                f.write("task specific size: " + str(task_specific_hidden_sizes)+",")
-                                f.write("epochs: " + str(epochs)+" , batch size: "+ str(bs)+" ,lr: "+str(lr)+" ,weight_decay: "+str(weight_decay))
+            ## dividing the X_train data into train(70%)/valid(15/5)/test(15%), the heldout data is kept hidden
+            X_train, X_test, y_train, y_test = train_test_split(X_train, y_train, test_size=0.3, random_state=42)
+            X_valid, X_test, y_valid, y_test = train_test_split(X_test, y_test, test_size=0.5, random_state=42)
 
+            print("train/valid/test sizes: ", X_train.shape, " ", X_valid.shape, " ", X_test.shape)
+            print("train/valid/test label sizes: ", y_train.shape, " ", y_valid.shape, " ", y_test.shape)
+
+            input_size = X_train.shape[1]
+
+            X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, X_test,
+                                                                         folder_saving, reg)
+
+            counter = 1
+            for lr in lr_list:
+                for hidden_sizes in hidden_sizes_list:
+                    for task_specific_hidden_sizes in task_specific_hidden_sizes_list:
+                        for weight_decay in weight_decay_list:
+                            folder_saving = folder_saving+"hyperparameter_tuning_"+str(counter)
+                            counter = counter+1
+
+                            train_model.train(X_train, y_train, X_valid, y_valid, len(lead_times), input_size, hidden_sizes, task_specific_hidden_sizes, folder_saving = folder_saving, model_saved = reg + "_with_hard_sharing", n_epochs = epochs, lr = lr, batch_size = bs, weight_decay = weight_decay)
+
+                            predictions_valid = test_and_save_predictions.get_predictions_on_test(
+                                reg + "_with_hard_sharing", X_valid,
+                                y_valid, len(lead_times), input_size, hidden_sizes, task_specific_hidden_sizes, folder_saving)
+
+                            predictions_test = test_and_save_predictions.get_predictions_on_test(
+                                reg + "_with_hard_sharing", X_test,
+                                y_test, len(lead_times), input_size, hidden_sizes, task_specific_hidden_sizes, folder_saving)
+
+
+                            f.write("\n"+reg)
+                            f.write("\nArchitecture:\n")
+                            f.write("hidden size: " + str(hidden_sizes) + ",")
+                            f.write("task specific size: " + str(task_specific_hidden_sizes)+",")
+                            f.write("epochs: " + str(epochs)+" , batch size: "+ str(bs)+" ,lr: "+str(lr)+" ,weight_decay: "+str(weight_decay))
+
+
+                            for n in range(len(lead_times)):
+                                lead = lead_times[n]
+
+                                y_pred = predictions_test[n]
+                                y_test_for_this_lead = y_test[:, n]
+
+                                y_valid_pred = predictions_valid[n]
+                                y_valid_for_this_lead = y_valid[:, n]
 
                                 print("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
+                                f.write("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
 
                                 print("##########VALID##########")
-                                rmse_our, mae_our, mb_our, r2_our = postprocess.evaluation_metrics(y_valid, y_valid_pred)
-                                print("Performance of our model (rmse, mae, mb, r2): \n\n", round(rmse_our, 1), round(mae_our, 1),
+                                rmse_our, mae_our, mb_our, r2_our = postprocess.evaluation_metrics(y_valid_for_this_lead,
+                                                                                                   y_valid_pred)
+                                print("Performance of our model (rmse, mae, mb, r2): \n\n", round(rmse_our, 1),
+                                      round(mae_our, 1),
                                       round(mb_our, 1), round(r2_our, 1))
-                                f.write('\n evaluation metrics (rmse, mae, mb, r2) on valid data for ' + reg + '=' + str(
-                                    round(rmse_our, 1)) + "," + str(round(mae_our, 1)) + "," +
-                                        str(round(mb_our, 1)) + "," + str(round(r2_our, 1)) + '\n')
+                                f.write(
+                                    '\n evaluation metrics (rmse, mae, mb, r2) on valid data for ' + reg + '=' + str(
+                                        round(rmse_our, 1)) + "," + str(round(mae_our, 1)) + "," +
+                                    str(round(mb_our, 1)) + "," + str(round(r2_our, 1)) + '\n')
 
                                 print("##########Test##########")
-                                rmse_our, mae_our, mb_our, r2_our = postprocess.evaluation_metrics(y_test, y_pred)
+                                rmse_our, mae_our, mb_our, r2_our = postprocess.evaluation_metrics(y_test_for_this_lead, y_pred)
                                 # print("Performance of our model (rmse, mae, mb, r2): \n\n", round(rmse_our, 1), round(mae_our, 1),
                                 #       round(mb_our, 1), round(r2_our, 1))
                                 f.write('\n evaluation metrics (rmse, mae, mb, r2) on test data for ' + reg + '=' + str(
                                     round(rmse_our, 1)) + "," + str(round(mae_our, 1)) + "," +
                                         str(round(mb_our, 1)) + "," + str(round(r2_our, 1)) + '\n')
 
-            else:
-                print("not enough data for the season: ", season_flag, "and lead: ", lead)
+
+        else:
+            print("not enough data for the season: ", season_flag)
 
 
 if __name__=='__main__':

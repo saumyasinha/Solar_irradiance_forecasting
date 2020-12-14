@@ -136,19 +136,19 @@ class TaskIndependentLayers(nn.Module):
 
 
 ## Model used for transfer learning
-class Custom_HardSharing(nn.Module):
+class HardSharing(nn.Module):
 
     def __init__(
             self,
             input_size,
             hidden_sizes,
             n_outputs,
-            pretrained_path,
+            pretrained_path = None,
             task_specific_hidden_sizes=None,
             dropout_rate=.5,
     ):
 
-        super(Custom_HardSharing, self).__init__()
+        super(HardSharing, self).__init__()
 
 
         self.model = nn.Sequential()
@@ -166,20 +166,24 @@ class Custom_HardSharing(nn.Module):
         # pretrained_model = models.Network(input_size=input_size,
         #         hidden_sizes=hidden_sizes)
 
-        net = models.NeuralNetRegressor(
-            models.Network(hidden_sizes=hidden_sizes),
-            criterion=nn.MSELoss
-        )
+        if pretrained_path:
+            net = models.NeuralNetRegressor(
+                models.Network(hidden_sizes=hidden_sizes),
+                criterion=nn.MSELoss
+            )
 
-        net.initialize()
-        net.load_params(f_params=pretrained_path)
+            net.initialize()
+            net.load_params(f_params=pretrained_path)
 
-        # pretrained_model.load_state_dict(torch.load(pretrained_path))
-        pretrained_model = net.module_
+            # pretrained_model.load_state_dict(torch.load(pretrained_path))
+            pretrained_model = net.module_
 
-        print("Model's state_dict:")
-        for param_tensor in pretrained_model.state_dict():
-            print(param_tensor, "\t", pretrained_model.state_dict()[param_tensor].size())
+            print("Model's state_dict:")
+            for param_tensor in pretrained_model.state_dict():
+                print(param_tensor, "\t", pretrained_model.state_dict()[param_tensor].size())
+
+                ## Use pretrained "features" in your model
+            self.model.hard_sharing = pretrained_model.model.hard_sharing
 
         # ## freezing the "features" parameters (this is excluding the fully connected layers)
         # for param in self.model.hard_sharing.parameters():
@@ -208,8 +212,6 @@ class Custom_HardSharing(nn.Module):
             )
         )
 
-        ## Use pretrained "features" in your model
-        self.model.hard_sharing = pretrained_model.model.hard_sharing
 
 
     def forward(self, x):

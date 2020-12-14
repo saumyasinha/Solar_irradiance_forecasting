@@ -10,7 +10,7 @@ from SolarForecasting.ModulesLearning import preprocessing as preprocess
 
 def clustering(X, features_indices_to_cluster_on, n_clusters = 2):
     X_sub = X[:,features_indices_to_cluster_on]
-    cluster_plot(X_sub)
+    # cluster_plot(X_sub)
 
     kmeans = KMeans(n_clusters=n_clusters).fit(X_sub)
 
