@@ -17,7 +17,7 @@ class FFNN(nn.Module):
             hidden_size,
             n_hidden,
             n_outputs,
-            dropout_rate=.1,
+            dropout_rate=.5,
     ):
         """
         :param input_size: input size
@@ -64,7 +64,7 @@ class TaskIndependentNets(nn.Module):
             hidden_size,
             n_hidden,
             n_outputs,
-            dropout_rate=.1,
+            dropout_rate=.5,
     ):
         super().__init__()
 
@@ -97,7 +97,8 @@ class SoftSharing(nn.Module):
             input_size,
             hidden_size,
             n_hidden,
-            dropout_rate=.1,
+            n_outputs = 2,
+            dropout_rate=.5,
     ):
 
         super().__init__()
@@ -106,7 +107,7 @@ class SoftSharing(nn.Module):
             input_size=input_size,
             hidden_size=hidden_size,
             n_hidden=n_hidden,
-            n_outputs=2,  # we assume we have two tasks. For more tasks,
+            n_outputs=n_outputs,  # we assume we have two tasks. For more tasks,
             # we must change the soft penalty structure
             dropout_rate=dropout_rate
         )
@@ -131,7 +132,7 @@ class SoftSharing(nn.Module):
 
         soft_sharing_loss = torch.tensor(0.)
         for params in param_groups:
-            soft_sharing_loss += torch.norm(params[0] - params[1], p='fro')
+            soft_sharing_loss += torch.norm(params[0] - params[1], p='fro') + torch.norm(params[0] - params[2], p='fro') + torch.norm(params[1] - params[2], p='fro')
 
         return soft_sharing_loss
 
@@ -145,6 +146,6 @@ class SoftSharing(nn.Module):
 
         if return_loss:
             soft_loss = self.soft_loss()
-            outupts = outupts + (soft_loss,)
+            outputs = outupts + (soft_loss,)
 
-        return outupts
+        return outputs

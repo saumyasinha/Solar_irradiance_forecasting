@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from dateutil import parser
 from datetime import datetime
 import datetime
+import pickle
 from datetime import date, timedelta
 
 pd.set_option('display.max_rows', 500)
@@ -115,28 +116,28 @@ def create_lead_dataset(dataframe, lead, final_set_of_features, target):
 #     return df_fall, df_winter, df_spring, df_summer
 
 
-def get_yearly_or_season_data(df_lead, season_flag):
+def get_yearly_or_season_data(df_lead, season_flag, testyear):
 
     if season_flag == 'year' or season_flag == 'yearly':
         df = df_lead
-        start_date = date(2008, 9, 1)
-        end_date = date(2009, 8, 31)
+        start_date = date(testyear, 9, 1)
+        end_date = date(testyear+1, 8, 31)
     elif season_flag == 'fall':
         df = df_lead[df_lead.month.isin([9,10,11])]
-        start_date = date(2008, 9, 1)
-        end_date = date(2008, 11, 30)
+        start_date = date(testyear, 9, 1)
+        end_date = date(testyear, 11, 30)
     elif season_flag == 'winter':
         df = df_lead[df_lead.month.isin([12,1,2])]
-        start_date = date(2008, 12, 1)
-        end_date = date(2009, 2, 28)
+        start_date = date(testyear, 12, 1)
+        end_date = date(testyear+1, 2, 28)
     elif season_flag == 'spring':
         df = df_lead[df_lead.month.isin([3,4,5])]
-        start_date = date(2009, 3, 1)
-        end_date = date(2009, 5, 31)
+        start_date = date(testyear+1, 3, 1)
+        end_date = date(testyear+1, 5, 31)
     elif season_flag == 'summer':
         df = df_lead[df_lead.month.isin([6,7,8])]
-        start_date = date(2009, 6, 1)
-        end_date = date(2009, 8, 31)
+        start_date = date(testyear+1, 6, 1)
+        end_date = date(testyear+1, 8, 31)
     else:
         print("Please provide a valid season...")
 
@@ -191,6 +192,7 @@ def get_train_test_data(dataframe_train, dataframe_test, final_set_of_features, 
         if final_features[ind] == 'zen':
             index_zen = ind
 
+    col_to_indices_mapping = {k: v for v, k in enumerate(final_features)}
     # Selecting the final features and target variables
     X_train = np.asarray(dataframe_train[final_features]).astype(np.float)
     X_test = np.asarray(dataframe_test[final_features]).astype(np.float)
@@ -206,7 +208,7 @@ def get_train_test_data(dataframe_train, dataframe_test, final_set_of_features, 
     # X_train = np.concatenate((X_train, y_train_roll), axis=1)
     # X_test = np.concatenate((X_test, y_test_roll), axis=1)
 
-    return X_train, y_train, X_test, y_test, index_clearghi, index_ghi, index_zen
+    return X_train, y_train, X_test, y_test, index_clearghi, index_ghi, index_zen, col_to_indices_mapping
 
 
 # ## Don't need this anymore
@@ -269,24 +271,46 @@ def filter_dayvalues_and_zero_clearghi(X_all, y_all, index_zen, index_clearghi, 
 
 
 
-def standardize_from_train(X_train, X_test):
+def standardize_from_train(X_train, X_valid, X_test, folder_saving, model, lead):
     '''
     Standardize (or 'normalize') the feature matrices.
     '''
-    cols = X_train.shape[1]
 
-    for i in range(cols):
+    if X_train is not None:
+        cols = X_train.shape[1]
+        standarize_dict = {}
+        for i in range(cols):
 
-        mean = np.mean(X_train[:,i])
-        std = np.std(X_train[:,i])
-        max = np.max(X_train[:,i])
-        min = np.min(X_train[:,i])
-        ##normalize or standarize ?
-        X_train[:,i] = (X_train[:,i] - mean)/std
-        X_test[:,i] = (X_test[:,i] - mean)/std
+            mean = np.mean(X_train[:,i])
+            std = np.std(X_train[:,i])
+            max = np.max(X_train[:,i])
+            min = np.min(X_train[:,i])
+            ##normalize or standarize ?
+            X_train[:,i] = (X_train[:,i] - mean)/std
+            X_valid[:, i] = (X_valid[:, i] - mean) / std
+            X_test[:,i] = (X_test[:,i] - mean)/std
+            standarize_dict[i] = (mean,std)
+
+        with open(folder_saving+model+"_standarize_data_for_lead_"+str(lead)+".pickle", 'wb') as handle:
+            pickle.dump(standarize_dict, handle)
 
 
-    return X_train, X_test
+    else:
+        cols = X_test.shape[1]
+
+        with open(folder_saving+model+"_standarize_data_for_lead_"+str(lead)+".pickle", 'rb') as handle:
+            standarize_dict = pickle.load(handle)
+
+        for i in range(cols):
+
+            mean = standarize_dict[i][0]
+            std = standarize_dict[i][1]
+            ##normalize or standarize ?
+            X_test[:,i] = (X_test[:,i] - mean)/std
+
+
+    return X_train, X_valid, X_test
+
 
 def shuffle(X,y):
     p = np.random.permutation(len(X))

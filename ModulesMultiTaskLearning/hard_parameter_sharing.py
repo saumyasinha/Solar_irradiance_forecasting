@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from SolarForecasting.ModulesLearning import model as models
 
 
 class FFNN(nn.Module):
@@ -8,10 +9,9 @@ class FFNN(nn.Module):
     def __init__(
         self,
         input_size,
-        hidden_size,
-        n_hidden,
-        n_outputs,
-        dropout_rate=.1,
+        hidden_sizes,
+        n_outputs = None,
+        dropout_rate=.5,
     ):
         """
         :param input_size: input size
@@ -24,7 +24,10 @@ class FFNN(nn.Module):
         assert 0 <= dropout_rate < 1
         self.input_size = input_size
 
-        h_sizes = [self.input_size] + [hidden_size for _ in range(n_hidden)] + [n_outputs]
+        if n_outputs is None:
+            n_outputs = []
+
+        h_sizes = [self.input_size] + hidden_sizes + n_outputs
 
         self.hidden = nn.ModuleList()
         for k in range(len(h_sizes) - 1):
@@ -55,10 +58,9 @@ class TaskIndependentLayers(nn.Module):
     def __init__(
             self,
             input_size,
-            hidden_size,
-            n_hidden,
+            hidden_sizes,
             n_outputs,
-            dropout_rate=.1,
+            dropout_rate=.5,
     ):
 
         super().__init__()
@@ -68,9 +70,8 @@ class TaskIndependentLayers(nn.Module):
             self.task_nets.append(
                 FFNN(
                     input_size=input_size,
-                    hidden_size=hidden_size,
-                    n_hidden=n_hidden,
-                    n_outputs=1,
+                    hidden_sizes=hidden_sizes,
+                    n_outputs=[1],
                     dropout_rate=dropout_rate,
                 )
             )
@@ -83,24 +84,72 @@ class TaskIndependentLayers(nn.Module):
         )
 
 
-class HardSharing(nn.Module):
-    """FFNN with hard parameter sharing
-    """
+# class HardSharing(nn.Module):
+#     """FFNN with hard parameter sharing
+#     """
+#
+#         def __init__(
+#             self,
+#             input_size,
+#             hidden_sizes,
+#             n_outputs,
+#             pretrained_path,
+#             task_specific_hidden_sizes=None,
+#             dropout_rate=.5,
+#     ):
+#
+#         super(Custom_HardSharing, self).__init__()
+#
+#
+#         self.model = nn.Sequential()
+#
+#         self.model.add_module(
+#             'hard_sharing',
+#             FFNN(
+#                 input_size=input_size,
+#                 hidden_sizes=hidden_sizes,
+#                 # n_outputs=hidden_sizes[-1],
+#                 dropout_rate=dropout_rate
+#             )
+#         )
+#
+#
+#         self.model.add_module('relu', nn.ReLU())
+#         self.model.add_module('dropout', nn.Dropout(p=dropout_rate))
+#
+#         self.model.add_module(
+#             'task_specific',
+#             TaskIndependentLayers(
+#                 input_size=hidden_sizes[-1],
+#                 hidden_sizes=task_specific_hidden_sizes,
+#                 n_outputs=n_outputs,
+#                 dropout_rate=dropout_rate
+#             )
+#         )
+#
+#
+#
+#
+#     def forward(self, x):
+#
+#         return self.model(x)
+
+
+## Model used for transfer learning
+class Custom_HardSharing(nn.Module):
 
     def __init__(
-        self,
-        input_size,
-        hidden_size,
-        n_hidden,
-        n_outputs,
-        n_task_specific_layers=1,
-        task_specific_hidden_size=None,
-        dropout_rate=.1,
+            self,
+            input_size,
+            hidden_sizes,
+            n_outputs,
+            pretrained_path,
+            task_specific_hidden_sizes=None,
+            dropout_rate=.5,
     ):
 
-        super().__init__()
-        if task_specific_hidden_size is None:
-            task_specific_hidden_size = hidden_size
+        super(Custom_HardSharing, self).__init__()
+
 
         self.model = nn.Sequential()
 
@@ -108,30 +157,62 @@ class HardSharing(nn.Module):
             'hard_sharing',
             FFNN(
                 input_size=input_size,
-                hidden_size=hidden_size,
-                n_hidden=n_hidden,
-                n_outputs=hidden_size,
+                hidden_sizes=hidden_sizes,
+                # n_outputs=hidden_sizes[-1],
                 dropout_rate=dropout_rate
             )
         )
 
-        if n_task_specific_layers > 0:
+        # pretrained_model = models.Network(input_size=input_size,
+        #         hidden_sizes=hidden_sizes)
+
+        net = models.NeuralNetRegressor(
+            models.Network(hidden_sizes=hidden_sizes),
+            criterion=nn.MSELoss
+        )
+
+        net.initialize()
+        net.load_params(f_params=pretrained_path)
+
+        # pretrained_model.load_state_dict(torch.load(pretrained_path))
+        pretrained_model = net.module_
+
+        print("Model's state_dict:")
+        for param_tensor in pretrained_model.state_dict():
+            print(param_tensor, "\t", pretrained_model.state_dict()[param_tensor].size())
+
+        # ## freezing the "features" parameters (this is excluding the fully connected layers)
+        # for param in self.model.hard_sharing.parameters():
+        #     param.requires_grad = False
+
+        # if task_specific_hidden_sizes is None:
+        #     task_specific_hidden_sizes = [hidden_sizes[-1]]
+
+        # if task_specific_hidden_sizes is not None:
             # if n_task_specific_layers == 0 than the task specific mapping is linear and
             # constructed as the product of last layer in the 'hard_sharing' and the linear layer
             # in 'task_specific', with no activation or dropout
-            self.model.add_module('relu', nn.ReLU())
-            self.model.add_module('dropout', nn.Dropout(p=dropout_rate))
+        self.model.add_module('relu', nn.ReLU())
+        self.model.add_module('dropout', nn.Dropout(p=dropout_rate))
+
+        if task_specific_hidden_sizes is None:
+            task_specific_hidden_sizes = []
 
         self.model.add_module(
             'task_specific',
             TaskIndependentLayers(
-                input_size=hidden_size,
-                hidden_size=task_specific_hidden_size,
-                n_hidden=n_task_specific_layers,
+                input_size=hidden_sizes[-1],
+                hidden_sizes=task_specific_hidden_sizes,
                 n_outputs=n_outputs,
                 dropout_rate=dropout_rate
             )
         )
 
+        ## Use pretrained "features" in your model
+        self.model.hard_sharing = pretrained_model.model.hard_sharing
+
+
     def forward(self, x):
+
         return self.model(x)
+
