@@ -202,7 +202,6 @@ def main():
         date_with_hr_sec = now.strftime("%Y_%m_%d_%H_%M_%S")
         folder_saving = primary_folder_saving + season_flag + "/" + reg + "/" + date_with_hr_sec + "/"
         os.makedirs(folder_saving, exist_ok=True)
-        f = open(folder_saving + 'results.txt', 'a')
 
 
         # get the seasonal data you want
@@ -250,7 +249,7 @@ def main():
                 for hidden_sizes in hidden_sizes_list:
                     for task_specific_hidden_sizes in task_specific_hidden_sizes_list:
                         for weight_decay in weight_decay_list:
-                            folder_saving = folder_saving+"hyperparameter_tuning_"+str(counter)
+                            folder_saving = folder_saving+"hyperparameter_tuning_"+str(counter)+"/"
                             counter = counter+1
 
                             train_model.train(X_train, y_train, X_valid, y_valid, len(lead_times), input_size, hidden_sizes, task_specific_hidden_sizes, folder_saving = folder_saving, model_saved = reg + "_with_hard_sharing", n_epochs = epochs, lr = lr, batch_size = bs, weight_decay = weight_decay)
@@ -263,6 +262,7 @@ def main():
                                 reg + "_with_hard_sharing", X_test,
                                 y_test, len(lead_times), input_size, hidden_sizes, task_specific_hidden_sizes, folder_saving)
 
+                            f = open(folder_saving + 'results.txt')
 
                             f.write("\n"+reg)
                             f.write("\nArchitecture:\n")
@@ -301,6 +301,8 @@ def main():
                                 f.write('\n evaluation metrics (rmse, mae, mb, r2) on test data for ' + reg + '=' + str(
                                     round(rmse_our, 1)) + "," + str(round(mae_our, 1)) + "," +
                                         str(round(mb_our, 1)) + "," + str(round(r2_our, 1)) + '\n')
+
+                            f.close()
 
 
         else:

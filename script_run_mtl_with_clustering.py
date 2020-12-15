@@ -247,7 +247,7 @@ def main():
                     for hidden_sizes in hidden_sizes_list:
                         for task_specific_hidden_sizes in task_specific_hidden_sizes_list:
                             for weight_decay in weight_decay_list:
-                                folder_saving = folder_saving+"hyperparameter_tuning_"+str(counter)
+                                folder_saving = folder_saving+"hyperparameter_tuning_"+str(counter)+"/"
                                 counter = counter+1
 
                                 train_model.train_with_clusters(X_train, y_train, X_valid, y_valid, cluster_labels, cluster_labels_valid, n_clusters, input_size, hidden_sizes, task_specific_hidden_sizes,folder_saving = folder_saving, model_saved = reg + "_for_lead_" + str(
@@ -263,6 +263,7 @@ def main():
                                     y_test, input_size, hidden_sizes,task_specific_hidden_sizes, n_clusters, cluster_labels_test,
                                     folder_saving, pretrained_path)
 
+                                f = open(folder_saving + 'results.txt')
 
                                 f.write("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
                                 f.write("\n"+reg)
@@ -289,6 +290,7 @@ def main():
                                 f.write('\n evaluation metrics (rmse, mae, mb, r2) on test data for ' + reg + '=' + str(
                                     round(rmse_our, 1)) + "," + str(round(mae_our, 1)) + "," +
                                         str(round(mb_our, 1)) + "," + str(round(r2_our, 1)) + '\n')
+                                f.close()
 
             else:
                 print("not enough data for the season: ", season_flag, "and lead: ", lead)

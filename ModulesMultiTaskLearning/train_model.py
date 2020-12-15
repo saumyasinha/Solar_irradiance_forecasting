@@ -100,6 +100,7 @@ def random_mini_batches(X, y, batch_size=32, seed=42):
 
 def train(X_train, y_train, X_valid, y_valid, n_tasks, input_size, hidden_sizes, task_specific_hidden_sizes, folder_saving, model_saved, n_epochs, lr, batch_size, weight_decay, soft_loss_weight = 0):
 
+    os.makedirs(folder_saving, exist_ok=True)
     # check if CUDA is available
     train_on_gpu = torch.cuda.is_available()
     print(train_on_gpu) 
@@ -277,6 +278,8 @@ def train(X_train, y_train, X_valid, y_valid, n_tasks, input_size, hidden_sizes,
 
 
 def train_with_clusters(X_train, y_train, X_valid, y_valid, cluster_labels, cluster_labels_valid, n_clusters, input_size, hidden_sizes, task_specific_hidden_sizes, folder_saving, model_saved, n_epochs, lr, batch_size, weight_decay, lead, pretrained_path):
+
+    os.makedirs(folder_saving, exist_ok=True)
 
     # check if CUDA is available
     train_on_gpu = torch.cuda.is_available()
