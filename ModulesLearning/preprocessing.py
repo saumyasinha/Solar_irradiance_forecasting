@@ -6,6 +6,7 @@ from dateutil import parser
 from datetime import datetime
 import datetime
 import pickle
+import os
 from datetime import date, timedelta
 
 pd.set_option('display.max_rows', 500)
@@ -81,11 +82,11 @@ def create_lead_dataset(dataframe, lead, final_set_of_features, target):
     target = np.asarray(dataframe[target])
     print("for target, it is rolled by lead (Y var) \n")
     target = np.roll(target, -lead)
-    target[-lead:] = np.nan
+    # target[-lead:] = np.nan
     dataframe_lead['clearness_index'] = target
 
     # remove rows which have any value as NaN
-    dataframe_lead = dataframe_lead.dropna()
+    # dataframe_lead = dataframe_lead.dropna()
     print("*****************")
     print("dataframe with lead size: ",len(dataframe_lead))
     return dataframe_lead
@@ -313,7 +314,14 @@ def standardize_from_train(X_train, X_valid, X_test, folder_saving, model, lead=
 
 
 def shuffle(X,y):
-    p = np.random.permutation(len(X))
+
+    if os.path.isfile('indices.npy') == False:
+        print("here")
+        p = np.random.permutation(len(X))
+        np.save('indices.npy', p)
+    else:
+        p = np.load('indices.npy')
+
     return X[p], y[p]
 
 

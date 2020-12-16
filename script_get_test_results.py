@@ -215,7 +215,7 @@ def main():
                 X_train, X_valid, X_test = preprocess.standardize_from_train(X_train=None, X_valid=None, X_test=X_heldout, folder_saving = folder_saving+season_flag + "/ML_models_2008/nn/",model = reg, lead = lead)
                 # X_train, y_train = preprocess.shuffle(X_train, y_train)
 
-                y_test = np.reshape(y_test, -1)
+                y_test = np.reshape(y_heldout, -1)
 
                 f.write("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
 

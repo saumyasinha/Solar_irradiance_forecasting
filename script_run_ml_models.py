@@ -23,7 +23,7 @@ pd.set_option('display.width', 1000)
 city = 'Penn_State_PA'
 
 # lead time
-lead_times = [2,3,4,5,6] #from [1,2,3,4,5,6]
+lead_times = [1,2,3,4,5,6] #from [1,2,3,4,5,6]
 
 # season
 seasons =['summer'] #from ['fall', 'winter', 'spring', 'summer', 'year']
@@ -175,6 +175,7 @@ def main():
         ## creating different folder for different methods: nn for fully connected networks, rf for random forest etc.
         os.makedirs(folder_saving + season_flag + "/ML_models_2008/rf/", exist_ok=True)
         f = open(folder_saving + season_flag + '/ML_models_2008/rf/results.txt', 'a')
+
         for lead in lead_times:
             # create dataset with lead
             df_lead = preprocess.create_lead_dataset(df_final, lead, final_features, target_feature)
@@ -211,15 +212,20 @@ def main():
                 print("Final train size: ", X_train.shape, y_train.shape)
                 print("Final heldout size: ", X_heldout.shape, y_heldout.shape)
 
-                # training_samples = int(0.8 * len(X_train))
-                # X_valid = X_train[training_samples:]
-                # X_train = X_train[:training_samples]
-                # y_valid = y_train[training_samples:]
-                # y_train = y_train[:training_samples]
+                ## dividing the X_train data into train(70%)/valid(20%)/test(10%), the heldout data is kept hidden
+                X_train, y_train = preprocess.shuffle(X_train, y_train)
+                training_samples = int(0.7 * len(X_train))
+                X_valid = X_train[training_samples:]
+                X_train = X_train[:training_samples]
+                y_valid = y_train[training_samples:]
+                y_train = y_train[:training_samples]
 
-                ## dividing the X_train data into train(70%)/valid(15/5)/test(15%), the heldout data is kept hidden
-                X_train, X_test, y_train, y_test = train_test_split(X_train, y_train, test_size=0.3, random_state=42)
-                X_valid, X_test, y_valid, y_test = train_test_split(X_test, y_test, test_size=0.5, random_state=42)
+                valid_samples = int(0.7*len(X_valid))
+                X_test = X_valid[valid_samples:]
+                X_valid = X_valid[:valid_samples]
+                y_test = y_valid[valid_samples:]
+                y_valid = y_valid[:valid_samples]
+
 
                 print("train/valid/test sizes: ",len(X_train)," ",len(X_valid)," ", len(X_test))
 
@@ -230,16 +236,17 @@ def main():
                 X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, X_test, folder_saving+season_flag + "/ML_models_2008/nn/",reg, lead)
 
 
-                # y_train = np.reshape(y_train, -1)
+                y_train = np.reshape(y_train, -1)
                 y_test = np.reshape(y_test, -1)
                 y_valid = np.reshape(y_valid, -1)
 
                 # call the gridSearch and saving model
-                # model = models.rfGridSearch_model(X_train, y_train)
+                model = models.rfSearch_model(X_train, y_train)
                 # for name, importance in zip(final_features[5:], model.best_estimator_.feature_importances_):
                 #     print(name, "=", importance)
-                model = models.fnn_train(X_train, y_train, folder_saving+ season_flag + '/ML_models_2008/nn/', epochs=epochs, model_saved="FNN_single_task_at_lead_"+str(lead))
-                #
+                # model = models.fnn_train(X_train, y_train, folder_saving+ season_flag + '/ML_models_2008/nn/', epochs=epochs, model_saved="FNN_single_task_at_lead_"+str(lead))
+
+                ## When including clustering for these models
                 # features_indices_to_cluster_on = [col_to_indices_mapping[f] for f in features_to_cluster_on]
                 # print(features_indices_to_cluster_on)
                 #
@@ -259,15 +266,17 @@ def main():
                 # model_dict = clustering.train(X_train,y_train, cluster_labels, n_clusters)
                 # pickle.dump(kmeans, open(
                 #     folder_saving + season_flag + "/ML_models_2008/rf/clustering/kmeans_at_lead_" + str(lead) + ".pkl", "wb"))
+
                 f.write("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
-
-                y_pred = models.fnn_test(X_test, model)
+                f.write("\n best parameter found: ")
+                f.write(str(model.best_params_))
+                # y_pred = models.fnn_test(X_test, model.best_estimator_)
                 # y_pred = clustering.cluster_and_predict(X_test, model_dict, cluster_labels_test)
-                # y_pred = model.predict(X_test)
-
-                y_valid_pred = models.fnn_test(X_valid, model)
+                y_pred = model.predict(X_test)
+                #
+                # y_valid_pred = models.fnn_test(X_valid, model.best_estimator_)
                 # y_valid_pred = clustering.cluster_and_predict(X_valid, model_dict, cluster_labels_valid)
-                # y_valid_pred = model.predict(X_valid)
+                y_valid_pred = model.predict(X_valid)
 
                 y_pred = np.reshape(y_pred, -1)
                 y_valid_pred = np.reshape(y_valid_pred, -1)

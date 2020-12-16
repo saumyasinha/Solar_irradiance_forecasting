@@ -131,15 +131,16 @@ def fnn_train(X_train, y_train, folder_saving, epochs=500, model_saved="FNN"):
         criterion=nn.MSELoss,
         max_epochs=epochs,
         optimizer=optim.Adam,
+        batch_size=64,
         optimizer__lr=.001,
         optimizer__weight_decay = 1e-5
     )
     print(net)
 
     params = {
-        'optimizer__lr': [0.001, 0.0001],
-        'batch_size' : [32, 64],
-        'module__hidden_sizes': [[64,16],[32,32],[32,24],[24,16], [32,8]]
+        'optimizer__lr': [0.01, 0.001, 0.0001],
+        'module__dropout_rate' : [0.5,0],
+        'module__hidden_sizes': [[64,16],[128,64],[32,32],[24,16], [64,16,8]]
     }
     #
     gs = RandomizedSearchCV(net, param_distributions=params, refit=True,cv=3,scoring='neg_mean_squared_error',n_iter=100)
@@ -161,8 +162,8 @@ def fnn_train(X_train, y_train, folder_saving, epochs=500, model_saved="FNN"):
     plt.legend(['Train', 'Validation'])
     plt.savefig(folder_saving+"loss_plots_"+model_saved)
 
-
-    return gs.best_estimator_
+    return gs
+    # return gs.best_estimator_
 
     # net = Network(input_size=input_size,
     #             hidden_sizes=hidden_sizes)
@@ -245,6 +246,37 @@ def fnn_test(X_test, net, model_path=None):
 
 
 ###### Ensemble models ##############
+def rfSearch_model(X, y):
+    # Number of trees in random forest
+    n_estimators = [int(x) for x in np.linspace(start=200, stop=800, num=7)]
+    # Number of features to consider at every split
+    max_features = ['auto', 'sqrt']
+    # Maximum number of levels in tree
+    max_depth = [int(x) for x in np.linspace(10, 110, num=11)]
+    max_depth.append(None)
+    # Minimum number of samples required to split a node
+    min_samples_split = [2, 5, 10]
+    # Minimum number of samples required at each leaf node
+    min_samples_leaf = [1, 2, 4]
+    # Method of selecting samples for training each tree
+    # bootstrap = [True, False]
+    # Create the random grid
+    random_grid = {'n_estimators': n_estimators,
+                   'max_features': max_features,
+                   'max_depth': max_depth,
+                   'min_samples_split': min_samples_split,
+                   'min_samples_leaf': min_samples_leaf}
+
+    # Use the random grid to search for best hyperparameters
+    # First create the base model to tune
+    rf = RandomForestRegressor()
+    # Random search of parameters, using 3 fold cross validation,
+    # search across 100 different combinations, and use all available cores
+    rf_random = RandomizedSearchCV(estimator=rf, param_distributions=random_grid,scoring = 'neg_mean_squared_error', n_iter=100, cv=3,
+                                   random_state=42, n_jobs=-1)
+    # Fit the random search model
+    rf_random.fit(X, y)
+    return rf_random
 
 def rfGridSearch_model(X, y):
 

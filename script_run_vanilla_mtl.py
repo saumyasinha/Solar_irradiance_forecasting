@@ -92,12 +92,12 @@ def create_mulitple_lead_dataset(dataframe, final_set_of_features, target):
 
     dataframe_lead['clearness_index'] = np.column_stack(y_list).tolist()
     dataframe_lead['clearness_index'] = dataframe_lead['clearness_index'].apply(tuple)
-    max_lead = np.max(lead_times)
-    dataframe_lead['clearness_index'].values[-max_lead:] = np.nan
+    # max_lead = np.max(lead_times)
+    # dataframe_lead['clearness_index'].values[-max_lead:] = np.nan
     print(dataframe_lead['clearness_index'])
 
     # remove rows which have any value as NaN
-    dataframe_lead = dataframe_lead.dropna()
+    # dataframe_lead = dataframe_lead.dropna()
     print("*****************")
     print("dataframe with lead size: ", len(dataframe_lead))
     return dataframe_lead
@@ -233,8 +233,20 @@ def main():
 
 
             ## dividing the X_train data into train(70%)/valid(15/5)/test(15%), the heldout data is kept hidden
-            X_train, X_test, y_train, y_test = train_test_split(X_train, y_train, test_size=0.3, random_state=42)
-            X_valid, X_test, y_valid, y_test = train_test_split(X_test, y_test, test_size=0.5, random_state=42)
+            # X_train, X_test, y_train, y_test = train_test_split(X_train, y_train, test_size=0.3, random_state=42)
+            # X_valid, X_test, y_valid, y_test = train_test_split(X_test, y_test, test_size=0.5, random_state=42)
+            X_train, y_train = preprocess.shuffle(X_train, y_train)
+            training_samples = int(0.7 * len(X_train))
+            X_valid = X_train[training_samples:]
+            X_train = X_train[:training_samples]
+            y_valid = y_train[training_samples:]
+            y_train = y_train[:training_samples]
+
+            valid_samples = int(0.7 * len(X_valid))
+            X_test = X_valid[valid_samples:]
+            X_valid = X_valid[:valid_samples]
+            y_test = y_valid[valid_samples:]
+            y_valid = y_valid[:valid_samples]
 
             print("train/valid/test sizes: ", X_train.shape, " ", X_valid.shape, " ", X_test.shape)
             print("train/valid/test label sizes: ", y_train.shape, " ", y_valid.shape, " ", y_test.shape)

@@ -214,12 +214,22 @@ def main():
 
 
                 ## dividing the X_train data into train(70%)/valid(15/5)/test(15%), the heldout data is kept hidden
-                X_train, X_test, y_train, y_test = train_test_split(X_train, y_train, test_size=0.3, random_state=42)
-                X_valid, X_test, y_valid, y_test = train_test_split(X_test, y_test, test_size=0.5, random_state=42)
+                X_train, y_train = preprocess.shuffle(X_train, y_train)
+                training_samples = int(0.7 * len(X_train))
+                X_valid = X_train[training_samples:]
+                X_train = X_train[:training_samples]
+                y_valid = y_train[training_samples:]
+                y_train = y_train[:training_samples]
+
+                valid_samples = int(0.7 * len(X_valid))
+                X_test = X_valid[valid_samples:]
+                X_valid = X_valid[:valid_samples]
+                y_test = y_valid[valid_samples:]
+                y_valid = y_valid[:valid_samples]
 
                 print("train/valid/test sizes: ", len(X_train), " ", len(X_valid), " ", len(X_test))
 
-                y_train  = np.reshape(y_train, -1)
+                # y_train  = np.reshape(y_train, -1)
                 y_test = np.reshape(y_test, -1)
                 y_valid = np.reshape(y_valid, -1)
 
@@ -247,23 +257,23 @@ def main():
                     for hidden_sizes in hidden_sizes_list:
                         for task_specific_hidden_sizes in task_specific_hidden_sizes_list:
                             for weight_decay in weight_decay_list:
-                                folder_saving = folder_saving+"hyperparameter_tuning_"+str(counter)+"/"
+                                folder_sub_saving = folder_saving+"hyperparameter_tuning_"+str(counter)+"/"
                                 counter = counter+1
 
-                                train_model.train_with_clusters(X_train, y_train, X_valid, y_valid, cluster_labels, cluster_labels_valid, n_clusters, input_size, hidden_sizes, task_specific_hidden_sizes,folder_saving = folder_saving, model_saved = reg + "_for_lead_" + str(
+                                train_model.train_with_clusters(X_train, y_train, X_valid, y_valid, cluster_labels, cluster_labels_valid, n_clusters, input_size, hidden_sizes, task_specific_hidden_sizes,folder_saving = folder_sub_saving, model_saved = reg + "_for_lead_" + str(
                         lead), n_epochs = epochs, lr = lr, batch_size = bs, weight_decay = weight_decay, lead = lead, pretrained_path = pretrained_path)
 
                                 y_valid_pred = test_and_save_predictions.get_predictions_with_clustering_on_test(
                                     reg+"_for_lead_"+str(lead), X_valid,
                                     y_valid, input_size, hidden_sizes,task_specific_hidden_sizes, n_clusters,cluster_labels_valid ,
-                                    folder_saving, pretrained_path)
+                                    folder_sub_saving, pretrained_path)
 
                                 y_pred = test_and_save_predictions.get_predictions_with_clustering_on_test(
                                     reg+"_for_lead_"+str(lead), X_test,
                                     y_test, input_size, hidden_sizes,task_specific_hidden_sizes, n_clusters, cluster_labels_test,
-                                    folder_saving, pretrained_path)
+                                    folder_sub_saving, pretrained_path)
 
-                                f = open(folder_saving + 'results.txt')
+                                f = open(folder_sub_saving + 'results.txt')
 
                                 f.write("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
                                 f.write("\n"+reg)
