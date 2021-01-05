@@ -116,7 +116,7 @@ def get_predictions_with_clustering_on_test(PATH, X_test,y_test, input_size, hid
         pred = model(data[i].reshape(1, -1))
         y_pred.append(pred[:,cluster_label].item())
 
-    print(np.araay(y_pred).shape)
+    print(np.array(y_pred).shape)
     return y_pred
 
 

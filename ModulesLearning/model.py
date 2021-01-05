@@ -3,7 +3,7 @@ from sklearn.linear_model import LinearRegression, LassoCV
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.model_selection import GridSearchCV
-from xgboost.sklearn import XGBRegressor
+
 from random import seed
 from random import random
 import matplotlib.pyplot as plt

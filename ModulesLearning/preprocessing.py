@@ -181,7 +181,8 @@ def get_train_test_data(dataframe_train, dataframe_test, final_set_of_features, 
     '''
     final_features = []
     for feature in final_set_of_features:
-        if feature not in ['year', 'month', 'day', 'hour', 'MinFlag']:
+        # if feature not in ['year', 'month', 'day', 'hour', 'MinFlag']:
+        if feature not in ['year', 'month', 'day', 'MinFlag']:
             final_features.append(feature)
 
     # storing the position/indices of clear_ghi, ghi, and zen

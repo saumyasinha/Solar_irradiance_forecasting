@@ -23,13 +23,13 @@ pd.set_option('display.width', 1000)
 city = 'Penn_State_PA'
 
 # lead time
-lead_times = [5,6] #from [1,2,3,4,5,6]
+lead_times = [1,2,3,4,5,6] #from [1,2,3,4,5,6]
 
 # season
 seasons =['summer'] #from ['fall', 'winter', 'spring', 'summer', 'year']
 
 # file locations
-path_project = "/Users/saumya/Desktop/SolarProject/"
+path_project = "C:\\Users\Shivendra\Desktop\SolarProject\solar_forecasting/"
 path = path_project+"Data/"
 primary_folder_saving = path_project + "Models/"
 folder_plots = path_project + "Plots/"
@@ -42,8 +42,9 @@ features = ['year','month','day','hour','min','zen','dw_solar','uw_solar','direc
 # final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','dw_ir','temp','rh','windspd','winddir','pressure','clear_ghi']
 ## explore more features, but a lot of them are categorical so might want to remove those
 final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
-features_to_cluster_on = ['dw_solar','dw_ir', 'temp','pressure', 'windspd']
-n_clusters = 6
+# features_to_cluster_on = ['dw_solar','dw_ir', 'temp','pressure', 'windspd']
+features_to_cluster_on = ['dw_solar','temp']
+n_clusters = 3 #6
 # target or Y
 target_feature = ['clearness_index']
 
@@ -57,12 +58,12 @@ endmonth = 8
 testyear = 2008  # i.e all of Fall(Sep2008-Nov2008), Winter(Dec2008-Feb2009), Spring(Mar2009-May2009), Summer(June2009-Aug2009), year(Sep2008-Aug2009)
 
 # hyperparameters
-bs = 16
+bs = 32
 epochs = 750
-lr_list = [0.001, 0.0001]
-hidden_sizes_list = [[64,16]]   ## whatever I get from the STL model for that forecast period
-task_specific_hidden_sizes_list = [None,[8],[16]]
-weight_decay_list = [1e-5 ,1e-4]
+lr_list = [0.0001] #0.001 originally
+hidden_sizes_list = [[128,64]]   ## whatever I get from the STL model for that forecast period
+task_specific_hidden_sizes_list = [None,[8],[16],[32]]
+weight_decay_list = [0.005] #1e-5 originally
 
 reg = "mtl_fine_tuned"
 
@@ -179,7 +180,7 @@ def main():
         date_with_hr_sec = now.strftime("%Y_%m_%d_%H_%M_%S")
         folder_saving = primary_folder_saving + season_flag + "/" + reg + "/" + date_with_hr_sec + "/"
         os.makedirs(folder_saving, exist_ok=True)
-        f = open(folder_saving + 'results.txt', 'a')
+        # f = open(folder_saving + 'results.txt', 'a')
 
         for lead in lead_times:
             # create dataset with lead
@@ -229,7 +230,7 @@ def main():
 
                 print("train/valid/test sizes: ", len(X_train), " ", len(X_valid), " ", len(X_test))
 
-                # y_train  = np.reshape(y_train, -1)
+                y_train  = np.reshape(y_train, -1)
                 y_test = np.reshape(y_test, -1)
                 y_valid = np.reshape(y_valid, -1)
 
@@ -237,12 +238,14 @@ def main():
 
                 features_indices_to_cluster_on = [col_to_indices_mapping[f] for f in features_to_cluster_on]
                 print(features_indices_to_cluster_on)
-                kmeans = clustering.clustering(X_train, features_indices_to_cluster_on,
-                                                               n_clusters=n_clusters)
-                pickle.dump(kmeans, open(folder_saving + "kmeans_for_lead_"+str(lead)+".pkl", "wb"))
+                # kmeans = clustering.clustering(X_train, features_indices_to_cluster_on,
+                #                                                n_clusters=n_clusters)
+                # pickle.dump(kmeans, open(folder_saving + "kmeans_for_lead_"+str(lead)+".pkl", "wb"))
+                with open(primary_folder_saving + season_flag + "/" + reg + "/2020_12_17_16_14_01/" + "kmeans_for_lead_"+str(lead)+".pkl","rb") as clusterfile:
+                    kmeans = pickle.load(clusterfile)
                 cluster_labels = kmeans.labels_
 
-                print(Counter(cluster_labels))
+                c = Counter(cluster_labels)
 
                 cluster_labels_valid = clustering.get_closest_clusters(X_valid, kmeans, features_indices_to_cluster_on)
                 cluster_labels_test = clustering.get_closest_clusters(X_test, kmeans, features_indices_to_cluster_on)
@@ -273,10 +276,11 @@ def main():
                                     y_test, input_size, hidden_sizes,task_specific_hidden_sizes, n_clusters, cluster_labels_test,
                                     folder_sub_saving, pretrained_path)
 
-                                f = open(folder_sub_saving + 'results.txt')
+                                f = open(folder_sub_saving + 'results.txt','a')
 
                                 f.write("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
                                 f.write("\n"+reg)
+                                f.write("\nClustering output and based on: "+str(features_to_cluster_on)+" "+str(c))
                                 f.write("\nArchitecture:\n")
                                 f.write("hidden size: " + str(hidden_sizes) + ",")
                                 f.write("task specific size: " + str(task_specific_hidden_sizes)+",")

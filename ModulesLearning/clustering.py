@@ -68,7 +68,8 @@ def train(X_train,y_train, cluster_labels, n_clusters=2):
         # X_valid_i = X_valid[cluster_valid_labels == i]
         # y_valid_i = y_valid[cluster_valid_labels == i]
 
-        model_i = models.rfGridSearch_model(X_train_i, y_train_i)
+        model_i = models.rfSearch_model(X_train_i, y_train_i)
+
 
         model_dict[i] = model_i
 
