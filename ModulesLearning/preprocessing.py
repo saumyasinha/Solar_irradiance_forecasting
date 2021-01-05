@@ -273,7 +273,7 @@ def filter_dayvalues_and_zero_clearghi(X_all, y_all, index_zen, index_clearghi, 
 
 
 
-def standardize_from_train(X_train, X_valid, X_test, folder_saving, model, lead=""):
+def standardize_from_train(X_train, X_valid, X_test, y_train, y_valid, y_test, folder_saving, model, lead=""):
     '''
     Standardize (or 'normalize') the feature matrices.
     '''
@@ -288,10 +288,22 @@ def standardize_from_train(X_train, X_valid, X_test, folder_saving, model, lead=
             max = np.max(X_train[:,i])
             min = np.min(X_train[:,i])
             ##normalize or standarize ?
-            X_train[:,i] = (X_train[:,i] - mean)/std
-            X_valid[:, i] = (X_valid[:, i] - mean) / std
-            X_test[:,i] = (X_test[:,i] - mean)/std
-            standarize_dict[i] = (mean,std)
+            # X_train[:,i] = (X_train[:,i] - mean)/std
+            # X_valid[:, i] = (X_valid[:, i] - mean) / std
+            # X_test[:,i] = (X_test[:,i] - mean)/std
+            # standarize_dict[i] = (mean,std)
+            X_train[:,i] = (X_train[:,i] - min)/(max-min)
+            X_valid[:, i] = (X_valid[:, i] - min) / (max-min)
+            X_test[:,i] = (X_test[:,i] - min)/(max-min)
+            standarize_dict[i] = (max,min)
+
+        y_min = np.min(y_train)
+        y_max = np.max(y_train)
+
+        y_train = (y_train - y_min) / (y_max - y_min)
+        y_valid = (y_valid - y_min) / (y_max - y_min)
+        y_test = (y_test - y_min) / (y_max - y_min)
+        standarize_dict["y"] = (y_max,y_min)
 
         with open(folder_saving+model+"_standarize_data_for_lead_"+str(lead)+".pickle", 'wb') as handle:
             pickle.dump(standarize_dict, handle)
@@ -304,14 +316,20 @@ def standardize_from_train(X_train, X_valid, X_test, folder_saving, model, lead=
             standarize_dict = pickle.load(handle)
 
         for i in range(cols):
-
-            mean = standarize_dict[i][0]
-            std = standarize_dict[i][1]
             ##normalize or standarize ?
-            X_test[:,i] = (X_test[:,i] - mean)/std
+            # mean = standarize_dict[i][0]
+            # std = standarize_dict[i][1]
+            # X_test[:,i] = (X_test[:,i] - mean)/std
+            max = standarize_dict[i][0]
+            min = standarize_dict[i][1]
+            X_test[:,i] = (X_test[:,i] - min)/(max-min)
+
+        y_max = standarize_dict["y"][0]
+        y_min = standarize_dict["y"][1]
+        y_test = (y_test - y_min) / (y_max - y_min)
 
 
-    return X_train, X_valid, X_test
+    return X_train, X_valid, X_test, y_train, y_valid, y_test
 
 
 def shuffle(X,y):

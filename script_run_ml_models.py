@@ -29,7 +29,8 @@ lead_times = [1] #from [1,2,3,4,5,6]
 seasons =['summer'] #from ['fall', 'winter', 'spring', 'summer', 'year']
 
 # file locations
-path_project = "C:\\Users\Shivendra\Desktop\SolarProject\solar_forecasting/"
+# path_project = "C:\\Users\Shivendra\Desktop\SolarProject\solar_forecasting/"
+path_project = "/Users/saumya/Desktop/SolarProject/"
 path = path_project+"Data/"
 folder_saving = path_project + "Models/"
 folder_plots = path_project + "Plots/"
@@ -82,16 +83,18 @@ def get_data():
 def include_previous_features(X, index_ghi):
 
     y_list = []
-    previous_time_periods = [1,2,3,4,5,6,7,8] #[1,2]
+    previous_time_periods = [1*4,2*4,3*4,4*4,5*4,6*4,7*4,8*4,9*4,10*4,11*4,12*4] #[1,2]
+    dw_solar = X[:, index_ghi]
+
     for l in previous_time_periods:
         print("rolling by: ", l)
-        X_train_shifted = np.roll(X, l)
+        dw_solar_rolled = np.roll(dw_solar,l)
         # y_list.append(X_train_shifted)
-        y_list.append(X_train_shifted[:, index_ghi])
+        y_list.append(dw_solar_rolled)
 
-    print(y_list)
+    # print(y_list)
     previous_time_periods_columns = np.column_stack(y_list)
-    # print(previous_time_periods_columns[8:15])
+    print(previous_time_periods_columns[:10])
     X = np.column_stack([X,previous_time_periods_columns])
     # max_lead = np.max(previous_time_periods)
     # X = X[max_lead:]
@@ -166,6 +169,7 @@ def main():
     df_final['clearness_index'] = df_final['dw_solar'] / df_final['clear_ghi']
     df_final.reset_index(drop=True, inplace=True)
     print("after removing data points with 0 clear_ghi and selecting daytimes",len(df_final))
+    # print(df_final.describe())
 
     # adjust the outliers for clearness index (no need to do this anymore -- since 0 clear_ghi is already taken care of)
     # df = preprocess.adjust_outlier_clearness_index(df)
@@ -203,15 +207,15 @@ def main():
                     df_train, df_heldout, final_features, target_feature)
                 print("\n\n train and test df shapes ")
                 print(X_train.shape, y_train.shape, X_heldout.shape, y_heldout.shape)
-                print(col_to_indices_mapping)
+
                 # filter the training to have only day values
                 # X_train, y_train = preprocess.filter_dayvalues_and_zero_clearghi(X_train_all, y_train_all,
                 #                                                                       index_zen, index_clearghi)
 
-                ## including features from t-1 and t-2 timestamps
+                ## including features from prev imestamps
                 X_train = include_previous_features(X_train, index_ghi)
                 X_heldout = include_previous_features(X_heldout, index_ghi)
-                print(X_train[:10])
+
                 print("Final train size: ", X_train.shape, y_train.shape)
                 print("Final heldout size: ", X_heldout.shape, y_heldout.shape)
 
@@ -236,7 +240,7 @@ def main():
                 reg = "rf_modified_features" ## giving a name to the regression models -- useful when saving results
 
                 # normalizing the Xtrain, Xvalid and Xtest data and saving the mean,std of train to normalize the heldout data later
-                X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, X_test, folder_saving+season_flag + "/ML_models_2008/rf/modified_features/",reg, lead)
+                X_train, X_valid, X_test, y_train, y_valid, y_test = preprocess.standardize_from_train(X_train, X_valid, X_test, y_train, y_valid, y_test, folder_saving+season_flag + "/ML_models_2008/rf/modified_features/",reg, lead)
 
 
                 y_train = np.reshape(y_train, -1)

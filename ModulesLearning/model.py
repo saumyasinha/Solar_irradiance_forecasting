@@ -1,4 +1,5 @@
 import numpy as np
+import time
 from sklearn.linear_model import LinearRegression, LassoCV
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import RandomizedSearchCV
@@ -20,6 +21,10 @@ from skorch import NeuralNetRegressor
 from sklearn.model_selection import RandomizedSearchCV
 from torch.autograd import Variable
 from SolarForecasting.ModulesLearning import preprocessing as preprocess
+from keras.models import Sequential
+from keras.layers import Dense, LSTM, Dropout
+
+from keras.models import load_model
 
 
 
@@ -297,18 +302,56 @@ def rfGridSearch_model(X, y):
     print("params:", grid_search.best_params_)
     return grid_search
 
-def xg_boost(X_train, y_train):
-    param_grid = {
-        'min_child_weight': [1, 5, 10],
-        'gamma': [0.5, 1, 1.5, 2, 5],
-        'subsample': [0.6, 0.8, 1.0],
-        'colsample_bytree': [0.6, 0.8, 1.0],
-        'max_depth': [3, 4, 5]
-    }
+# def xg_boost(X_train, y_train):
+#     param_grid = {
+#         'min_child_weight': [1, 5, 10],
+#         'gamma': [0.5, 1, 1.5, 2, 5],
+#         'subsample': [0.6, 0.8, 1.0],
+#         'colsample_bytree': [0.6, 0.8, 1.0],
+#         'max_depth': [3, 4, 5]
+#     }
+#
+#     xgb = XGBRegressor()
+#
+#     grid_search = RandomizedSearchCV(estimator=xgb, param_distributions=param_grid, scoring='neg_mean_squared_error')
+#     grid_search.fit(X_train, y_train)
+#     print("params:", grid_search.best_params_)
+#     return grid_search
 
-    xgb = XGBRegressor()
 
-    grid_search = RandomizedSearchCV(estimator=xgb, param_distributions=param_grid, scoring='neg_mean_squared_error')
-    grid_search.fit(X_train, y_train)
-    print("params:", grid_search.best_params_)
-    return grid_search
+### LSTM/RNN method
+def lstm_model(X_train, y_train, X_valid, y_valid, folder_saving, model_saved):
+
+    X_train = X_train.reshape((X_train.shape[0], 1, X_train.shape[1]))
+    X_valid = X_valid.reshape((X_valid.shape[0], 1, X_valid.shape[1]))
+
+    epochs_ = 50
+    batch_size_ = 16
+    dropout_ = .3
+
+    # design network                                                            #
+    model = Sequential()  #
+    model.add(LSTM(100, input_shape=(X_train.shape[1], X_train.shape[2])))  #
+    model.add(Dropout(dropout_))  #
+    model.add(Dense(1))  #
+    model.compile(loss='mean_squared_error', optimizer='adam')  #
+    #
+    # fit network                                                               #
+    history = model.fit(X_train,  #
+                        y_train,  #
+                        epochs=epochs_,  #
+                        batch_size=batch_size_,  #
+                        validation_data=(X_valid, y_valid),  #
+                        verbose=1,  #
+                        shuffle=False)  #
+    #
+    # Save model for later                                                      #
+    model.save(folder_saving + model_saved)  #
+
+    # plot history
+    plt.plot(history.history['loss'], label='train')
+    plt.plot(history.history['val_loss'], label='valid')
+    plt.legend()
+    plt.title("loss plots")
+    plt.savefig(folder_saving+model_saved+"_loss_plots")
+
