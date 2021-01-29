@@ -273,7 +273,7 @@ def filter_dayvalues_and_zero_clearghi(X_all, y_all, index_zen, index_clearghi, 
 
 
 
-def standardize_from_train(X_train, X_valid, X_test, y_train, y_valid, y_test, folder_saving, model, lead=""):
+def standardize_from_train(X_train, X_valid, X_test, folder_saving, model, lead=""):
     '''
     Standardize (or 'normalize') the feature matrices.
     '''
@@ -297,13 +297,7 @@ def standardize_from_train(X_train, X_valid, X_test, y_train, y_valid, y_test, f
             X_test[:,i] = (X_test[:,i] - min)/(max-min)
             standarize_dict[i] = (max,min)
 
-        y_min = np.min(y_train)
-        y_max = np.max(y_train)
 
-        y_train = (y_train - y_min) / (y_max - y_min)
-        y_valid = (y_valid - y_min) / (y_max - y_min)
-        y_test = (y_test - y_min) / (y_max - y_min)
-        standarize_dict["y"] = (y_max,y_min)
 
         with open(folder_saving+model+"_standarize_data_for_lead_"+str(lead)+".pickle", 'wb') as handle:
             pickle.dump(standarize_dict, handle)
@@ -324,22 +318,18 @@ def standardize_from_train(X_train, X_valid, X_test, y_train, y_valid, y_test, f
             min = standarize_dict[i][1]
             X_test[:,i] = (X_test[:,i] - min)/(max-min)
 
-        y_max = standarize_dict["y"][0]
-        y_min = standarize_dict["y"][1]
-        y_test = (y_test - y_min) / (y_max - y_min)
 
-
-    return X_train, X_valid, X_test, y_train, y_valid, y_test
+    return X_train, X_valid, X_test
 
 
 def shuffle(X,y):
 
-    if os.path.isfile('indices.npy') == False:
+    if os.path.isfile('indices_year.npy') == False:
         print("here")
         p = np.random.permutation(len(X))
-        np.save('indices.npy', p)
+        np.save('indices_year.npy', p)
     else:
-        p = np.load('indices.npy')
+        p = np.load('indices_year.npy')
 
     return X[p], y[p]
 

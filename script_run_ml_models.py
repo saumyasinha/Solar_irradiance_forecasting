@@ -23,14 +23,14 @@ pd.set_option('display.width', 1000)
 city = 'Penn_State_PA'
 
 # lead time
-lead_times = [1] #from [1,2,3,4,5,6]
+lead_times = [1,2,3,4,5,6,7,8] #from [1,2,3,4,5,6]
 
 # season
-seasons =['summer'] #from ['fall', 'winter', 'spring', 'summer', 'year']
+seasons =['year'] #from ['fall', 'winter', 'spring', 'summer', 'year']
 
 # file locations
-# path_project = "C:\\Users\Shivendra\Desktop\SolarProject\solar_forecasting/"
-path_project = "/Users/saumya/Desktop/SolarProject/"
+path_project = "C:\\Users\Shivendra\Desktop\SolarProject\solar_forecasting/"
+# path_project = "/Users/saumya/Desktop/SolarProject/"
 path = path_project+"Data/"
 folder_saving = path_project + "Models/"
 folder_plots = path_project + "Plots/"
@@ -80,21 +80,22 @@ def get_data():
         object.process(path_to_column_names='ModulesProcessing/column_names.pkl')
 
 
-def include_previous_features(X, index_ghi):
+def include_previous_features(X, index_feature):
 
     y_list = []
-    previous_time_periods = [1*4,2*4,3*4,4*4,5*4,6*4,7*4,8*4,9*4,10*4,11*4,12*4] #[1,2]
-    dw_solar = X[:, index_ghi]
+    previous_time_periods = [1,2,3,4,5,6,7,8,9,10,11,12] #[1,2]
+    dw_solar = X[:, index_feature]
 
     for l in previous_time_periods:
         print("rolling by: ", l)
         dw_solar_rolled = np.roll(dw_solar,l)
+        # X_train_shifted = np.roll(X,l)
         # y_list.append(X_train_shifted)
         y_list.append(dw_solar_rolled)
 
     # print(y_list)
     previous_time_periods_columns = np.column_stack(y_list)
-    print(previous_time_periods_columns[:10])
+    # print(previous_time_periods_columns[:10])
     X = np.column_stack([X,previous_time_periods_columns])
     # max_lead = np.max(previous_time_periods)
     # X = X[max_lead:]
@@ -147,7 +148,7 @@ def main():
     df = preprocess.extract_study_period(df,startmonth, startyear, endmonth, endyear)
     print("\n\n after extracting study period")
     df.reset_index(drop=True, inplace=True)
-    print(df.tail)
+    # print(df.tail)
 
 
     # ## removing outliers from this dataset and then removing nan rows
@@ -167,6 +168,7 @@ def main():
     df = df[df['clear_ghi'] > 0]
     df_final = df[df['zen']<85]
     df_final['clearness_index'] = df_final['dw_solar'] / df_final['clear_ghi']
+    # df_final['clearness_index'] = df_final['dw_solar']
     df_final.reset_index(drop=True, inplace=True)
     print("after removing data points with 0 clear_ghi and selecting daytimes",len(df_final))
     # print(df_final.describe())
@@ -180,8 +182,8 @@ def main():
     for season_flag in seasons:
         ## ML_models_2008 is the folder to save results on testyear 2008
         ## creating different folder for different methods: nn for fully connected networks, rf for random forest etc.
-        os.makedirs(folder_saving + season_flag + "/ML_models_2008/rf/modified_features/", exist_ok=True)
-        f = open(folder_saving + season_flag + '/ML_models_2008/rf/modified_features/results.txt', 'a')
+        os.makedirs(folder_saving + season_flag + "/ML_models_2008/rf/modified_features_with_directn/", exist_ok=True)
+        f = open(folder_saving + season_flag + '/ML_models_2008/rf/modified_features_with_directn/results.txt', 'a')
 
         for lead in lead_times:
             # create dataset with lead
@@ -190,7 +192,7 @@ def main():
             # get the seasonal data you want
             df, test_startdate, test_enddate = preprocess.get_yearly_or_season_data(df_lead, season_flag, testyear)
             print("\n\n after getting seasonal data (test_startdate; test_enddate)", test_startdate, test_enddate)
-            print(df.tail)
+            # print(df.tail)
 
 
 
@@ -213,8 +215,8 @@ def main():
                 #                                                                       index_zen, index_clearghi)
 
                 ## including features from prev imestamps
-                X_train = include_previous_features(X_train, index_ghi)
-                X_heldout = include_previous_features(X_heldout, index_ghi)
+                X_train = include_previous_features(X_train, col_to_indices_mapping['direct_n'])
+                X_heldout = include_previous_features(X_heldout, col_to_indices_mapping['direct_n'])
 
                 print("Final train size: ", X_train.shape, y_train.shape)
                 print("Final heldout size: ", X_heldout.shape, y_heldout.shape)
@@ -237,23 +239,31 @@ def main():
                 print("train/valid/test sizes: ",len(X_train)," ",len(X_valid)," ", len(X_test))
 
 
-                reg = "rf_modified_features" ## giving a name to the regression models -- useful when saving results
+                reg = "rf_modified_features_with_directn" ## giving a name to the regression models -- useful when saving results
 
                 # normalizing the Xtrain, Xvalid and Xtest data and saving the mean,std of train to normalize the heldout data later
-                X_train, X_valid, X_test, y_train, y_valid, y_test = preprocess.standardize_from_train(X_train, X_valid, X_test, y_train, y_valid, y_test, folder_saving+season_flag + "/ML_models_2008/rf/modified_features/",reg, lead)
-
-
+                X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, X_test,  folder_saving+season_flag + "/ML_models_2008/rf/modified_features_with_directn/",reg, lead)
+                #
+                #
                 y_train = np.reshape(y_train, -1)
                 y_test = np.reshape(y_test, -1)
                 y_valid = np.reshape(y_valid, -1)
 
+                # miny = np.min(y_train)
+                # maxy = np.max(y_train)
+                # y_train = (y_train-miny)/(maxy-miny)
+
+
                 # call the gridSearch and saving model
                 model = models.rfSearch_model(X_train, y_train)
                 pickle.dump(model, open(
-                    folder_saving + season_flag + "/ML_models_2008/rf/modified_features/model_at_lead_" + str(lead) + ".pkl",
+                    folder_saving + season_flag + "/ML_models_2008/rf/modified_features_with_directn/model_at_lead_" + str(lead) + ".pkl",
                     "wb"))
-                # for name, importance in zip(final_features[5:], model.best_estimator_.feature_importances_):
-                #     print(name, "=", importance)
+                # model_file = open( folder_saving + season_flag + "/ML_models_2008/rf/modified_features_with_directn/model_at_lead_" + str(lead) + ".pkl",'rb')
+                # model = pickle.load(model_file)
+                # print(col_to_indices_mapping)
+                for name, importance in zip(['hour']+final_features[5:]+['direct_n_'+str(i) for i in range(1,13)], model.best_estimator_.feature_importances_):
+                    print(name, "=", importance)
                 # model = models.fnn_train(X_train, y_train, folder_saving+ season_flag + '/ML_models_2008/nn/', epochs=epochs, model_saved="FNN_single_task_at_lead_"+str(lead))
 
                 ## When including clustering for these models
@@ -280,7 +290,7 @@ def main():
                 # pickle.dump(model_dict, open(
                 #     folder_saving + season_flag + "/ML_models_2008/rf/clustering/dict_of_models_" + str(lead) + ".pkl",
                 #     "wb"))
-
+                #
                 f.write("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
                 f.write("\n best parameter found: ")
                 f.write(str(model.best_params_))
@@ -294,6 +304,9 @@ def main():
 
                 y_pred = np.reshape(y_pred, -1)
                 y_valid_pred = np.reshape(y_valid_pred, -1)
+
+                # y_pred = y_pred*(maxy-miny) + miny
+                # y_valid_pred = y_valid_pred * (maxy - miny) + miny
 
                 print("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
 
