@@ -282,8 +282,8 @@ def filter_dayvalues_and_zero_clearghi(X_all, y_all, index_zen, index_clearghi, 
 
 
 
-
 def standardize_from_train(X_train, X_valid, X_test, index_ghi, index_clearghi, folder_saving, model, lead=""):
+
     '''
     Standardize (or 'normalize') the feature matrices.
     '''
@@ -320,9 +320,6 @@ def standardize_from_train(X_train, X_valid, X_test, index_ghi, index_clearghi, 
 
 
 
-
-
-
         with open(folder_saving+model+"_standarize_data_for_lead_"+str(lead)+".pickle", 'wb') as handle:
             pickle.dump(standarize_dict, handle)
 
@@ -341,8 +338,6 @@ def standardize_from_train(X_train, X_valid, X_test, index_ghi, index_clearghi, 
             # max = standarize_dict[i][0]
             # min = standarize_dict[i][1]
             # X_test[:,i] = (X_test[:,i] - min)/(max-min)
-
-
 
 
     return X_train, X_valid, X_test

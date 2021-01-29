@@ -34,6 +34,7 @@ res = '15min' #15min
 # file locations
 # path_project = "C:\\Users\Shivendra\Desktop\SolarProject\solar_forecasting/"
 path_project = "/Users/saumya/Desktop/SolarProject/"
+
 path = path_project+"Data/"
 folder_saving = path_project + city+"/Models/"
 folder_plots = path_project + city+"/Plots/"
@@ -85,27 +86,44 @@ def get_data():
         object = clean_data.SurfradDataCleaner(city, year, path)
         object.process(path_to_column_names='ModulesProcessing/column_names.pkl')
 
-
+# def include_previous_features(X):
+#
+#     y_list = []
+#     previous_time_periods = [1,2]
+#     for l in previous_time_periods:
+#         print("rolling by: ", l)
+#         X_train_shifted = np.roll(X, l)
+#         y_list.append(X_train_shifted)
+#
+#     previous_time_periods_columns = np.column_stack(y_list)
+#     X = np.column_stack([X,previous_time_periods_columns])
+#     # max_lead = np.max(previous_time_periods)
+#     # X = X[max_lead:]
+#     print("X shape after adding t-1,t-2 features: ", X.shape)
+#     return X
 def include_previous_features(X, index_ghi):
 
     y_list = []
-    previous_time_periods = list(range(1,n_timesteps))
-    # dw_solar = X[:, index_ghi]
+    previous_time_periods = [1,2,3,4,5,6,7,8,9,10,11,12] #[1,2]
+    dw_solar = X[:, index_ghi]
 
     for l in previous_time_periods:
         print("rolling by: ", l)
-        X_train_shifted = np.roll(X,l)
-        y_list.append(X_train_shifted)
-        # y_list.append(dw_solar_rolled)
+        dw_solar_rolled = np.roll(dw_solar,l)
+        # X_train_shifted = np.roll(X,l)
+        # y_list.append(X_train_shifted)
+        y_list.append(dw_solar_rolled)
 
-    # print(y_list)
-    previous_time_periods_columns = np.column_stack(y_list)
-    X = np.column_stack([X,previous_time_periods_columns])
-    # X = np.transpose(np.array(y_list), ((1, 0, 2)))
-    # max_lead = np.max(previous_time_periods)
-    # X = X[max_lead:]
-    print("X shape after adding prev features: ", X.shape)
-    return X
+
+        # print(y_list)
+        previous_time_periods_columns = np.column_stack(y_list)
+        # print(previous_time_periods_columns[:10])
+        X = np.column_stack([X,previous_time_periods_columns])
+        # X = np.transpose(np.array(y_list), ((1, 0, 2)))
+        # max_lead = np.max(previous_time_periods)
+        # X = X[max_lead:]
+        print("X shape after adding prev features: ", X.shape)
+        return X
 
 def create_mulitple_lead_dataset(dataframe, final_set_of_features, target):
     dataframe_lead = dataframe[final_set_of_features]
@@ -128,6 +146,7 @@ def create_mulitple_lead_dataset(dataframe, final_set_of_features, target):
     print("*****************")
     print("dataframe with lead size: ", len(dataframe_lead))
     return dataframe_lead
+
 
 
 def main():
@@ -209,7 +228,9 @@ def main():
     for season_flag in seasons:
         ## ML_models_2008 is the folder to save results on testyear 2008
         ## creating different folder for different methods: nn for fully connected networks, rf for random forest etc.
+
         f = open(folder_saving + season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_Without_prevtimesteps//results.txt", 'a')
+
         for lead in lead_times:
             # create dataset with lead
             df_lead = preprocess.create_lead_dataset(df_final, lead, final_features, target_feature)
@@ -239,6 +260,7 @@ def main():
                 # X_train = include_previous_features(X_train)
                 # X_heldout = include_previous_features(X_heldout)
 
+
                 print("Final train size: ", X_train.shape, y_train.shape)
                 print("Final heldout size: ", X_heldout.shape, y_heldout.shape)
 
@@ -249,6 +271,7 @@ def main():
 
                 ## normalizing the heldout with the X_train used for training
                 X_train, X_valid, X_test = preprocess.standardize_from_train(X_train=None, X_valid=None, X_test=X_heldout, folder_saving = folder_saving + season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_Without_prevtimesteps/",model = reg, lead = lead)
+
                 # X_train, y_train = preprocess.shuffle(X_train, y_train)
 
                 y_test = np.reshape(y_heldout, -1)
@@ -258,6 +281,11 @@ def main():
                 with open(folder_saving + season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_Without_prevtimesteps/model_at_lead_" + str(lead) + ".pkl", 'rb') as file:
                     model = pickle.load(file)
                 y_true = y_test
+
+                # model_file = open(
+                #     folder_saving + season_flag + "/ML_models_2008/rf/modified_features/model_at_lead_" + str(
+                #         lead) + ".pkl", 'rb')
+                # model = pickle.load(model_file)
                 # y_pred = models.fnn_test(X_test, net = None, model_path=folder_saving+ season_flag + "/ML_models_2008/nn/FNN_single_task_at_lead_"+str(lead))
                 # y_pred = clustering.cluster_and_predict(X_test, model_dict, cluster_labels_test)
                 y_pred = model.predict(X_test)
@@ -279,8 +307,10 @@ def main():
                 true_day_test, pred_day_test, np_day_test, sp_day_test = postprocess.final_true_pred_sp_np(y_true, y_pred, y_np, y_sp, lead, X_test_before_normalized, index_zen, index_clearghi)
 
                 rmse_our, mae_our, mb_our, r2_our = postprocess.evaluation_metrics(true_day_test, pred_day_test)
+
                 print("Performance of our model (rmse, mae, mb, r2): \n\n", round(rmse_our, 2), round(mae_our, 2),
                       round(mb_our, 2), round(r2_our, 2))
+
 
                 rmse_sp, mae_sp, mb_sp, r2_sp = postprocess.evaluation_metrics(true_day_test, sp_day_test)
                 print("Performance of smart persistence model (rmse, mae, mb, r2): \n\n", round(rmse_sp, 2),
@@ -294,10 +324,12 @@ def main():
 
                 # calculate the skill score of our model over persistence model
                 skill_sp = postprocess.skill_score(rmse_our, rmse_sp)
+
                 print("\nSkill of our model over smart persistence: ", round(skill_sp, 2))
 
                 skill_np = postprocess.skill_score(rmse_our, rmse_np)
                 print("\nSkill of our model over normal persistence: ", round(skill_np, 2))
+
 
                 f.write('score on heldout data for year 2008' + reg + '=' + str(round(skill_sp, 2)) + '\n')
                 # # postprocess.plot_results(true_day_test, pred_day_test, sp_day_test, lead, season_flag, folder_plots,
