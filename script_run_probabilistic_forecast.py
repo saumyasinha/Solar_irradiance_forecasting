@@ -22,10 +22,10 @@ pd.set_option('display.width', 1000)
 # All the variables and hyper-parameters
 
 # city
-city = 'Penn_State_PA'
+city = 'Sioux_Falls_SD'
 
 # lead time
-lead_times = [16,20,24,28,32] #from [1,2,3,4,5,6,7,8,9,10,11,12]
+lead_times = [1,2,3,5,6,7,8,9,10,11,12] #from [1,2,3,4,5,6,7,8,9,10,11,12]
 
 # season
 seasons =['year'] #from ['fall', 'winter', 'spring', 'summer', 'year']
@@ -64,7 +64,7 @@ endmonth = 8
 testyear = 2008  # i.e all of Fall(Sep2008-Nov2008), Winter(Dec2008-Feb2009), Spring(Mar2009-May2009), Summer(June2009-Aug2009), year(Sep2008-Aug2009)
 
 # hyperparameters
-n_timesteps = 3
+n_timesteps = 1
 n_features = 12
 
 # If clustering before prediction
@@ -152,6 +152,8 @@ def main():
     dataset.reset_index(inplace=True)
     print('dataset size on a 1hour resolution: ',len(dataset))
 
+    print(dataset.isnull().values.any())
+
     # read the clear-sky values
     clearsky = pd.read_csv(clearsky_file_path, skiprows=37, delimiter=';')
     print("The columns of the clear sky file: ", clearsky.columns)
@@ -204,111 +206,151 @@ def main():
     print("after removing data points with 0 clear_ghi and selecting daytimes",len(df_final))
     # print(df_final.describe())
 
+    # # PLotting time series
+    # x = np.asarray(range(df_final.shape[0]))
+    # plt.figure(figsize=(20, 10))
+    # plt.plot(x, df_final.dw_solar.values, label="GHI values")
+    # plt.plot(x, df_final.clear_ghi.values, label="clearGHI index")
+    # plt.legend(loc="upper left")
+    # plt.savefig("time series of clearGHI and GHI")
+    # plt.clf()
+    # x = np.asarray(range(60))
+    # plt.figure(figsize=(20, 10))
+    # plt.plot(x, df_final.dw_solar.values[:60], label="GHI values")
+    # plt.plot(x, df_final.clear_ghi.values[:60], label="clearGHI index")
+    # plt.legend(loc="upper left")
+    # plt.savefig("time series of clearGHI and GHI zoomed")
+    # plt.clf()
+    # x = np.asarray(range(60))
+    # plt.figure(figsize=(20, 10))
+    # plt.plot(x, df_final.clearness_index.values[:60], label="Clearness Index values")
+    # plt.legend(loc="upper left")
+    # plt.savefig("time series of clearness index zoomed")
+    # plt.clf()
 
 
     for season_flag in seasons:
-        ## ML_models_2008 is the folder to save results on testyear 2008
-        ## creating different folder for different methods: nn for fully connected networks, rf for random forest etc.
-        f = open(folder_saving + season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_Without_prevtimesteps//results.txt", 'a')
+        os.makedirs(folder_saving + season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_Without_prevtimesteps_new_normalization/", exist_ok=True)
+        f = open(folder_saving + season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_Without_prevtimesteps_new_normalization//results.txt", 'a')
+
         for lead in lead_times:
             # create dataset with lead
             df_lead = preprocess.create_lead_dataset(df_final, lead, final_features, target_feature)
+            df_lead = df_lead[:len(df_lead) - lead]
 
             # get the seasonal data you want
             df, test_startdate, test_enddate = preprocess.get_yearly_or_season_data(df_lead, season_flag, testyear)
             print("\n\n after getting seasonal data (test_startdate; test_enddate)", test_startdate, test_enddate)
             print(df.tail)
 
-
-
             # dividing into training and test set
             df_train, df_heldout = preprocess.train_test_spilt(df, season_flag, testyear)
             print("\n\n after dividing_training_test")
-            print("train_set\n",len(df_train))
-            print("test_set\n",len(df_heldout))
+            print("train_set\n", len(df_train))
+            print("test_set\n", len(df_heldout))
 
-
-            if len(df_train)>0 and len(df_heldout)>0:
+            if len(df_train) > 0 and len(df_heldout) > 0:
                 # extract the X_train, y_train, X_test, y_test
-                X_train, y_train, X_heldout, y_heldout, index_clearghi, index_ghi, index_zen,col_to_indices_mapping = preprocess.get_train_test_data(
-                    df_train, df_heldout, final_features, target_feature)
+                X_train, y_train, X_heldout, y_heldout, index_clearghi, index_ghi, index_zen, col_to_indices_mapping = preprocess.get_train_test_data(
+                    df_train, df_heldout, final_features, target_feature, lead)
                 print("\n\n train and test df shapes ")
                 print(X_train.shape, y_train.shape, X_heldout.shape, y_heldout.shape)
 
-                ## including features from t-1 and t-2 timestamps
-                # X_train = include_previous_features(X_train)
-                # X_heldout = include_previous_features(X_heldout)
+                # filter the training to have only day values
+                # X_train, y_train = preprocess.filter_dayvalues_and_zero_clearghi(X_train_all, y_train_all,
+                #                                                                       index_zen, index_clearghi)
+
+                # including features from prev imestamps
+                X_train = include_previous_features(X_train, index_ghi)
+                X_heldout = include_previous_features(X_heldout, index_ghi)
+
+                X_train = X_train[n_timesteps:, :]
+                X_heldout = X_heldout[n_timesteps:, :]
+                y_train = y_train[n_timesteps:, :]
+                y_heldout = y_heldout[n_timesteps:, :]
 
                 print("Final train size: ", X_train.shape, y_train.shape)
                 print("Final heldout size: ", X_heldout.shape, y_heldout.shape)
 
+                ## dividing the X_train data into train(70%)/valid(20%)/test(10%), the heldout data is kept hidden
 
-                X_test_before_normalized = X_heldout.copy()
+                X_train, X_test, y_train, y_test = train_test_split(
+                    X_train, y_train, test_size=0.3, random_state=42)
+                X_valid, X_test, y_valid, y_test = train_test_split(
+                    X_test, y_test, test_size=0.3, random_state=42)
 
-                reg = "ngboost_Without_prevtimesteps" ## giving a name to the regression models -- useful when saving results
+                ## dividing the X_train data into train(70%)/valid(20%)/test(10%), the heldout data is kept hidden
+                # X_train, y_train = preprocess.shuffle(X_train, y_train, city, res)
+                # training_samples = int(0.7 * len(X_train))
+                # X_valid = X_train[training_samples:]
+                # X_train = X_train[:training_samples]
+                # y_valid = y_train[training_samples:]
+                # y_train = y_train[:training_samples]
+                #
+                # valid_samples = int(0.7*len(X_valid))
+                # X_test = X_valid[valid_samples:]
+                # X_valid = X_valid[:valid_samples]
+                # y_test = y_valid[valid_samples:]
+                # y_valid = y_valid[:valid_samples]
 
-                ## normalizing the heldout with the X_train used for training
-                X_train, X_valid, X_test = preprocess.standardize_from_train(X_train=None, X_valid=None, X_test=X_heldout, folder_saving = folder_saving + season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_Without_prevtimesteps/",model = reg, lead = lead)
-                # X_train, y_train = preprocess.shuffle(X_train, y_train)
 
-                y_test = np.reshape(y_heldout, -1)
+                print("train/valid/test sizes: ",len(X_train)," ",len(X_valid)," ", len(X_test))
+
+
+                reg = "ngboost_Without_prevtimesteps_new_normalization" ## giving a name to the regression models -- useful when saving results
+
+                # normalizing the Xtrain, Xvalid and Xtest data and saving the mean,std of train to normalize the heldout data later
+                X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, X_test, index_ghi, index_clearghi, folder_saving+season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_Without_prevtimesteps_new_normalization/",reg, lead)
+
+
+                y_train = np.reshape(y_train, -1)
+                y_test = np.reshape(y_test, -1)
+                y_valid = np.reshape(y_valid, -1)
+
+                model = NGBRegressor(n_estimators=2000).fit(X_train, y_train)
+
+                pickle.dump(model, open(
+                    folder_saving + season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_Without_prevtimesteps_new_normalization/model_at_lead_" + str(lead) + ".pkl",
+                    "wb"))
+
+                # with open(folder_saving + season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_Without_prevtimesteps_new_normalization/model_at_lead_" + str(lead) + ".pkl", 'rb') as file:
+                #     model = pickle.load(file)
+
 
                 f.write("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
 
-                with open(folder_saving + season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_Without_prevtimesteps/model_at_lead_" + str(lead) + ".pkl", 'rb') as file:
-                    model = pickle.load(file)
-                y_true = y_test
-                # y_pred = models.fnn_test(X_test, net = None, model_path=folder_saving+ season_flag + "/ML_models_2008/nn/FNN_single_task_at_lead_"+str(lead))
-                # y_pred = clustering.cluster_and_predict(X_test, model_dict, cluster_labels_test)
                 y_pred = model.predict(X_test)
+                Y_dist = model.pred_dist(X_test)
+                y_valid_pred = model.predict(X_valid)
+                Y_valid_dist = model.pred_dist(X_valid)
 
                 y_pred = np.reshape(y_pred, -1)
+                y_valid_pred = np.reshape(y_valid_pred, -1)
 
                 print("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
 
-                # rmse_our, mae_our, mb_our, r2_our = postprocess.evaluation_metrics(y_test, y_pred)
-                # print("Performance for clearness index of our model (rmse, mae, mb, r2): \n\n", round(rmse_our, 2), round(mae_our, 2),
-                #       round(mb_our, 2), round(r2_our, 2))
-
-                print("#####TEST#################")
-                # ## postprocessing on test
-                y_true, y_pred = postprocess.postprocessing_target(y_pred, y_true, X_test_before_normalized, index_ghi, index_clearghi, lead)
-                # normal and smart persistence model
-                y_np = postprocess.normal_persistence_model(X_test_before_normalized, index_ghi, lead)
-                y_sp = postprocess.smart_persistence_model(X_test_before_normalized, y_test, index_clearghi, lead)
-                true_day_test, pred_day_test, np_day_test, sp_day_test = postprocess.final_true_pred_sp_np(y_true, y_pred, y_np, y_sp, lead, X_test_before_normalized, index_zen, index_clearghi)
-
-                rmse_our, mae_our, mb_our, r2_our = postprocess.evaluation_metrics(true_day_test, pred_day_test)
+                print("##########VALID##########")
+                rmse_our, mae_our, mb_our, r2_our = postprocess.evaluation_metrics(y_valid, y_valid_pred)
                 print("Performance of our model (rmse, mae, mb, r2): \n\n", round(rmse_our, 2), round(mae_our, 2),
                       round(mb_our, 2), round(r2_our, 2))
+                f.write('\n evaluation metrics (rmse, mae, mb, r2) on valid data for ' + reg + '=' + str(round(rmse_our, 2))+ "," + str(round(mae_our, 2)) + ","+
+                      str(round(mb_our, 2)) + "," + str(round(r2_our, 2)) + '\n')
 
-                rmse_sp, mae_sp, mb_sp, r2_sp = postprocess.evaluation_metrics(true_day_test, sp_day_test)
-                print("Performance of smart persistence model (rmse, mae, mb, r2): \n\n", round(rmse_sp, 2),
-                      round(mae_sp, 2),
-                      round(mb_sp, 2), round(r2_sp, 2))
+                print("##########Test##########")
+                rmse_our, mae_our, mb_our, r2_our = postprocess.evaluation_metrics(y_test, y_pred)
+                # print("Performance of our model (rmse, mae, mb, r2): \n\n", round(rmse_our, 1), round(mae_our, 1),
+                #       round(mb_our, 1), round(r2_our, 1))
+                f.write('\n evaluation metrics (rmse, mae, mb, r2) on test data for ' + reg + '=' + str(
+                    round(rmse_our, 2)) + "," + str(round(mae_our, 2)) + "," +
+                        str(round(mb_our, 2)) + "," + str(round(r2_our, 2)) + '\n')
 
-                rmse_np, mae_np, mb_np, r2_np = postprocess.evaluation_metrics(true_day_test, np_day_test)
-                print("Performance of normal persistence model (rmse, mae, mb, r2): \n\n", round(rmse_np, 1),
-                      round(mae_np, 1),
-                      round(mb_np, 1), round(r2_np, 1))
 
-                # calculate the skill score of our model over persistence model
-                skill_sp = postprocess.skill_score(rmse_our, rmse_sp)
-                print("\nSkill of our model over smart persistence: ", round(skill_sp, 2))
-
-                skill_np = postprocess.skill_score(rmse_our, rmse_np)
-                print("\nSkill of our model over normal persistence: ", round(skill_np, 2))
-
-                f.write('score on heldout data for year 2008' + reg + '=' + str(round(skill_sp, 2)) + '\n')
-                # # postprocess.plot_results(true_day_test, pred_day_test, sp_day_test, lead, season_flag, folder_plots,
-                # #                          model="random_forest_model")
 
 
             else:
                 print("not enough data for the season: ", season_flag, "and lead: ", lead)
 
         f.close()
-
 
 if __name__=='__main__':
     main()

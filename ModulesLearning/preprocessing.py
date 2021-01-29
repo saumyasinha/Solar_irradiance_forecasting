@@ -175,26 +175,36 @@ def train_test_spilt(dataframe, season_flag, testyear):
     return dataframe_train, dataframe_test
 
 
-def get_train_test_data(dataframe_train, dataframe_test, final_set_of_features, target):
+def get_train_test_data(dataframe_train, dataframe_test, final_set_of_features, target, lead):
     '''
     Get X_train, y_train, X_test, y_test
     '''
     final_features = []
     for feature in final_set_of_features:
-        # if feature not in ['year', 'month', 'day', 'hour', 'MinFlag']:
-        if feature not in ['year', 'month', 'day', 'MinFlag']:
+        if feature not in ['year', 'month', 'day', 'hour', 'MinFlag', 'clear_ghi']:
+        # if feature not in ['year', 'month', 'day', 'MinFlag']:
             final_features.append(feature)
 
+    index_clearghi = -1
+    final_features.extend(['clearness_index_input', 'smart_persistence'])
     # storing the position/indices of clear_ghi, ghi, and zen
     for ind in range(len(final_features)):
-        if final_features[ind] == 'clear_ghi':
-            index_clearghi = ind
+        # if final_features[ind] == 'clear_ghi':
+        #     index_clearghi = ind
         if final_features[ind] == 'dw_solar':
             index_ghi = ind
         if final_features[ind] == 'zen':
             index_zen = ind
 
+    dataframe_train['clearness_index_input'] = dataframe_train['dw_solar']/dataframe_train['clear_ghi']
+    dataframe_test['clearness_index_input'] = dataframe_test['dw_solar'] / dataframe_test['clear_ghi']
+    dataframe_train['clear_ghi'] = np.roll(dataframe_train['clear_ghi'].values, -lead)
+    dataframe_test['clear_ghi'] = np.roll(dataframe_test['clear_ghi'].values, -lead)
+
+    dataframe_train['smart_persistence'] = dataframe_train['clearness_index_input']* dataframe_train['clear_ghi']
+    dataframe_test['smart_persistence'] = dataframe_train['clearness_index_input']* dataframe_test['clear_ghi']
     col_to_indices_mapping = {k: v for v, k in enumerate(final_features)}
+    print(col_to_indices_mapping)
     # Selecting the final features and target variables
     X_train = np.asarray(dataframe_train[final_features]).astype(np.float)
     X_test = np.asarray(dataframe_test[final_features]).astype(np.float)
@@ -273,7 +283,7 @@ def filter_dayvalues_and_zero_clearghi(X_all, y_all, index_zen, index_clearghi, 
 
 
 
-def standardize_from_train(X_train, X_valid, X_test, y_train, y_valid, y_test, folder_saving, model, lead=""):
+def standardize_from_train(X_train, X_valid, X_test, index_ghi, index_clearghi, folder_saving, model, lead=""):
     '''
     Standardize (or 'normalize') the feature matrices.
     '''
@@ -283,27 +293,35 @@ def standardize_from_train(X_train, X_valid, X_test, y_train, y_valid, y_test, f
         standarize_dict = {}
         for i in range(cols):
 
-            mean = np.mean(X_train[:,i])
-            std = np.std(X_train[:,i])
-            max = np.max(X_train[:,i])
-            min = np.min(X_train[:,i])
-            ##normalize or standarize ?
-            # X_train[:,i] = (X_train[:,i] - mean)/std
-            # X_valid[:, i] = (X_valid[:, i] - mean) / std
-            # X_test[:,i] = (X_test[:,i] - mean)/std
-            # standarize_dict[i] = (mean,std)
-            X_train[:,i] = (X_train[:,i] - min)/(max-min)
-            X_valid[:, i] = (X_valid[:, i] - min) / (max-min)
-            X_test[:,i] = (X_test[:,i] - min)/(max-min)
-            standarize_dict[i] = (max,min)
+            if i==index_ghi:
+                ## normalizing of dw_solar wrt clearGHI (to take the cloud factor into account)
+                mean_clear = np.mean(X_train[:, index_clearghi])
+                std_clear = np.std(X_train[:, index_clearghi])
+                X_train[:, index_ghi] = (X_train[:, index_ghi] - mean_clear) / std_clear
+                X_valid[:, index_ghi] = (X_valid[:, index_ghi] - mean_clear) / std_clear
+                X_test[:, index_ghi] = (X_test[:, index_ghi] - mean_clear) / std_clear
+                standarize_dict[i] = (mean_clear, std_clear)
 
-        y_min = np.min(y_train)
-        y_max = np.max(y_train)
+            else:
+                mean = np.mean(X_train[:,i])
+                std = np.std(X_train[:,i])
+                max = np.max(X_train[:,i])
+                min = np.min(X_train[:,i])
+                # print(min,max)
+                ##normalize or standarize ?
+                X_train[:,i] = (X_train[:,i] - mean)/std
+                X_valid[:, i] = (X_valid[:, i] - mean) / std
+                X_test[:,i] = (X_test[:,i] - mean)/std
+                standarize_dict[i] = (mean,std)
+                # X_train[:,i] = (X_train[:,i] - min)/(max-min)
+                # X_valid[:, i] = (X_valid[:, i] - min) / (max-min)
+                # X_test[:,i] = (X_test[:,i] - min)/(max-min)
+                # standarize_dict[i] = (max,min)
 
-        y_train = (y_train - y_min) / (y_max - y_min)
-        y_valid = (y_valid - y_min) / (y_max - y_min)
-        y_test = (y_test - y_min) / (y_max - y_min)
-        standarize_dict["y"] = (y_max,y_min)
+
+
+
+
 
         with open(folder_saving+model+"_standarize_data_for_lead_"+str(lead)+".pickle", 'wb') as handle:
             pickle.dump(standarize_dict, handle)
@@ -317,29 +335,27 @@ def standardize_from_train(X_train, X_valid, X_test, y_train, y_valid, y_test, f
 
         for i in range(cols):
             ##normalize or standarize ?
-            # mean = standarize_dict[i][0]
-            # std = standarize_dict[i][1]
-            # X_test[:,i] = (X_test[:,i] - mean)/std
-            max = standarize_dict[i][0]
-            min = standarize_dict[i][1]
-            X_test[:,i] = (X_test[:,i] - min)/(max-min)
-
-        y_max = standarize_dict["y"][0]
-        y_min = standarize_dict["y"][1]
-        y_test = (y_test - y_min) / (y_max - y_min)
+            mean = standarize_dict[i][0]
+            std = standarize_dict[i][1]
+            X_test[:,i] = (X_test[:,i] - mean)/std
+            # max = standarize_dict[i][0]
+            # min = standarize_dict[i][1]
+            # X_test[:,i] = (X_test[:,i] - min)/(max-min)
 
 
-    return X_train, X_valid, X_test, y_train, y_valid, y_test
 
 
-def shuffle(X,y):
+    return X_train, X_valid, X_test
 
-    if os.path.isfile('indices.npy') == False:
+
+def shuffle(X,y, city, res):
+    filename = 'indices/'+str(city)+'/indices_'+str(res)+".npy"
+    if os.path.isfile(filename) == False:
         print("here")
         p = np.random.permutation(len(X))
-        np.save('indices.npy', p)
+        np.save(filename, p)
     else:
-        p = np.load('indices.npy')
+        p = np.load(filename)
 
     return X[p], y[p]
 

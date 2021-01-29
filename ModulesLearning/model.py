@@ -22,8 +22,10 @@ from sklearn.model_selection import RandomizedSearchCV
 from torch.autograd import Variable
 from SolarForecasting.ModulesLearning import preprocessing as preprocess
 from keras.models import Sequential
-from keras.layers import Dense, LSTM, Dropout
-
+from keras.layers import RNN,Dense, LSTM, Dropout,Bidirectional,RepeatVector,TimeDistributed, Flatten
+from keras.layers.convolutional import Conv1D, MaxPooling1D
+from keras.callbacks import EarlyStopping
+from keras import optimizers
 from keras.models import load_model
 
 
@@ -320,30 +322,48 @@ def rfGridSearch_model(X, y):
 
 
 ### LSTM/RNN method
-def lstm_model(X_train, y_train, X_valid, y_valid, folder_saving, model_saved):
+def lstm_model(X_train, y_train, folder_saving, model_saved,timesteps=1, n_features = 1, n_outputs = 1):
 
-    X_train = X_train.reshape((X_train.shape[0], 1, X_train.shape[1]))
-    X_valid = X_valid.reshape((X_valid.shape[0], 1, X_valid.shape[1]))
 
-    epochs_ = 50
-    batch_size_ = 16
+    ##why giving nans??
+    print("before: ",X_train.shape)
+    X_train = X_train.reshape((X_train.shape[0], timesteps,n_features))
+    # y_train = y_train.reshape((y_train.shape[0], y_train.shape[1], 1))
+    print("after: ",X_train.shape)
+
+    epochs_ = 150
+    batch_size_ = 32
     dropout_ = .3
 
     # design network                                                            #
     model = Sequential()  #
-    model.add(LSTM(100, input_shape=(X_train.shape[1], X_train.shape[2])))  #
+    model.add(LSTM(15,activation="relu",input_shape=(X_train.shape[1], X_train.shape[2])))  #
     model.add(Dropout(dropout_))  #
-    model.add(Dense(1))  #
+    model.add(Dense(n_outputs))  #
     model.compile(loss='mean_squared_error', optimizer='adam')  #
-    #
+
+    # model = Sequential()
+    # model.add(LSTM(25, activation='relu', input_shape=(X_train.shape[1], X_train.shape[2])))
+    # model.add(Dropout(dropout_))
+    # model.add(Conv1D(filters=3, kernel_size=5, activation='relu', input_shape=(X_train.shape[1], X_train.shape[2])))
+    # model.add(Dropout(dropout_))
+    # model.add(MaxPooling1D(pool_size=2))
+    # model.add(Flatten())
+    # model.add(RepeatVector(n_outputs))
+    # model.add(LSTM(15, activation='relu', return_sequences=True))
+    # model.add(Dropout(dropout_))
+    # model.add(TimeDistributed(Dense(1)))
+    # optimizer = optimizers.Adam(lr=0.0001)
+    # model.compile(optimizer=optimizer, loss='mse')
+
     # fit network                                                               #
     history = model.fit(X_train,  #
                         y_train,  #
                         epochs=epochs_,  #
                         batch_size=batch_size_,  #
-                        validation_data=(X_valid, y_valid),  #
-                        verbose=1,  #
-                        shuffle=False)  #
+                        # validation_data=(X_valid, y_valid),
+                        validation_split=0.2,
+                        verbose=2)  #
     #
     # Save model for later                                                      #
     model.save(folder_saving + model_saved)  #
@@ -354,4 +374,9 @@ def lstm_model(X_train, y_train, X_valid, y_valid, folder_saving, model_saved):
     plt.legend()
     plt.title("loss plots")
     plt.savefig(folder_saving+model_saved+"_loss_plots")
+    plt.clf()
+
+    return model
+
+
 

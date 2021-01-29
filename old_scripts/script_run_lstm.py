@@ -6,14 +6,16 @@ import pickle
 import matplotlib.pyplot as plt
 from collections import Counter
 from sklearn.model_selection import train_test_split
-from ngboost import NGBRegressor
 from SolarForecasting.ModulesProcessing import collect_data,clean_data
 from SolarForecasting.ModulesLearning import preprocessing as preprocess
 from SolarForecasting.ModulesLearning import postprocessing as postprocess
 from SolarForecasting.ModulesLearning import model as models
 from SolarForecasting.ModulesLearning import clustering as clustering
-from ngboost.scores import CRPS, MLE
 
+
+pd.set_option('display.max_rows', 500)
+pd.set_option('display.max_columns', 500)
+pd.set_option('display.width', 1000)
 
 pd.set_option('display.max_rows', 500)
 pd.set_option('display.max_columns', 500)
@@ -22,10 +24,10 @@ pd.set_option('display.width', 1000)
 # All the variables and hyper-parameters
 
 # city
-city = 'Penn_State_PA'
+city = 'Sioux_Falls_SD'
 
 # lead time
-lead_times = [16,20,24,28,32] #from [1,2,3,4,5,6,7,8,9,10,11,12]
+lead_times = [1,2,3,4,5,6,7,8,9,10,11,12] #from [1,2,3,4,5,6,7,8,9,10,11,12]
 
 # season
 seasons =['year'] #from ['fall', 'winter', 'spring', 'summer', 'year']
@@ -64,7 +66,7 @@ endmonth = 8
 testyear = 2008  # i.e all of Fall(Sep2008-Nov2008), Winter(Dec2008-Feb2009), Spring(Mar2009-May2009), Summer(June2009-Aug2009), year(Sep2008-Aug2009)
 
 # hyperparameters
-n_timesteps = 3
+n_timesteps = 1
 n_features = 12
 
 # If clustering before prediction
@@ -152,6 +154,8 @@ def main():
     dataset.reset_index(inplace=True)
     print('dataset size on a 1hour resolution: ',len(dataset))
 
+    print(dataset.isnull().values.any())
+
     # read the clear-sky values
     clearsky = pd.read_csv(clearsky_file_path, skiprows=37, delimiter=';')
     print("The columns of the clear sky file: ", clearsky.columns)
@@ -204,12 +208,38 @@ def main():
     print("after removing data points with 0 clear_ghi and selecting daytimes",len(df_final))
     # print(df_final.describe())
 
+    # # PLotting time series
+    x = np.asarray(range(df_final.shape[0]))
+    plt.figure(figsize=(20, 10))
+    plt.plot(x, df_final.dw_solar.values, label="GHI values")
+    plt.plot(x, df_final.clear_ghi.values, label="clearGHI index")
+    plt.legend(loc="upper left")
+    plt.savefig("time series of clearGHI and GHI")
+    plt.clf()
+    x = np.asarray(range(360))
+    plt.figure(figsize=(20, 10))
+    plt.plot(x, df_final.dw_solar.values[:360], label="GHI values")
+    plt.plot(x, df_final.clear_ghi.values[:360], label="clearGHI index")
+    plt.legend(loc="upper left")
+    plt.savefig("time series of clearGHI and GHI zoomed")
+    plt.clf()
+    x = np.asarray(range(360))
+    plt.figure(figsize=(20, 10))
+    plt.plot(x, df_final.clearness_index.values[:360], label="Clearness Index values")
+    plt.legend(loc="upper left")
+    plt.savefig("time series of clearness index zoomed")
+    plt.clf()
 
 
+    # # create dataset with lead
+    # df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
+    #
     for season_flag in seasons:
         ## ML_models_2008 is the folder to save results on testyear 2008
         ## creating different folder for different methods: nn for fully connected networks, rf for random forest etc.
-        f = open(folder_saving + season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_Without_prevtimesteps//results.txt", 'a')
+        os.makedirs(folder_saving + season_flag + "/ML_models_2008/lstm/"+str(res)+"/singleout_with_singletimestep/", exist_ok=True)
+        f = open(folder_saving + season_flag + "/ML_models_2008/lstm/"+str(res)+"/singleout_with_singletimestep/results.txt", 'a')
+
         for lead in lead_times:
             # create dataset with lead
             df_lead = preprocess.create_lead_dataset(df_final, lead, final_features, target_feature)
@@ -218,90 +248,142 @@ def main():
             df, test_startdate, test_enddate = preprocess.get_yearly_or_season_data(df_lead, season_flag, testyear)
             print("\n\n after getting seasonal data (test_startdate; test_enddate)", test_startdate, test_enddate)
             print(df.tail)
-
-
-
+    
+    
+    
             # dividing into training and test set
             df_train, df_heldout = preprocess.train_test_spilt(df, season_flag, testyear)
             print("\n\n after dividing_training_test")
             print("train_set\n",len(df_train))
             print("test_set\n",len(df_heldout))
-
-
+    
+    
             if len(df_train)>0 and len(df_heldout)>0:
                 # extract the X_train, y_train, X_test, y_test
                 X_train, y_train, X_heldout, y_heldout, index_clearghi, index_ghi, index_zen,col_to_indices_mapping = preprocess.get_train_test_data(
                     df_train, df_heldout, final_features, target_feature)
                 print("\n\n train and test df shapes ")
                 print(X_train.shape, y_train.shape, X_heldout.shape, y_heldout.shape)
-
-                ## including features from t-1 and t-2 timestamps
-                # X_train = include_previous_features(X_train)
-                # X_heldout = include_previous_features(X_heldout)
-
+    
+                # filter the training to have only day values
+                # X_train, y_train = preprocess.filter_dayvalues_and_zero_clearghi(X_train_all, y_train_all,
+                #                                                                       index_zen, index_clearghi)
+    
+                # including features from prev imestamps
+                # X_train = include_previous_features(X_train, index_ghi)
+                # X_heldout = include_previous_features(X_heldout, index_ghi)
+    
                 print("Final train size: ", X_train.shape, y_train.shape)
                 print("Final heldout size: ", X_heldout.shape, y_heldout.shape)
-
-
-                X_test_before_normalized = X_heldout.copy()
-
-                reg = "ngboost_Without_prevtimesteps" ## giving a name to the regression models -- useful when saving results
-
-                ## normalizing the heldout with the X_train used for training
-                X_train, X_valid, X_test = preprocess.standardize_from_train(X_train=None, X_valid=None, X_test=X_heldout, folder_saving = folder_saving + season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_Without_prevtimesteps/",model = reg, lead = lead)
-                # X_train, y_train = preprocess.shuffle(X_train, y_train)
-
-                y_test = np.reshape(y_heldout, -1)
-
+    
+                ## dividing the X_train data into train(70%)/valid(20%)/test(10%), the heldout data is kept hidden
+                X_train, y_train = preprocess.shuffle(X_train, y_train, city, res)
+                training_samples = int(0.7 * len(X_train))
+                X_valid = X_train[training_samples:]
+                X_train = X_train[:training_samples]
+                y_valid = y_train[training_samples:]
+                y_train = y_train[:training_samples]
+    
+                valid_samples = int(0.7*len(X_valid))
+                X_test = X_valid[valid_samples:]
+                X_valid = X_valid[:valid_samples]
+                y_test = y_valid[valid_samples:]
+                y_valid = y_valid[:valid_samples]
+    
+    
+                print("train/valid/test sizes: ",len(X_train)," ",len(X_valid)," ", len(X_test))
+    
+    
+                reg = "lstm" ## giving a name to the regression models -- useful when saving results
+    
+                # normalizing the Xtrain, Xvalid and Xtest data and saving the mean,std of train to normalize the heldout data later
+                X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, X_test, folder_saving+season_flag + "/ML_models_2008/lstm/"+str(res)+"/singleout_with_singletimestep/",reg, lead = lead)
+    
+                # y_train = np.reshape(y_train, -1)
+                # y_test = np.reshape(y_test, -1)
+                # y_valid = np.reshape(y_valid, -1)
+    
+                # miny = np.min(y_train)
+                # maxy = np.max(y_train)
+                # y_train = (y_train - miny) / (maxy - miny)
+    
+                # call the gridSearch and saving model
+                # model = models.rfSearch_model(X_train, y_train)
+                # pickle.dump(model, open(
+                #     folder_saving + season_flag + "/ML_models_2008/rf/modified_features/model_at_lead_" + str(lead) + ".pkl",
+                #     "wb"))
+                # for name, importance in zip(final_features[5:], model.best_estimator_.feature_importances_):
+                #     print(name, "=", importance)
+                # model = models.fnn_train(X_train, y_train, folder_saving+ season_flag + '/ML_models_2008/nn/', epochs=epochs, model_saved="FNN_single_task_at_lead_"+str(lead))
+                model = models.lstm_model(X_train, y_train, folder_saving + season_flag + "/ML_models_2008/lstm/"+str(res)+"/singleout_with_singletimestep/",model_saved="lstm_for_lead_"+str(lead), timesteps=n_timesteps, n_features = n_features)
+                ## When including clustering for these models
+                # features_indices_to_cluster_on = [col_to_indices_mapping[f] for f in features_to_cluster_on]
+                # print(features_indices_to_cluster_on)
+                #
+                # kmeans = clustering.clustering(X_train, features_indices_to_cluster_on,
+                #                                n_clusters=n_clusters)
+                # cluster_labels = kmeans.labels_
+                #
+                # print(Counter(cluster_labels))
+                #
+                # cluster_labels_valid = clustering.get_closest_clusters(X_valid, kmeans, features_indices_to_cluster_on)
+                # cluster_labels_test = clustering.get_closest_clusters(X_test, kmeans, features_indices_to_cluster_on)
+                #
+                # X_train, X_valid, X_test = clustering.normalizing_per_cluster(X_train, X_valid, X_test, cluster_labels,
+                #                                                               cluster_labels_valid, cluster_labels_test,folder_saving+season_flag + "/ML_models_2008/rf/clustering/",reg, lead)
+    
+    
+                # model_dict = clustering.train(X_train,y_train, cluster_labels, n_clusters)
+                # pickle.dump(kmeans, open(
+                #     folder_saving + season_flag + "/ML_models_2008/rf/clustering/kmeans_at_lead_" + str(lead) + ".pkl",
+                #     "wb"))
+                # pickle.dump(model_dict, open(
+                #     folder_saving + season_flag + "/ML_models_2008/rf/clustering/dict_of_models_" + str(lead) + ".pkl",
+                #     "wb"))
+                y_pred = model.predict(X_test.reshape((X_test.shape[0], n_timesteps,n_features )))
+                y_valid_pred = model.predict(X_valid.reshape((X_valid.shape[0],n_timesteps,n_features)))
+                # for i in range(len(lead_times)):
+            #
+                # lead = lead_times[i]
+                # y_test_for_this_lead = y_test[:,i]
+                # y_valid_for_this_lead = y_valid[:,i]
                 f.write("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
-
-                with open(folder_saving + season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_Without_prevtimesteps/model_at_lead_" + str(lead) + ".pkl", 'rb') as file:
-                    model = pickle.load(file)
-                y_true = y_test
-                # y_pred = models.fnn_test(X_test, net = None, model_path=folder_saving+ season_flag + "/ML_models_2008/nn/FNN_single_task_at_lead_"+str(lead))
+                # f.write("\n best parameter found: ")
+                # f.write(str(model.best_params_))
+                # y_pred = models.fnn_test(X_test, model.best_estimator_)
                 # y_pred = clustering.cluster_and_predict(X_test, model_dict, cluster_labels_test)
-                y_pred = model.predict(X_test)
+                # y_pred = model.predict(X_test.reshape((X_test.shape[0], 13,12 )))
+                # print(y_pred.shape)
+                # y_pred_for_this_lead = y_pred[:,i]
+                #
+                # y_valid_pred = models.fnn_test(X_valid, model.best_estimator_)
+                # y_valid_pred = clustering.cluster_and_predict(X_valid, model_dict, cluster_labels_valid)
+                # y_valid_pred = model.predict(X_valid.reshape((X_valid.shape[0],13,12)))
+                # y_valid_pred_for_this_lead = y_valid_pred[:,i]
 
-                y_pred = np.reshape(y_pred, -1)
+                # print((y_valid_pred == 0).sum(), (y_pred == 0).sum())
+                # y_pred = np.reshape(y_pred, -1)
+                # y_valid_pred = np.reshape(y_valid_pred, -1)
+
+                # y_pred = y_pred * (maxy - miny) + miny
+                # y_valid_pred = y_valid_pred * (maxy - miny) + miny
 
                 print("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
 
-                # rmse_our, mae_our, mb_our, r2_our = postprocess.evaluation_metrics(y_test, y_pred)
-                # print("Performance for clearness index of our model (rmse, mae, mb, r2): \n\n", round(rmse_our, 2), round(mae_our, 2),
-                #       round(mb_our, 2), round(r2_our, 2))
-
-                print("#####TEST#################")
-                # ## postprocessing on test
-                y_true, y_pred = postprocess.postprocessing_target(y_pred, y_true, X_test_before_normalized, index_ghi, index_clearghi, lead)
-                # normal and smart persistence model
-                y_np = postprocess.normal_persistence_model(X_test_before_normalized, index_ghi, lead)
-                y_sp = postprocess.smart_persistence_model(X_test_before_normalized, y_test, index_clearghi, lead)
-                true_day_test, pred_day_test, np_day_test, sp_day_test = postprocess.final_true_pred_sp_np(y_true, y_pred, y_np, y_sp, lead, X_test_before_normalized, index_zen, index_clearghi)
-
-                rmse_our, mae_our, mb_our, r2_our = postprocess.evaluation_metrics(true_day_test, pred_day_test)
+                print("##########VALID##########")
+                rmse_our, mae_our, mb_our, r2_our = postprocess.evaluation_metrics(y_valid, y_valid_pred)
                 print("Performance of our model (rmse, mae, mb, r2): \n\n", round(rmse_our, 2), round(mae_our, 2),
                       round(mb_our, 2), round(r2_our, 2))
+                f.write('\n evaluation metrics (rmse, mae, mb, r2) on valid data for ' + reg + '=' + str(round(rmse_our, 2))+ "," + str(round(mae_our, 2)) + ","+
+                      str(round(mb_our, 2)) + "," + str(round(r2_our, 2)) + '\n')
 
-                rmse_sp, mae_sp, mb_sp, r2_sp = postprocess.evaluation_metrics(true_day_test, sp_day_test)
-                print("Performance of smart persistence model (rmse, mae, mb, r2): \n\n", round(rmse_sp, 2),
-                      round(mae_sp, 2),
-                      round(mb_sp, 2), round(r2_sp, 2))
-
-                rmse_np, mae_np, mb_np, r2_np = postprocess.evaluation_metrics(true_day_test, np_day_test)
-                print("Performance of normal persistence model (rmse, mae, mb, r2): \n\n", round(rmse_np, 1),
-                      round(mae_np, 1),
-                      round(mb_np, 1), round(r2_np, 1))
-
-                # calculate the skill score of our model over persistence model
-                skill_sp = postprocess.skill_score(rmse_our, rmse_sp)
-                print("\nSkill of our model over smart persistence: ", round(skill_sp, 2))
-
-                skill_np = postprocess.skill_score(rmse_our, rmse_np)
-                print("\nSkill of our model over normal persistence: ", round(skill_np, 2))
-
-                f.write('score on heldout data for year 2008' + reg + '=' + str(round(skill_sp, 2)) + '\n')
-                # # postprocess.plot_results(true_day_test, pred_day_test, sp_day_test, lead, season_flag, folder_plots,
-                # #                          model="random_forest_model")
+                print("##########Test##########")
+                rmse_our, mae_our, mb_our, r2_our = postprocess.evaluation_metrics(y_test, y_pred)
+                print("Performance of our model (rmse, mae, mb, r2): \n\n", round(rmse_our, 2), round(mae_our, 2),
+                      round(mb_our, 2), round(r2_our, 2))
+                f.write('\n evaluation metrics (rmse, mae, mb, r2) on test data for ' + reg + '=' + str(
+                    round(rmse_our, 2)) + "," + str(round(mae_our, 2)) + "," +
+                        str(round(mb_our, 2)) + "," + str(round(r2_our, 2)) + '\n')
 
 
             else:
