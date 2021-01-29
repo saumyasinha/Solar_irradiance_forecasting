@@ -181,28 +181,29 @@ def get_train_test_data(dataframe_train, dataframe_test, final_set_of_features, 
     '''
     final_features = []
     for feature in final_set_of_features:
-        if feature not in ['year', 'month', 'day', 'hour', 'MinFlag', 'clear_ghi']:
+        if feature not in ['year', 'month', 'day', 'hour', 'MinFlag']:
         # if feature not in ['year', 'month', 'day', 'MinFlag']:
             final_features.append(feature)
 
-    index_clearghi = -1
-    final_features.extend(['clearness_index_input', 'smart_persistence'])
+    final_features.extend(['clearness_index_input','smart_persistence'])
     # storing the position/indices of clear_ghi, ghi, and zen
     for ind in range(len(final_features)):
-        # if final_features[ind] == 'clear_ghi':
-        #     index_clearghi = ind
+        if final_features[ind] == 'clear_ghi':
+            index_clearghi = ind
         if final_features[ind] == 'dw_solar':
             index_ghi = ind
         if final_features[ind] == 'zen':
             index_zen = ind
 
+    print('clearghi check before: ', dataframe_train['clear_ghi'][:5])
     dataframe_train['clearness_index_input'] = dataframe_train['dw_solar']/dataframe_train['clear_ghi']
     dataframe_test['clearness_index_input'] = dataframe_test['dw_solar'] / dataframe_test['clear_ghi']
-    dataframe_train['clear_ghi'] = np.roll(dataframe_train['clear_ghi'].values, -lead)
-    dataframe_test['clear_ghi'] = np.roll(dataframe_test['clear_ghi'].values, -lead)
+    shifted_clearghi_train = np.roll(dataframe_train['clear_ghi'].values, -lead)
+    shifted_clearghi_test = np.roll(dataframe_test['clear_ghi'].values, -lead)
+    print('clearghi check after: ', dataframe_train['clear_ghi'][:5])
 
-    dataframe_train['smart_persistence'] = dataframe_train['clearness_index_input']* dataframe_train['clear_ghi']
-    dataframe_test['smart_persistence'] = dataframe_train['clearness_index_input']* dataframe_test['clear_ghi']
+    dataframe_train['smart_persistence'] = dataframe_train['clearness_index_input']* shifted_clearghi_train
+    dataframe_test['smart_persistence'] = dataframe_train['clearness_index_input']* shifted_clearghi_test
     col_to_indices_mapping = {k: v for v, k in enumerate(final_features)}
     print(col_to_indices_mapping)
     # Selecting the final features and target variables

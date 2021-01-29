@@ -27,7 +27,7 @@ pd.set_option('display.width', 1000)
 city = 'Sioux_Falls_SD'
 
 # lead time
-lead_times = [1,2,3,4,5,6,7,8,9,10,11,12]  # from [1,2,3,4,5,6,7,8,9,10,11,12]
+lead_times = [6,7,8]  # from [1,2,3,4,5,6,7,8,9,10,11,12]
 
 # season
 seasons = ['year']  # from ['fall', 'winter', 'spring', 'summer', 'year']
@@ -69,8 +69,8 @@ endmonth = 8
 testyear = 2008  # i.e all of Fall(Sep2008-Nov2008), Winter(Dec2008-Feb2009), Spring(Mar2009-May2009), Summer(June2009-Aug2009), year(Sep2008-Aug2009)
 
 # hyperparameters
-n_timesteps = 48
-n_features = 13
+n_timesteps = 49
+n_features = 14
 
 
 # If clustering before prediction

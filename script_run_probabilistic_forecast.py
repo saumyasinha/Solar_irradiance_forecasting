@@ -65,7 +65,7 @@ testyear = 2008  # i.e all of Fall(Sep2008-Nov2008), Winter(Dec2008-Feb2009), Sp
 
 # hyperparameters
 n_timesteps = 1
-n_features = 12
+n_features = 14
 
 # If clustering before prediction
 # n_clusters = 3 #6
@@ -261,8 +261,8 @@ def main():
                 #                                                                       index_zen, index_clearghi)
 
                 # including features from prev imestamps
-                X_train = include_previous_features(X_train, index_ghi)
-                X_heldout = include_previous_features(X_heldout, index_ghi)
+                # X_train = include_previous_features(X_train, index_ghi)
+                # X_heldout = include_previous_features(X_heldout, index_ghi)
 
                 X_train = X_train[n_timesteps:, :]
                 X_heldout = X_heldout[n_timesteps:, :]
