@@ -154,7 +154,7 @@ def DC_CNN_Model(n_timesteps, n_features, n_outputs = 1):
     #Model 1
     n_filters = 32
     filter_width = 2
-    dilation_rates = [2**i for i in range(5)]
+    dilation_rates = [2**i for i in range(8)]
 
     # define an input history series and pass it through a stack of dilated causal convolutions
     history_seq = Input(shape=(None, n_features))

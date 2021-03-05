@@ -27,15 +27,15 @@ pd.set_option('display.width', 1000)
 city = 'Sioux_Falls_SD'
 
 # lead time
-lead_times = [6,7,8]  # from [1,2,3,4,5,6,7,8,9,10,11,12]
+lead_times = [1,2,3,4,5,6,7,8,9,10,11,12]  # from [1,2,3,4,5,6,7,8,9,10,11,12]
 
 # season
 seasons = ['year']  # from ['fall', 'winter', 'spring', 'summer', 'year']
 res = '15min'  # 15min
 
 # file locations
-# path_project = "C:\\Users\Shivendra\Desktop\SolarProject\solar_forecasting/"
-path_project = "/Users/saumya/Desktop/SolarProject/"
+path_project = "C:\\Users\Shivendra\Desktop\SolarProject\solar_forecasting/"
+# path_project = "/Users/saumya/Desktop/SolarProject/"
 path = path_project + "Data/"
 folder_saving = path_project + city + "/Models/"
 folder_plots = path_project + city + "/Plots/"
@@ -69,7 +69,7 @@ endmonth = 8
 testyear = 2008  # i.e all of Fall(Sep2008-Nov2008), Winter(Dec2008-Feb2009), Spring(Mar2009-May2009), Summer(June2009-Aug2009), year(Sep2008-Aug2009)
 
 # hyperparameters
-n_timesteps = 49
+n_timesteps = 145
 n_features = 14
 
 
@@ -188,10 +188,10 @@ def main():
         ## ML_models_2008 is the folder to save results on testyear 2008
         ## creating different folder for different methods: nn for fully connected networks, rf for random forest etc.
         os.makedirs(
-            folder_saving + season_flag + "/ML_models_2008/dcnn_lag/" + str(res) + "/dcnn_lag_48_mse/",
+            folder_saving + season_flag + "/ML_models_2008/dcnn_lag/" + str(res) + "/dcnn_lag_144_mse/",
             exist_ok=True)
         f = open(folder_saving + season_flag + "/ML_models_2008/dcnn_lag/" + str(
-            res) + "/dcnn_lag_48_mse/results.txt", 'a')
+            res) + "/dcnn_lag_144_mse/results.txt", 'a')
 
 
         for lead in lead_times:
@@ -260,7 +260,7 @@ def main():
                 # normalizing the Xtrain, Xvalid and Xtest data and saving the mean,std of train to normalize the heldout data later
                 X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, X_test,index_ghi,index_clearghi,
                                                                              folder_saving + season_flag + "/ML_models_2008/dcnn_lag/" + str(
-                                                                                 res) + "/dcnn_lag_48_mse/",
+                                                                                 res) + "/dcnn_lag_144_mse/",
                                                                              reg, lead=lead)
 
                 # X_train = X_train.reshape((X_train.shape[0], n_timesteps, n_features))
@@ -268,7 +268,7 @@ def main():
                 # X_test = X_test.reshape((X_test.shape[0], n_timesteps, n_features))
                 model = cnn.train_DCNN(X_train, y_train, n_timesteps, n_features,
                                           folder_saving + season_flag + "/ML_models_2008/dcnn_lag/" + str(
-                                              res) + "/dcnn_lag_48_mse/",
+                                              res) + "/dcnn_lag_144_mse/",
                                           model_saved="dcnn_lag_for_lead_" + str(lead))
 
                 y_pred = model.predict(X_test.reshape(X_test.shape[0],n_timesteps, n_features))

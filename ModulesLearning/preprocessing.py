@@ -203,7 +203,7 @@ def get_train_test_data(dataframe_train, dataframe_test, final_set_of_features, 
     print('clearghi check after: ', dataframe_train['clear_ghi'][:5])
 
     dataframe_train['smart_persistence'] = dataframe_train['clearness_index_input']* shifted_clearghi_train
-    dataframe_test['smart_persistence'] = dataframe_train['clearness_index_input']* shifted_clearghi_test
+    dataframe_test['smart_persistence'] = dataframe_test['clearness_index_input']* shifted_clearghi_test
     col_to_indices_mapping = {k: v for v, k in enumerate(final_features)}
     print(col_to_indices_mapping)
     # Selecting the final features and target variables
