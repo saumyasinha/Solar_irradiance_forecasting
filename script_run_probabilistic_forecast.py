@@ -13,6 +13,8 @@ from SolarForecasting.ModulesLearning import postprocessing as postprocess
 from SolarForecasting.ModulesLearning import model as models
 from SolarForecasting.ModulesLearning import clustering as clustering
 from ngboost.scores import CRPS, MLE
+import scipy as sp
+from scipy.stats import norm as dist
 
 
 pd.set_option('display.max_rows', 500)
@@ -25,7 +27,7 @@ pd.set_option('display.width', 1000)
 city = 'Sioux_Falls_SD'
 
 # lead time
-lead_times = [1,2,3,5,6,7,8,9,10,11,12] #from [1,2,3,4,5,6,7,8,9,10,11,12]
+lead_times = [1,4,8,12,16,20,24,28,32] #from [1,2,3,4,5,6,7,8,9,10,11,12]
 
 # season
 seasons =['year'] #from ['fall', 'winter', 'spring', 'summer', 'year']
@@ -130,6 +132,47 @@ def create_mulitple_lead_dataset(dataframe, final_set_of_features, target):
     return dataframe_lead
 
 
+def get_crps_for_ngboost(model, X, y):
+    # The normalization constant for the univariate standard Gaussian pdf
+    # _normconst = 1.0 / np.sqrt(2.0 * np.pi)
+    #
+    # def _normpdf(x):
+    #     """Probability density function of a univariate standard Gaussian
+    #     distribution with zero mean and unit variance.
+    #     """
+    #     return _normconst * np.exp(-(x * x) / 2.0)
+    #
+    # # Cumulative distribution function of a univariate standard Gaussian
+    # # distribution with zero mean and unit variance.
+    # _normcdf = special.ndtr
+    #
+    # x = np.asarray(y_dist)
+    # mu = np.asarray(y)
+    # sig = np.asarray(sig)
+    # # standadized x
+    # sx = (x - mu) / sig
+    # # some precomputations to speed up the gradient
+    # pdf = _normpdf(sx)
+    # cdf = _normcdf(sx)
+    # pi_inv = 1. / np.sqrt(np.pi)
+    # # the actual crps
+    # crps = sig * (sx * (2 * cdf - 1) + 2 * pdf - pi_inv)
+    #
+    # return crps
+    print(model.pred_dist(X)._params)
+    params = model.pred_dist(X)._params
+    loc = params[0]
+    scale = np.exp(params[1])
+    Z = (y - loc) / scale
+    print(Z.shape)
+    score = scale * (
+            Z * (2 * sp.stats.norm.cdf(Z) - 1)
+            + 2 * sp.stats.norm.pdf(Z)
+            - 1 / np.sqrt(np.pi)
+    )
+    print(score.shape)
+    return np.average(score)
+
 def main():
 
     ## pre-processing steps
@@ -230,8 +273,8 @@ def main():
 
 
     for season_flag in seasons:
-        os.makedirs(folder_saving + season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_Without_prevtimesteps_new_normalization/", exist_ok=True)
-        f = open(folder_saving + season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_Without_prevtimesteps_new_normalization//results.txt", 'a')
+        os.makedirs(folder_saving + season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_without_lag_most_updated_with_errorbars/", exist_ok=True)
+        f = open(folder_saving + season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_without_lag_most_updated_with_errorbars//results.txt", 'a')
 
         for lead in lead_times:
             # create dataset with lead
@@ -297,58 +340,68 @@ def main():
                 print("train/valid/test sizes: ",len(X_train)," ",len(X_valid)," ", len(X_test))
 
 
-                reg = "ngboost_Without_prevtimesteps_new_normalization" ## giving a name to the regression models -- useful when saving results
+                reg = "ngboost_without_lag_most_updated_with_errorbars" ## giving a name to the regression models -- useful when saving results
 
                 # normalizing the Xtrain, Xvalid and Xtest data and saving the mean,std of train to normalize the heldout data later
-                X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, X_test, index_ghi, index_clearghi, folder_saving+season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_Without_prevtimesteps_new_normalization/",reg, lead)
+                X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, X_test, index_ghi, index_clearghi, folder_saving+season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_without_lag_most_updated_with_errorbars/",reg, lead)
 
 
                 y_train = np.reshape(y_train, -1)
                 y_test = np.reshape(y_test, -1)
                 y_valid = np.reshape(y_valid, -1)
+                #
+                # model = NGBRegressor(n_estimators=2000).fit(X_train, y_train)
+                #
+                # pickle.dump(model, open(
+                #     folder_saving + season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_without_lag_most_updated_with_errorbars/model_at_lead_" + str(lead) + ".pkl",
+                #     "wb"))
 
-                model = NGBRegressor(n_estimators=2000).fit(X_train, y_train)
+                with open(folder_saving + season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_without_lag_most_updated_with_errorbars/model_at_lead_" + str(lead) + ".pkl", 'rb') as file:
+                    model = pickle.load(file)
 
-                pickle.dump(model, open(
-                    folder_saving + season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_Without_prevtimesteps_new_normalization/model_at_lead_" + str(lead) + ".pkl",
-                    "wb"))
-
-                # with open(folder_saving + season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_Without_prevtimesteps_new_normalization/model_at_lead_" + str(lead) + ".pkl", 'rb') as file:
-                #     model = pickle.load(file)
-
-
-                f.write("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
+                print(model)
+                # f.write("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
 
                 y_pred = model.predict(X_test)
-                Y_dist = model.pred_dist(X_test)
                 y_valid_pred = model.predict(X_valid)
-                Y_valid_dist = model.pred_dist(X_valid)
 
                 y_pred = np.reshape(y_pred, -1)
                 y_valid_pred = np.reshape(y_valid_pred, -1)
 
-                print("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
+                # print("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
 
-                print("##########VALID##########")
-                rmse_our, mae_our, mb_our, r2_our = postprocess.evaluation_metrics(y_valid, y_valid_pred)
-                print("Performance of our model (rmse, mae, mb, r2): \n\n", round(rmse_our, 2), round(mae_our, 2),
-                      round(mb_our, 2), round(r2_our, 2))
-                f.write('\n evaluation metrics (rmse, mae, mb, r2) on valid data for ' + reg + '=' + str(round(rmse_our, 2))+ "," + str(round(mae_our, 2)) + ","+
-                      str(round(mb_our, 2)) + "," + str(round(r2_our, 2)) + '\n')
+                # print("##########VALID##########")
+                # rmse_our, mae_our, mean_our, std_our, r2_our = postprocess.evaluation_metrics(y_valid,
+                #                                                                               y_valid_pred)
+                # print("Performance of our model (rmse, mae, mb,sd, r2): \n\n", round(rmse_our, 2), round(mae_our, 2),
+                #       round(mean_our, 2), round(std_our, 2), round(r2_our, 2))
+                # f.write('\n evaluation metrics (rmse, mae, mb,sd, r2) on valid data for ' + reg + '=' + str(
+                #     round(rmse_our, 2)) + "," + str(round(mae_our, 2)) + "," +
+                #         str(round(mean_our, 2)) + "," + str(round(std_our, 2)) + "," + str(round(r2_our, 2)) + '\n')
+                #
+                # print("##########Test##########")
+                # rmse_our, mae_our, mean_our, std_our, r2_our = postprocess.evaluation_metrics(y_test,
+                #                                                                               y_pred)
+                # print("Performance of our model (rmse, mae, mb,sd, r2): \n\n", round(rmse_our, 2), round(mae_our, 2),
+                #       round(mean_our, 2), round(std_our, 2), round(r2_our, 2))
+                # f.write('\n evaluation metrics (rmse, mae, mb,sd, r2) on test data for ' + reg + '=' + str(
+                #     round(rmse_our, 2)) + "," + str(round(mae_our, 2)) + "," +
+                #         str(round(mean_our, 2)) + "," + str(round(std_our, 2)) + "," + str(round(r2_our, 2)) + '\n')
+                #
 
-                print("##########Test##########")
-                rmse_our, mae_our, mb_our, r2_our = postprocess.evaluation_metrics(y_test, y_pred)
-                # print("Performance of our model (rmse, mae, mb, r2): \n\n", round(rmse_our, 1), round(mae_our, 1),
-                #       round(mb_our, 1), round(r2_our, 1))
-                f.write('\n evaluation metrics (rmse, mae, mb, r2) on test data for ' + reg + '=' + str(
-                    round(rmse_our, 2)) + "," + str(round(mae_our, 2)) + "," +
-                        str(round(mb_our, 2)) + "," + str(round(r2_our, 2)) + '\n')
+                crps_valid = get_crps_for_ngboost(model, X_valid, y_valid)
+                crps_test = get_crps_for_ngboost(model, X_test, y_test)
+
+                f.write('\n CRPS score on valid data for lead ' + str(lead) + '=' + str(
+                    round(crps_valid, 2)) + '\n')
+                f.write('\n CRPS score on test data for lead ' + str(lead) + '=' + str(
+                    round(crps_test, 2)) + '\n')
 
 
 
 
             else:
-                print("not enough data for the season: ", season_flag, "and lead: ", lead)
+                    print("not enough data for the season: ", season_flag, "and lead: ", lead)
 
         f.close()
 

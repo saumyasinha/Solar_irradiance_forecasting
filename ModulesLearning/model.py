@@ -79,8 +79,8 @@ class Network(nn.Module):
 
     def __init__(
             self,
-            input_size = 36,
-            hidden_sizes=[32,32],
+            input_size = 13,
+            hidden_sizes=[64,16],
             dropout_rate=.5,
     ):
         super().__init__()
@@ -127,7 +127,7 @@ class Network(nn.Module):
 
 
 
-def fnn_train(X_train, y_train, folder_saving, epochs=500, model_saved="FNN"):
+def fnn_train(X_train, y_train, folder_saving, model_saved="FNN", epochs=250):
 
     input_size = X_train.shape[1]
     X_train = X_train.astype(np.float32)
@@ -138,16 +138,16 @@ def fnn_train(X_train, y_train, folder_saving, epochs=500, model_saved="FNN"):
         criterion=nn.MSELoss,
         max_epochs=epochs,
         optimizer=optim.Adam,
-        batch_size=64,
+        batch_size=32,
         optimizer__lr=.001,
         optimizer__weight_decay = 1e-5
     )
     print(net)
 
     params = {
-        'optimizer__lr': [0.01, 0.001, 0.0001],
-        'module__dropout_rate' : [0.5,0],
-        'module__hidden_sizes': [[64,16],[128,64],[32,32],[24,16], [64,16,8]]
+        'optimizer__lr': [0.001],#[0.001, 0.0001],
+        'module__dropout_rate' : [0.5],#[0.5,0],
+        'module__hidden_sizes': [[64,16,8]]#[[64,16],[128,64],[64,16,8]]
     }
     #
     gs = RandomizedSearchCV(net, param_distributions=params, refit=True,cv=3,scoring='neg_mean_squared_error',n_iter=100)

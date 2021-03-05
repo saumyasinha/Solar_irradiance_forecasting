@@ -16,42 +16,38 @@ pd.set_option('display.max_rows', 500)
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.width', 1000)
 
-pd.set_option('display.max_rows', 500)
-pd.set_option('display.max_columns', 500)
-pd.set_option('display.width', 1000)
-
-
 # All the variables and hyper-parameters
 
 # city
 city = 'Sioux_Falls_SD'
 
 # lead time
-lead_times = [1,2,3,4,5,6,7,8,9,10,11,12]  # from [1,2,3,4,5,6,7,8,9,10,11,12]
+
+lead_times = [4,8,12,16] #from [1,2,3,4,5,6,7,8,9,10,11,12]
+
 
 # season
-seasons = ['year']  # from ['fall', 'winter', 'spring', 'summer', 'year']
-res = '15min'  # 15min
+seasons =['year'] #from ['fall', 'winter', 'spring', 'summer', 'year']
+res = '15min' #15min
 
 # file locations
-path_project = "C:\\Users\Shivendra\Desktop\SolarProject\solar_forecasting/"
-# path_project = "/Users/saumya/Desktop/SolarProject/"
-path = path_project + "Data/"
-folder_saving = path_project + city + "/Models/"
-folder_plots = path_project + city + "/Plots/"
-clearsky_file_path = path + 'clear-sky/' + city + '_15min_original.csv'
+
+# path_project = "C:\\Users\Shivendra\Desktop\SolarProject\solar_forecasting/"
+path_project = "/Users/saumya/Desktop/SolarProject/"
+path = path_project+"Data/"
+folder_saving = path_project + city+"/Models/"
+folder_plots = path_project + city+"/Plots/"
+clearsky_file_path = path+'clear-sky/'+city+'_15min_original.csv'
+
 
 # scan all the features (except the flags)
-features = ['year', 'month', 'day', 'hour', 'min', 'zen', 'dw_solar', 'uw_solar', 'direct_n', 'diffuse', 'dw_ir',
-            'dw_casetemp', 'dw_dometemp', 'uw_ir', 'uw_casetemp', 'uw_dometemp', 'uvb', 'par', 'netsolar', 'netir',
-            'totalnet', 'temp', 'rh', 'windspd', 'winddir', 'pressure']
+features = ['year','month','day','hour','min','zen','dw_solar','uw_solar','direct_n','diffuse','dw_ir','dw_casetemp','dw_dometemp','uw_ir','uw_casetemp','uw_dometemp','uvb','par','netsolar','netir','totalnet','temp','rh','windspd','winddir','pressure']
 
 # selected features for the study
 # final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','dw_ir','temp','rh','windspd','winddir','pressure','clear_ghi']
 ## exploring more features
-final_features = ['year', 'month', 'day', 'hour', 'MinFlag', 'zen', 'dw_solar', 'uw_solar', 'direct_n', 'dw_ir',
-                  'uw_ir', 'temp', 'rh', 'windspd', 'winddir', 'pressure','clear_ghi']
-# final_features = ['year','month','day','hour','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
+# final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
+final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','direct_n','dw_ir','temp','windspd','winddir','pressure', 'clear_ghi']
 
 # features_to_cluster_on = ['dw_solar','dw_ir', 'temp','pressure', 'windspd']
 # features_to_cluster_on = ['dw_solar','temp']
@@ -69,8 +65,10 @@ endmonth = 8
 testyear = 2008  # i.e all of Fall(Sep2008-Nov2008), Winter(Dec2008-Feb2009), Spring(Mar2009-May2009), Summer(June2009-Aug2009), year(Sep2008-Aug2009)
 
 # hyperparameters
-n_timesteps = 145
-n_features = 14
+
+n_timesteps = 72 #72
+n_features = 10 #13
+quantile = True
 
 
 # If clustering before prediction
@@ -78,11 +76,13 @@ n_features = 14
 
 
 def get_data():
+
     ## collect raw data
     years = [2005, 2006, 2007, 2008, 2009]
     object = collect_data.SurfradDataCollector(years, [city], path)
 
     object.download_data()
+
 
     ## cleanse data to get processed version
     for year in years:
@@ -111,7 +111,31 @@ def include_previous_features(X, index_ghi):
     print("X shape after adding prev features: ", X.shape)
     return X
 
+def create_mulitple_lead_dataset(dataframe, final_set_of_features, target):
+    dataframe_lead = dataframe[final_set_of_features]
+    target = np.asarray(dataframe[target])
+
+    y_list = []
+    for lead in lead_times:
+        print("rolling by: ",lead)
+        target = np.roll(target, -lead)
+        y_list.append(target)
+
+    dataframe_lead['clearness_index'] = np.column_stack(y_list).tolist()
+    dataframe_lead['clearness_index'] = dataframe_lead['clearness_index'].apply(tuple)
+    max_lead = np.max(lead_times)
+    dataframe_lead['clearness_index'].values[-max_lead:] = np.nan
+    print(dataframe_lead['clearness_index'])
+
+    # remove rows which have any value as NaN
+    dataframe_lead = dataframe_lead.dropna()
+    print("*****************")
+    print("dataframe with lead size: ", len(dataframe_lead))
+    return dataframe_lead
+
+
 def main():
+
     ## pre-processing steps
 
     # extract the input data files (SURFAD data)
@@ -123,14 +147,14 @@ def main():
 
     # extract the features from the input
     dataset = combined_csv[features]
-    print('dataset size: ', len(dataset))
+    print('dataset size: ',len(dataset))
 
-    # 1hour resolution #15 mins resolution
+    #1hour resolution #15 mins resolution
     dataset['MinFlag'] = dataset['min'].apply(preprocess.generateFlag)
     dataset = dataset.groupby(['year', 'month', 'day', 'hour', 'MinFlag']).mean()
     # dataset = dataset.groupby(['year', 'month', 'day', 'hour']).mean()
     dataset.reset_index(inplace=True)
-    print('dataset size on a 1hour resolution: ', len(dataset))
+    print('dataset size on a 1hour resolution: ',len(dataset))
 
     print(dataset.isnull().values.any())
 
@@ -153,45 +177,49 @@ def main():
     print("stats of all raw features/columns")
     print(df.describe())
 
+
     # selecting only the required columns
     df = df[final_features]
 
     # get dataset for the study period
-    df = preprocess.extract_study_period(df, startmonth, startyear, endmonth, endyear)
+    df = preprocess.extract_study_period(df,startmonth, startyear, endmonth, endyear)
     print("\n\n after extracting study period")
     df.reset_index(drop=True, inplace=True)
     print(df.tail)
+
 
     # ## removing outliers from this dataset and then removing nan rows
     # df = preprocess.remove_negative_values(df, final_features[5:])
     # df = df.dropna()
 
     ## convert negatives to 0 for all features
-    df[df < 0] = 0
+    df[df<0] = 0
     print("stats of selected features/columns after converting all negatives to 0")
     print(df.describe())
 
     # adjust the boundary values (no need to do this anymore -- will drop the rows with 0 clear_ghi later)
     # df = preprocess.adjust_boundary_values(df)
 
+
     # adding the clearness index and dropping rows with 0 clear_ghi and taking only daytimes
     df = df[df['clear_ghi'] > 0]
-    df_final = df[df['zen'] < 85]
+    df_final = df[df['zen']<85]
     df_final['clearness_index'] = df_final['dw_solar'] / df_final['clear_ghi']
     # df_final['clearness_index'] = df_final['dw_solar']
     df_final.reset_index(drop=True, inplace=True)
-    print("after removing data points with 0 clear_ghi and selecting daytimes", len(df_final))
-    # print(df_final.describe())
-
+    print("after removing data points with 0 clear_ghi and selecting daytimes",len(df_final))
+    
+    # df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
     #
     for season_flag in seasons:
         ## ML_models_2008 is the folder to save results on testyear 2008
         ## creating different folder for different methods: nn for fully connected networks, rf for random forest etc.
         os.makedirs(
-            folder_saving + season_flag + "/ML_models_2008/dcnn_lag/" + str(res) + "/dcnn_lag_144_mse/",
+            folder_saving + season_flag + "/ML_models_2008/dcnn_lag/" + str(res) + "/1dcnn_with_attention_quantile_loss/",
             exist_ok=True)
         f = open(folder_saving + season_flag + "/ML_models_2008/dcnn_lag/" + str(
-            res) + "/dcnn_lag_144_mse/results.txt", 'a')
+            res) + "/1dcnn_with_attention_quantile_loss/results.txt", 'a')
+
 
 
         for lead in lead_times:
@@ -199,7 +227,7 @@ def main():
             df_lead = preprocess.create_lead_dataset(df_final, lead, final_features, target_feature)
             df_lead = df_lead[:len(df_lead)-lead]
 
-            # get the seasonal data you want
+                # get the seasonal data you want
             df, test_startdate, test_enddate = preprocess.get_yearly_or_season_data(df_lead, season_flag, testyear)
             print("\n\n after getting seasonal data (test_startdate; test_enddate)", test_startdate, test_enddate)
             print(df.tail)
@@ -213,7 +241,7 @@ def main():
             if len(df_train) > 0 and len(df_heldout) > 0:
                 # extract the X_train, y_train, X_test, y_test
                 X_train, y_train, X_heldout, y_heldout, index_clearghi, index_ghi, index_zen, col_to_indices_mapping = preprocess.get_train_test_data(
-                    df_train, df_heldout, final_features, target_feature, lead)
+                    df_train, df_heldout, final_features, target_feature)#, lead)
                 print("\n\n train and test df shapes ")
                 print(X_train.shape, y_train.shape, X_heldout.shape, y_heldout.shape)
 
@@ -225,7 +253,7 @@ def main():
                 X_train = include_previous_features(X_train, index_ghi)
                 X_heldout = include_previous_features(X_heldout, index_ghi)
 
-                X_train = X_train[n_timesteps:,:]
+                X_train = X_train[n_timesteps:,:] #technically should be n_timesteps-1
                 X_heldout = X_heldout[n_timesteps:, :]
                 y_train = y_train[n_timesteps:, :]
                 y_heldout = y_heldout[n_timesteps:, :]
@@ -260,47 +288,60 @@ def main():
                 # normalizing the Xtrain, Xvalid and Xtest data and saving the mean,std of train to normalize the heldout data later
                 X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, X_test,index_ghi,index_clearghi,
                                                                              folder_saving + season_flag + "/ML_models_2008/dcnn_lag/" + str(
-                                                                                 res) + "/dcnn_lag_144_mse/",
-                                                                             reg, lead=lead)
+                                                                                 res) + "/1dcnn_with_attention_quantile_loss/",
+                                                                             reg, lead = lead)
+
 
                 # X_train = X_train.reshape((X_train.shape[0], n_timesteps, n_features))
                 # X_valid = X_valid.reshape((X_valid.shape[0], n_timesteps, n_features))
                 # X_test = X_test.reshape((X_test.shape[0], n_timesteps, n_features))
-                model = cnn.train_DCNN(X_train, y_train, n_timesteps, n_features,
+                cnn.train_DCNN_with_attention(quantile, X_train, y_train,X_valid, y_valid, n_timesteps, n_features,
                                           folder_saving + season_flag + "/ML_models_2008/dcnn_lag/" + str(
-                                              res) + "/dcnn_lag_144_mse/",
-                                          model_saved="dcnn_lag_for_lead_" + str(lead))
+                                              res) + "/1dcnn_with_attention_quantile_loss/",model_saved = "dcnn_lag_for_lead_" + str(lead))#, n_outputs=len(lead_times))
 
-                y_pred = model.predict(X_test.reshape(X_test.shape[0],n_timesteps, n_features))
-                y_valid_pred = model.predict(X_valid.reshape(X_valid.shape[0], n_timesteps, n_features))
 
-                y_pred = np.reshape(y_pred, -1)
-                y_valid_pred = np.reshape(y_valid_pred, -1)
-                y_test = np.reshape(y_test, -1)
-                y_valid = np.reshape(y_valid, -1)
+                y_pred, y_valid_pred, valid_crps, test_crps  = cnn.test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_features,
+                                              folder_saving + season_flag + "/ML_models_2008/dcnn_lag/" + str(
+                                                  res) + "/1dcnn_with_attention_quantile_loss/",model_saved = "dcnn_lag_for_lead_" + str(lead))#, n_outputs=len(lead_times))
+
+                # y_pred = model.predict(X_test.reshape(X_test.shape[0],n_timesteps, n_features))
+                # y_valid_pred = model.predict(X_valid.reshape(X_valid.shape[0], n_timesteps, n_features))
+                # print(y_pred.shape)
+                # y_pred = np.reshape(y_pred, -1)
+                # y_valid_pred = np.reshape(y_valid_pred, -1)
+            #
+                # for i in range(len(lead_times)):
+                #
+                #     lead = lead_times[i]
+                #     y_test_for_this_lead = y_test[:,i]
+                #     y_valid_for_this_lead = y_valid[:,i]
+                #     y_pred_for_this_lead = y_pred[:,i]
+                #     y_valid_pred_for_this_lead = y_valid_pred[:,i]
+
 
                 f.write("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
                 print("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
 
                 print("##########VALID##########")
-                rmse_our, mae_our, mb_our, r2_our = postprocess.evaluation_metrics(y_valid, y_valid_pred)
-                print("Performance of our model (rmse, mae, mb, r2): \n\n", round(rmse_our, 2), round(mae_our, 2),
-                      round(mb_our, 2), round(r2_our, 2))
-                f.write('\n evaluation metrics (rmse, mae, mb, r2) on valid data for ' + reg + '=' + str(
+                rmse_our, mae_our, mean_our,std_our,r2_our = postprocess.evaluation_metrics(y_valid, y_valid_pred)
+                print("Performance of our model (rmse, mae, mb, sd, r2, crps): \n\n", round(rmse_our, 2), round(mae_our, 2),
+                      round(mean_our, 2), round(std_our, 2), round(r2_our, 2), round(valid_crps, 2))
+                f.write('\n evaluation metrics (rmse, mae, mb, sd, r2, crps) on valid data for ' + reg + '=' + str(
                     round(rmse_our, 2)) + "," + str(round(mae_our, 2)) + "," +
-                        str(round(mb_our, 2)) + "," + str(round(r2_our, 2)) + '\n')
+                        str(round(mean_our, 2)) + "," + str(round(std_our, 2)) + "," + str(round(r2_our, 2)) + "," + str(round(valid_crps, 2)) +'\n')
 
                 print("##########Test##########")
-                rmse_our, mae_our, mb_our, r2_our = postprocess.evaluation_metrics(y_test, y_pred)
-                print("Performance of our model (rmse, mae, mb, r2): \n\n", round(rmse_our, 2), round(mae_our, 2),
-                      round(mb_our, 2), round(r2_our, 2))
-                f.write('\n evaluation metrics (rmse, mae, mb, r2) on test data for ' + reg + '=' + str(
+                rmse_our, mae_our, mean_our, std_our, r2_our = postprocess.evaluation_metrics(y_test, y_pred)
+                print("Performance of our model (rmse, mae, mb, sd, r2, crps): \n\n", round(rmse_our, 2), round(mae_our, 2),
+                      round(mean_our, 2), round(std_our, 2), round(r2_our, 2), round(test_crps, 2))
+                f.write('\n evaluation metrics (rmse, mae, mb, sd, r2, crps) on test data for ' + reg + '=' + str(
                     round(rmse_our, 2)) + "," + str(round(mae_our, 2)) + "," +
-                        str(round(mb_our, 2)) + "," + str(round(r2_our, 2)) + '\n')
+                        str(round(mean_our, 2)) + "," + str(round(std_our, 2)) + "," + str(
+                    round(r2_our, 2)) + "," + str(round(test_crps, 2)) + '\n')
 
 
             else:
-                print("not enough data for the season: ", season_flag, "and lead: ", lead)
+                    print("not enough data for the season: ", season_flag, "and lead: ", lead)
 
         f.close()
 
