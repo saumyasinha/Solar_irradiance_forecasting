@@ -1,44 +1,13 @@
 import os
-from SolarForecasting.ModulesLearning.ModulesCNN.Model import basic_CNN, DC_CNN_Model
-from keras.optimizers import Adam, Nadam
-from keras.models import load_model
+# from SolarForecasting.ModulesLearning.ModulesCNN.Model import basic_CNN, DC_CNN_Model
+import torch
+from SolarForecasting.ModulesLearning.ModulesCNN.Model import ConvForecasterDilationLowRes
+# from keras.optimizers import Adam, Nadam
+# from keras.models import load_model
 import numpy as np
 import matplotlib.pyplot as plt
-from keras.callbacks import EarlyStopping, TensorBoard, ModelCheckpoint, EarlyStopping
+# from keras.callbacks import EarlyStopping, TensorBoard, ModelCheckpoint, EarlyStopping
 
-# def train(X_train, y_train, folder_saving, model_saved,n_timesteps=1, n_features = 1, n_outputs=1):
-#     batch_size = 2 ** 5
-#     epochs = 20
-#
-#     X_train = X_train.reshape((X_train.shape[0], n_timesteps, n_features))
-#     y_train = y_train.reshape((y_train.shape[0], y_train.shape[1], 1))
-#
-#     print("train shape: ", X_train.shape)
-#     print("train shape: ", y_train.shape)
-#
-#     model = build_model(n_outputs, n_features)
-#     model.compile(Adam(), loss='mean_absolute_error')
-#     print(model.summary())
-#
-#     history = model.fit(X_train,y_train,
-#                         batch_size=batch_size,
-#                         epochs=epochs,
-#                         validation_split=0.2)
-#     # save the model
-#     model.save(folder_saving + model_saved)
-#
-#     plt.figure()
-#     plt.plot(history.history['loss'])
-#     plt.plot(history.history['val_loss'])
-#
-#     plt.xlabel('Epoch')
-#     plt.ylabel('mean_absolute_error Loss')
-#     plt.title('Loss Over Time')
-#     plt.legend(['Train', 'Valid'])
-#     plt.savefig(folder_saving + model_saved + "_loss_plots")
-#     plt.clf()
-#
-#     return model
 
 
 def basic_CNN_train(X_train, y_train, folder_saving, model_saved):
@@ -101,8 +70,9 @@ def train_DCNN(X_train,y_train, n_timesteps, n_features, folder_saving, model_sa
     #     return model
 
     X_train = X_train.reshape((X_train.shape[0],n_timesteps, n_features))
-    y_train = y_train.reshape((y_train.shape[0],n_outputs, 1))
+    # y_train = y_train.reshape((y_train.shape[0],n_outputs, 1))
 
+    print(X_train.shape, y_train.shape)
     model = DC_CNN_Model(n_timesteps, n_features, n_outputs)
     print('\n\nModel with input size {}, output size {}'.
           format(model.input_shape, model.output_shape))
@@ -115,9 +85,12 @@ def train_DCNN(X_train,y_train, n_timesteps, n_features, folder_saving, model_sa
     # model.compile(loss='mae', optimizer=adam)
     #
     # history = model.fit(X_train, y_train, epochs=3000)
+    #
+    # adam = Adam(lr=0.00075)
 
-    verbose, epochs, batch_size = 0, 100, 16
-    model.compile(loss='mse', optimizer='adam')
+    verbose, epochs, batch_size = 0, 100, 32
+    # model.compile(loss='mse', optimizer='adam')
+    model.compile(loss='mean_squared_logarithmic_error', optimizer='sgd')
 
     filepath = folder_saving + model_saved
     checkpoint = ModelCheckpoint(filepath, monitor='val_loss', verbose=1, save_best_only=True, mode='min')
@@ -140,21 +113,80 @@ def train_DCNN(X_train,y_train, n_timesteps, n_features, folder_saving, model_sa
     return model
 
 
-# def evaluate_DCNN(X_test, n_timesteps, n_features, predict_size, model):
-#
-#     X_test = X_test.reshape((X_test.shape[0],n_timesteps, n_features))
-#     # pred_array = model.predict(X_test_initial) if predictions of training samples required
-#
-#     # forecast is created by predicting next future value based on previous predictions
-#     # pred_array=[]
-#     # for i in range(predict_size):
-#     #     pred_array.append(model.predict(X_test[i]))
-#     #
-#     # return pred_array
-#
-#     for i in range(X_test.shape[0]):
-#         X = X_test[i]
-#         for j in range(predict_size):
+def loss_plots(train_loss, valid_loss, folder_saving, loss_type=""):
+    epochs = range(1, len(train_loss)+1)
+    # train_loss = train_loss[1:]
+    # valid_loss = valid_loss[1:]
+    plt.figure()
+    plt.plot(epochs, train_loss)
+    plt.plot(epochs, valid_loss)
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.legend(['training', 'validation'], loc='lower right')
+
+    plt.savefig(folder_saving+"loss_plots_"+loss_type)
+    plt.close()
+
+
+def train_DCNN_with_attention(quantile, X_train, y_train, X_valid, y_valid, n_timesteps, n_features, folder_saving, model_saved, n_outputs = 1):
+
+    X_train, y_train = X_train.astype(np.float32), y_train.astype(np.float32)
+    X_valid, y_valid = X_valid.astype(np.float32), y_valid.astype(np.float32)
+
+    X_train = torch.from_numpy(X_train).reshape(-1, n_features, n_timesteps)
+    y_train = torch.from_numpy(y_train).reshape(-1, n_outputs)
+
+    X_valid = torch.from_numpy(X_valid).reshape(-1, n_features, n_timesteps)
+    y_valid = torch.from_numpy(y_valid).reshape(-1, n_outputs)
+
+    print(X_train.shape, y_train.shape)
+
+
+
+    # point_foreaster = ConvForecasterDilationLowRes(n_features, n_timesteps, folder_saving, model_saved, quantile, outputs=n_outputs, valid=True)
+    quantile_foreaster = ConvForecasterDilationLowRes(n_features, n_timesteps, folder_saving, model_saved, quantile, alphas = np.arange(0.05, 1.0, 0.05), outputs=19, valid=True)
+
+    print(quantile_foreaster)
+    learning_rate = 1e-5#0.0000001(quantile) #0.0001
+    epochs = 250
+    batch_size = 32
+    train_loss, valid_loss = quantile_foreaster.trainBatchwise(X_train, y_train, epochs, batch_size,learning_rate,X_valid, y_valid, patience=10)
+    loss_plots(train_loss,valid_loss,folder_saving,model_saved)
+
+
+def test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_features, folder_saving, model_saved, n_outputs = 1):
+
+
+    X_test, y_test = X_test.astype(np.float32), y_test.astype(np.float32)
+    X_valid, y_valid = X_valid.astype(np.float32), y_valid.astype(np.float32)
+
+    X_valid = torch.from_numpy(X_valid).reshape(-1, n_features, n_timesteps)
+    # y_valid = torch.from_numpy(y_valid).reshape(-1, n_outputs)
+
+    X_test = torch.from_numpy(X_test).reshape(-1, n_features, n_timesteps)
+    # y_test = torch.from_numpy(y_test).reshape(-1, n_outputs)
+
+    quantile_foreaster = ConvForecasterDilationLowRes(n_features, n_timesteps, folder_saving, model_saved, quantile,
+                                                      alphas=np.arange(0.05, 1.0, 0.05), outputs=19, valid=True)
+
+    quantile_foreaster.load_state_dict(torch.load(folder_saving + model_saved))
+
+    quantile_foreaster.eval()
+
+    y_pred = quantile_foreaster.forward(X_test)
+    y_pred = y_pred.cpu().detach().numpy()
+
+    y_valid_pred = quantile_foreaster.forward(X_valid)
+    y_valid_pred = y_valid_pred.cpu().detach().numpy()
+
+    valid_crps, test_crps = 0.0, 0.0
+    if quantile:
+        valid_crps = quantile_foreaster.crps_score(y_valid_pred, y_valid, np.arange(0.05, 1.0, 0.05))
+        test_crps = quantile_foreaster.crps_score(y_pred, y_test, np.arange(0.05, 1.0, 0.05))
+
+    return y_pred[:,9], y_valid_pred[:,9], valid_crps, test_crps
+
+
 
 
 

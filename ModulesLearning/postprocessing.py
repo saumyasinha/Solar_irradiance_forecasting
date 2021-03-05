@@ -84,12 +84,14 @@ def final_true_pred_sp_np(true, pred, np, sp, lead, X, index_zen, index_clearghi
 def evaluation_metrics(true, pred):
     rmse = sqrt(mean_squared_error(true, pred))
     mae = mean_absolute_error(true, pred)
-    diff = (true - pred)
-    abs_diff = np.abs(true - pred)
-    mb = diff.mean()
-    # sd = np.std(abs_diff)
+    squared_diff = (true - pred)**2
+    # abs_diff = np.abs(true - pred)
+    # mb = diff.mean()
+    # # sd = np.std(abs_diff)
+    mb = np.mean(squared_diff)
+    sd = np.std(squared_diff)
     r2 = r2_score(true, pred)
-    return rmse, mae, mb, r2
+    return rmse, mae, mb, sd, r2
 
 
 def skill_score(our, persis):
