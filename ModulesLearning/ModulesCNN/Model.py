@@ -95,19 +95,35 @@ class ConvForecasterDilationLowRes(nn.Module):
         self.train_mode = False
         self.saving_path = folder_saving+model
 
-        self.conv1 = nn.Conv1d(self.input_dim, 40, 2, stride=1)
+        # self.conv1 = nn.Conv1d(self.input_dim, 40, 2, stride=1)
+        # self.conv1_fn = nn.ReLU()
+        # self.avgpool1 = nn.AvgPool1d(kernel_size=2, stride=1)
+        #
+        # self.conv2 = nn.Conv1d(40, 80, 3, stride=1, dilation=2)
+        # self.conv2_fn = nn.ReLU()
+        # self.avgpool2 = nn.AvgPool1d(kernel_size=2, stride=2)
+        #
+        # self.conv3 = nn.Conv1d(80, 128, 3, stride=1, dilation=4)
+        # self.conv3_fn = nn.ReLU()
+        # self.avgpool3 = nn.AvgPool1d(kernel_size=2, stride=1)
+
+        self.conv1 = nn.Conv1d(self.input_dim, 25, 2, stride=1)
         self.conv1_fn = nn.ReLU()
         self.avgpool1 = nn.AvgPool1d(kernel_size=2, stride=1)
 
-        self.conv2 = nn.Conv1d(40, 80, 3, stride=1, dilation=2)
+        self.conv2 = nn.Conv1d(25, 50, 3, stride=1, dilation=2)
         self.conv2_fn = nn.ReLU()
         self.avgpool2 = nn.AvgPool1d(kernel_size=2, stride=2)
 
-        self.conv3 = nn.Conv1d(80, 128, 3, stride=1, dilation=4)
+        self.conv3 = nn.Conv1d(50, 100, 3, stride=1, dilation=4)
         self.conv3_fn = nn.ReLU()
-        self.avgpool3 = nn.AvgPool1d(kernel_size=2, stride=1)
+        self.avgpool3 = nn.AvgPool1d(kernel_size=2, stride=2)
 
-        conv_layers = [ self.conv1,self.conv1_fn,self.avgpool1,self.conv2,self.conv2_fn,self.avgpool2,self.conv3,self.conv3_fn,self.avgpool3]
+        self.conv4 = nn.Conv1d(100, 150, 3, stride=1, dilation=6)
+        self.conv4_fn = nn.ReLU()
+        self.avgpool4 = nn.AvgPool1d(kernel_size=2, stride=1)
+
+        conv_layers = [ self.conv1,self.conv1_fn,self.avgpool1,self.conv2,self.conv2_fn,self.avgpool2,self.conv3,self.conv3_fn,self.avgpool3, self.conv4,self.conv4_fn,self.avgpool4]
         conv_module = nn.Sequential(*conv_layers)
 
         test_ipt = Variable(torch.zeros(1, self.input_dim, self.timesteps))
@@ -158,6 +174,10 @@ class ConvForecasterDilationLowRes(nn.Module):
         output = self.conv3(output)
         output = self.conv3_fn(output)
         output = self.avgpool3(output)
+
+        output = self.conv4(output)
+        output = self.conv4_fn(output)
+        output = self.avgpool4(output)
         output = output.reshape(-1, output.shape[1]*output.shape[2])
 
         # Compute Context Vector
@@ -213,6 +233,10 @@ class ConvForecasterDilationLowRes(nn.Module):
             for i in range(0, samples, batch_size):
                 xx = trainX[i: i + batch_size, :, :]
                 yy = trainY[i: i + batch_size]
+
+                if torch.cuda.is_available():
+                    xx,yy = xx.cuda(),yy.cuda()
+
                 outputs = self.forward(xx)
                 optimizer.zero_grad()
                 if self.quantile:
@@ -244,6 +268,9 @@ class ConvForecasterDilationLowRes(nn.Module):
             if self.valid:
                 self.train_mode = False
                 self.eval()
+                if torch.cuda.is_available():
+                    validX,validY = validX.cuda(),validY.cuda()
+
                 if self.quantile:
                     validYPred = self.forward(validX)
                     # validYPred = validYPred.cpu().detach().numpy()
@@ -259,7 +286,7 @@ class ConvForecasterDilationLowRes(nn.Module):
                     # total_loss = []
                     # for n in range(self.outputs):
                     #     y_pred = validYPred[:, n]
-                    #     # calculate the batch loss
+                    #     # calculate the batch lossnb6h
                     #     validloss = criterion(y_pred, validY[:, n])
                     #     total_loss.append(validloss)
                     #
