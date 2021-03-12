@@ -91,6 +91,9 @@ def evaluation_metrics(true, pred):
     mb = np.mean(squared_diff)
     sd = np.std(squared_diff)
     r2 = r2_score(true, pred)
+    # plt.clf()
+    # plt.hist(squared_diff, density=True, bins=30)
+    # plt.savefig(path)
     return rmse, mae, mb, sd, r2
 
 

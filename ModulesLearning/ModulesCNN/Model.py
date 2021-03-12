@@ -99,6 +99,8 @@ class ConvForecasterDilationLowRes(nn.Module):
         self.conv1_fn = nn.ReLU()
         self.avgpool1 = nn.AvgPool1d(kernel_size=2, stride=1)
 
+        # k × k filter is enlarged to k + (k − 1)(r − 1) with dilated stride r
+
         self.conv2 = nn.Conv1d(40, 80, 3, stride=1, dilation=2)
         self.conv2_fn = nn.ReLU()
         self.avgpool2 = nn.AvgPool1d(kernel_size=2, stride=2)
@@ -107,7 +109,10 @@ class ConvForecasterDilationLowRes(nn.Module):
         self.conv3_fn = nn.ReLU()
         self.avgpool3 = nn.AvgPool1d(kernel_size=2, stride=1)
 
+
         conv_layers = [ self.conv1,self.conv1_fn,self.avgpool1,self.conv2,self.conv2_fn,self.avgpool2,self.conv3,self.conv3_fn,self.avgpool3]
+        # conv_layers = [self.conv1, self.conv1_fn, self.conv2, self.conv2_fn, self.conv3,
+        #                self.conv3_fn]
         conv_module = nn.Sequential(*conv_layers)
 
         test_ipt = Variable(torch.zeros(1, self.input_dim, self.timesteps))
@@ -147,19 +152,26 @@ class ConvForecasterDilationLowRes(nn.Module):
 
 
     def forward(self, xx):
+        # print(xx.shape)
         output = self.conv1(xx)
+        # print(output.shape)
         output = self.conv1_fn(output)
         output = self.avgpool1(output)
+        # print(output.shape)
 
         output = self.conv2(output)
+        # print(output.shape)
         output = self.conv2_fn(output)
         output = self.avgpool2(output)
+        # print(output.shape)
 
         output = self.conv3(output)
+        # print(output.shape)
         output = self.conv3_fn(output)
         output = self.avgpool3(output)
+        # print(output.shape)
         output = output.reshape(-1, output.shape[1]*output.shape[2])
-
+        # print("after convolution: ", output.shape)
         # Compute Context Vector
         xx_single = self.conv_attn(xx).reshape(-1, self.timesteps)
         # print("xx_single: ", xx_single.shape)
@@ -169,10 +181,12 @@ class ConvForecasterDilationLowRes(nn.Module):
 
         # print("attention: ", attention.shape)
         x_attenuated = (xx * attention)
+        # print("xx attentuated: ",x_attenuated.shape)
         x_attenuated = x_attenuated.reshape(-1, x_attenuated.shape[1]*x_attenuated.shape[2])
 
 
         output = torch.cat((output, x_attenuated), dim=1)
+        # print("output concat with attenuated: ",output.shape)
         output = self.fc1(output)
         output = self.fc1_fn(output)
         if self.train_mode:
@@ -213,6 +227,9 @@ class ConvForecasterDilationLowRes(nn.Module):
             for i in range(0, samples, batch_size):
                 xx = trainX[i: i + batch_size, :, :]
                 yy = trainY[i: i + batch_size]
+
+                if torch.cuda.is_available():
+                    xx, yy = xx.cuda(), yy.cuda()
                 outputs = self.forward(xx)
                 optimizer.zero_grad()
                 if self.quantile:
@@ -244,6 +261,9 @@ class ConvForecasterDilationLowRes(nn.Module):
             if self.valid:
                 self.train_mode = False
                 self.eval()
+                if torch.cuda.is_available():
+                    validX,validY = validX.cuda(), validY.cuda()
+
                 if self.quantile:
                     validYPred = self.forward(validX)
                     # validYPred = validYPred.cpu().detach().numpy()

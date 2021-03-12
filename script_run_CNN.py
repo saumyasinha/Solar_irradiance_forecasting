@@ -22,7 +22,7 @@ pd.set_option('display.width', 1000)
 city = 'Sioux_Falls_SD'
 
 # lead time
-lead_times = [4,8,12,16] #from [1,2,3,4,5,6,7,8,9,10,11,12]
+lead_times = [8] #from [1,2,3,4,5,6,7,8,9,10,11,12]
 
 # season
 seasons =['year'] #from ['fall', 'winter', 'spring', 'summer', 'year']
@@ -63,7 +63,7 @@ testyear = 2008  # i.e all of Fall(Sep2008-Nov2008), Winter(Dec2008-Feb2009), Sp
 # hyperparameters
 n_timesteps = 72 #72
 n_features = 10 #13
-quantile = True
+quantile = False
 
 # If clustering before prediction
 # n_clusters = 3 #6
@@ -209,10 +209,10 @@ def main():
         ## ML_models_2008 is the folder to save results on testyear 2008
         ## creating different folder for different methods: nn for fully connected networks, rf for random forest etc.
         os.makedirs(
-            folder_saving + season_flag + "/ML_models_2008/dcnn_lag/" + str(res) + "/1dcnn_with_attention_quantile_loss/",
+            folder_saving + season_flag + "/ML_models_2008/dcnn_lag/" + str(res) + "/1dcnn_with_attention_and_errorbars_with_validsplit/",
             exist_ok=True)
         f = open(folder_saving + season_flag + "/ML_models_2008/dcnn_lag/" + str(
-            res) + "/1dcnn_with_attention_quantile_loss/results.txt", 'a')
+            res) + "/1dcnn_with_attention_and_errorbars_with_validsplit/results.txt", 'a')
 
 
         for lead in lead_times:
@@ -281,20 +281,20 @@ def main():
                 # normalizing the Xtrain, Xvalid and Xtest data and saving the mean,std of train to normalize the heldout data later
                 X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, X_test,index_ghi,index_clearghi,
                                                                              folder_saving + season_flag + "/ML_models_2008/dcnn_lag/" + str(
-                                                                                 res) + "/1dcnn_with_attention_quantile_loss/",
+                                                                                 res) + "/1dcnn_with_attention_and_errorbars_with_validsplit/",
                                                                              reg, lead = lead)
 
                 # X_train = X_train.reshape((X_train.shape[0], n_timesteps, n_features))
                 # X_valid = X_valid.reshape((X_valid.shape[0], n_timesteps, n_features))
                 # X_test = X_test.reshape((X_test.shape[0], n_timesteps, n_features))
-                cnn.train_DCNN_with_attention(quantile, X_train, y_train,X_valid, y_valid, n_timesteps, n_features,
-                                          folder_saving + season_flag + "/ML_models_2008/dcnn_lag/" + str(
-                                              res) + "/1dcnn_with_attention_quantile_loss/",model_saved = "dcnn_lag_for_lead_" + str(lead))#, n_outputs=len(lead_times))
+                cnn.train_DCNN_with_attention(quantile, X_train, y_train,n_timesteps = n_timesteps, n_features = n_features,
+                                          folder_saving = folder_saving + season_flag + "/ML_models_2008/dcnn_lag/" + str(
+                                              res) + "/1dcnn_with_attention_and_errorbars_with_validsplit/",model_saved = "dcnn_lag_for_lead_" + str(lead))#, n_outputs=len(lead_times))
 
 
                 y_pred, y_valid_pred, valid_crps, test_crps  = cnn.test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_features,
                                               folder_saving + season_flag + "/ML_models_2008/dcnn_lag/" + str(
-                                                  res) + "/1dcnn_with_attention_quantile_loss/",model_saved = "dcnn_lag_for_lead_" + str(lead))#, n_outputs=len(lead_times))
+                                                  res) + "/1dcnn_with_attention_and_errorbars_with_validsplit/",model_saved = "dcnn_lag_for_lead_" + str(lead))#, n_outputs=len(lead_times))
 
 
 
@@ -313,7 +313,7 @@ def main():
                 #     y_valid_pred_for_this_lead = y_valid_pred[:,i]
 
 
-                f.write("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
+                # f.write("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
                 print("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
 
                 print("##########VALID##########")

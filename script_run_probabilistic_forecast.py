@@ -131,6 +131,30 @@ def create_mulitple_lead_dataset(dataframe, final_set_of_features, target):
     print("dataframe with lead size: ", len(dataframe_lead))
     return dataframe_lead
 
+def get_crps_score_with_quantiles(model, X,y):
+    alphas = np.arange(0.05, 1.0, 0.05)
+    target = y
+
+    params = model.pred_dist(X)._params
+    loc = params[0]
+    scale = np.exp(params[1])
+
+    loss = []
+    for i, alpha in enumerate(alphas):
+        # output = outputs[:, i].reshape((-1, 1))
+        print(alpha, loc[0],scale[0])
+        output = dist.ppf(alpha,loc, scale) * scale
+        print(output[0])
+        covered_flag = (output <= target).astype(np.float32)
+        uncovered_flag = (output > target).astype(np.float32)
+        if i == 0:
+            loss.append(np.mean(
+                ((target - output) * alpha * covered_flag + (output - target) * (1 - alpha) * uncovered_flag)))
+        else:
+            loss.append(np.mean(
+                ((target - output) * alpha * covered_flag + (output - target) * (1 - alpha) * uncovered_flag)))
+
+    return 2*np.mean(np.array(loss))
 
 def get_crps_for_ngboost(model, X, y):
     # The normalization constant for the univariate standard Gaussian pdf
@@ -389,8 +413,10 @@ def main():
                 #         str(round(mean_our, 2)) + "," + str(round(std_our, 2)) + "," + str(round(r2_our, 2)) + '\n')
                 #
 
-                crps_valid = get_crps_for_ngboost(model, X_valid, y_valid)
-                crps_test = get_crps_for_ngboost(model, X_test, y_test)
+                # crps_valid = get_crps_for_ngboost(model, X_valid, y_valid)
+                # crps_test = get_crps_for_ngboost(model, X_test, y_test)
+                crps_valid = get_crps_score_with_quantiles(model, X_valid, y_valid)
+                crps_test = get_crps_score_with_quantiles(model, X_test, y_test)
 
                 f.write('\n CRPS score on valid data for lead ' + str(lead) + '=' + str(
                     round(crps_valid, 2)) + '\n')
