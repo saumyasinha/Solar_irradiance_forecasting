@@ -12,6 +12,7 @@ import numpy as np
 import sys
 from sklearn.metrics import mean_squared_error
 from torch.autograd import Variable
+from torch.nn.utils import weight_norm
 
 
 class EarlyStopping:
@@ -35,19 +36,19 @@ class EarlyStopping:
         self.delta = delta
         self.saving_path = saving_path
 
-    def __call__(self, val_loss, model):
+    def __call__(self, val_loss, model, epoch):
 
         score = -val_loss
 
         if self.best_score is None:
             self.best_score = score
             self.save_checkpoint(val_loss, model)
-        elif score < self.best_score + self.delta:
+        elif (score < self.best_score + self.delta):
             self.counter += 1
             print('EarlyStopping counter: {} out of {}'.format(self.counter, self.patience))
             if self.counter >= self.patience:
                 self.early_stop = True
-        else:
+        elif epoch>20:
             self.best_score = score
             self.save_checkpoint(val_loss, model)
             self.counter = 0
@@ -79,10 +80,45 @@ class Task_independent_module(nn.Module):
 
         return x
 
+
+
+class DilatedCausalConv1d(nn.Module):
+    def __init__(self, hyperparams: dict, dilation_factor: int, in_channels: int, out_channels: int):
+        super().__init__()
+
+        def weights_init(m):
+            if isinstance(m, nn.Conv1d):
+                nn.init.kaiming_normal_(m.weight.data)
+                nn.init.zeros_(m.bias.data)
+
+        self.dilation_factor = dilation_factor
+        self.dilated_causal_conv = nn.Conv1d(in_channels=in_channels,
+                                             out_channels=out_channels,
+                                             kernel_size=hyperparams['kernel_size'],
+                                             dilation=dilation_factor)
+        self.dilated_causal_conv.apply(weights_init)
+
+        self.skip_connection = nn.Conv1d(in_channels=in_channels,
+                                         out_channels=out_channels,
+                                         kernel_size=1)
+        self.skip_connection.apply(weights_init)
+        self.leaky_relu = nn.LeakyReLU(0.1)
+
+    def forward(self, x):
+        x1 = self.leaky_relu(self.dilated_causal_conv(x))
+        x2 = x[:, :, self.dilation_factor:]
+        x2 = self.skip_connection(x2)
+        return x1 + x2
+
 class ConvForecasterDilationLowRes(nn.Module):
     def __init__(self, input_dim, timesteps, folder_saving, model, quantile, alphas=None, outputs=None, valid=False):
         super(ConvForecasterDilationLowRes, self).__init__()
         self.quantile = quantile
+
+        def weights_init(m):
+            if isinstance(m, nn.Conv1d):
+                nn.init.kaiming_normal_(m.weight.data)
+                nn.init.zeros_(m.bias.data)
 
         if self.quantile:
             assert outputs == len(alphas), "The outputs and the quantiles should be of the same dimension"
@@ -95,120 +131,293 @@ class ConvForecasterDilationLowRes(nn.Module):
         self.train_mode = False
         self.saving_path = folder_saving+model
 
-        self.conv1 = nn.Conv1d(self.input_dim, 40, 2, stride=1)
-        self.conv1_fn = nn.ReLU()
-        self.avgpool1 = nn.AvgPool1d(kernel_size=2, stride=1)
+        # self.conv1 = nn.Conv1d(self.input_dim, 40, 2, stride=1)
+        # self.conv1_fn = nn.ReLU()
+        # self.avgpool1 = nn.AvgPool1d(kernel_size=2, stride=1)
+        # self.conv1.apply(weights_init)
+        #
+        # self.conv2 = nn.Conv1d(40, 80, 3, stride=1, dilation=2)
+        # self.conv2_fn = nn.ReLU()
+        # self.avgpool2 = nn.AvgPool1d(kernel_size=2, stride=2)
+        # self.conv2.apply(weights_init)
+        #
+        # self.conv3 = nn.Conv1d(80, 128, 3, stride=1, dilation=4)
+        # self.conv3_fn = nn.ReLU()
+        # # self.avgpool3 = nn.AvgPool1d(kernel_size=2, stride=1)
+        # self.avgpool3 = nn.AvgPool1d(kernel_size=2, stride=2)
+        # self.conv3.apply(weights_init)
+        #
+        # # self.conv1 = nn.Conv1d(self.input_dim, 25, 2, stride=1)
+        # # self.conv1_fn = nn.ReLU()
+        # # self.avgpool1 = nn.AvgPool1d(kernel_size=2, stride=1)
+        # #
+        # # self.conv2 = nn.Conv1d(25, 50, 3, stride=1, dilation=2)
+        # # self.conv2_fn = nn.ReLU()
+        # # self.avgpool2 = nn.AvgPool1d(kernel_size=2, stride=2)
+        # #
+        # # self.conv3 = nn.Conv1d(50, 100, 3, stride=1, dilation=4)
+        # # self.conv3_fn = nn.ReLU()
+        # # self.avgpool3 = nn.AvgPool1d(kernel_size=2, stride=2)
+        #
+        #
+        # conv_layers = [ self.conv1,self.conv1_fn,self.avgpool1,self.conv2,self.conv2_fn,self.avgpool2,self.conv3,self.conv3_fn,self.avgpool3]
+        # # conv_layers = [self.conv1, self.conv1_fn, self.conv2, self.conv2_fn, self.conv3,
+        # #                self.conv3_fn]
+        #
+        # # self.conv4 = nn.Conv1d(100, 150, 3, stride=1, dilation=6)
+        # # self.conv4_fn = nn.ReLU()
+        # # self.avgpool4 = nn.AvgPool1d(kernel_size=2, stride=1)
+        #
+        # conv_module = nn.Sequential(*conv_layers)
+        #
+        # test_ipt = Variable(torch.zeros(1, self.input_dim, self.timesteps))
+        # test_out = conv_module(test_ipt)
+        #
+        # self.conv_output_size = test_out.size(1) * test_out.size(2)
+        # fc1_dim = self.conv_output_size+(self.input_dim*self.timesteps)
+        #
+        # self.dropout = nn.Dropout(0.25) #0.5
+        #
+        # # self.fc1 = nn.Linear(fc1_dim, int(fc1_dim/2))#int(fc1_dim/4))
+        # # self.fc1_fn = nn.Tanh()
+        # #
+        # # self.fc2 = nn.Linear(int(fc1_dim/2), int(fc1_dim/4))
+        # # self.fc2_fn = nn.Tanh()
+        #
+        #
+        # # Attention Layer :
+        # self.conv_attn = nn.Conv1d(self.input_dim, 1, 1, stride=1)
+        # self.attn_layer = nn.Sequential(
+        #     nn.Linear(self.conv_output_size+self.timesteps, self.timesteps*self.input_dim),
+        #     nn.Tanh(),
+        #     nn.Linear(self.timesteps*self.input_dim, self.timesteps),
+        #     # nn.Linear(self.conv_output_size+self.timesteps, self.timesteps),
+        #     nn.Softmax(dim=1)
+        # )
+        #
+        #
+        # # self.fc3 = nn.Linear(int(fc1_dim/4), self.outputs)
+        # self.fc3 = nn.Linear(fc1_dim, self.outputs)
 
-        # k × k filter is enlarged to k + (k − 1)(r − 1) with dilated stride r
 
-        self.conv2 = nn.Conv1d(40, 80, 3, stride=1, dilation=2)
-        self.conv2_fn = nn.ReLU()
-        self.avgpool2 = nn.AvgPool1d(kernel_size=2, stride=2)
-
-        self.conv3 = nn.Conv1d(80, 128, 3, stride=1, dilation=4)
-        self.conv3_fn = nn.ReLU()
-        self.avgpool3 = nn.AvgPool1d(kernel_size=2, stride=1)
-
-
-        conv_layers = [ self.conv1,self.conv1_fn,self.avgpool1,self.conv2,self.conv2_fn,self.avgpool2,self.conv3,self.conv3_fn,self.avgpool3]
-        # conv_layers = [self.conv1, self.conv1_fn, self.conv2, self.conv2_fn, self.conv3,
-        #                self.conv3_fn]
-        conv_module = nn.Sequential(*conv_layers)
-
-        test_ipt = Variable(torch.zeros(1, self.input_dim, self.timesteps))
-        test_out = conv_module(test_ipt)
-
-        self.conv_output_size = test_out.size(1) * test_out.size(2)
-        fc1_dim = self.conv_output_size+(self.input_dim*self.timesteps)
-
-        self.dropout = nn.Dropout(0.5)
-
-        self.fc1 = nn.Linear(fc1_dim, int(fc1_dim/2))#int(fc1_dim/4))
-        self.fc1_fn = nn.Tanh()
-
-        self.fc2 = nn.Linear(int(fc1_dim/2), int(fc1_dim/4))
-        self.fc2_fn = nn.Tanh()
-
-
-        # Attention Layer :
-        self.conv_attn = nn.Conv1d(self.input_dim, 1, 1, stride=1)
-        self.attn_layer = nn.Sequential(
-            nn.Linear(self.conv_output_size+self.timesteps, self.timesteps*self.input_dim),
-            nn.Tanh(),
-            nn.Linear(self.timesteps*self.input_dim, self.timesteps),
-            # nn.Linear(self.conv_output_size+self.timesteps, self.timesteps),
-            nn.Softmax(dim=1)
-        )
-
-
-        self.fc3 = nn.Linear(int(fc1_dim/4), self.outputs)
-
-        ## Adding task independent layers for multi-task learning
+        # Adding task independent layers for multi-task learning
         # self.task_nets = nn.ModuleList()
         # for _ in range(self.outputs):
         #     self.task_nets.append(
         #         Task_independent_module(int(fc1_dim/2),int(fc1_dim/4))
-        #          )
+        #          1
+        # in_dim = test_out.size(1)
+        # self.query_conv = nn.Conv1d(in_channels=in_dim, out_channels=in_dim // 8, kernel_size=1)
+        # self.key_conv = nn.Conv1d(in_channels=in_dim, out_channels=in_dim // 8, kernel_size=1)
+        # self.value_conv = nn.Conv1d(in_channels=in_dim, out_channels=in_dim, kernel_size=1)
+        # self.gamma = nn.Parameter(torch.zeros(1))
+        # self.softmax = nn.Softmax(dim=-1)
+        # self.fc = nn.Linear(self.conv_output_size,self.outputs)
+
+    # def forward(self, xx):
+    #     # print(xx.shape)
+    #     output = self.conv1(xx)
+    #     # print(output.shape)
+    #     output = self.conv1_fn(output)
+    #     if self.train_mode:
+    #         output = self.dropout(output)
+    #     output = self.avgpool1(output)
+    #     # print(output.shape)
+    #
+    #     output = self.conv2(output)
+    #     # print(output.shape)
+    #     output = self.conv2_fn(output)
+    #     if self.train_mode:
+    #         output = self.dropout(output)
+    #     output = self.avgpool2(output)
+    #
+    #     # print(output.shape)
+    #
+    #     output = self.conv3(output)
+    #     # print(output.shape)
+    #     output = self.conv3_fn(output)
+    #     if self.train_mode:
+    #         output = self.dropout(output)
+    #     output = self.avgpool3(output)
+    #
+    #     # output = self.conv4(output)
+    #     # output = self.conv4_fn(output)
+    #     # output = self.avgpool4(output)
+    #     output = output.reshape(-1, output.shape[1]*output.shape[2])
+    #     # print("after convolution: ", output.shape)
+    #     # Compute Context Vector
+    #     xx_single = self.conv_attn(xx).reshape(-1, self.timesteps)
+    #     # print("xx_single: ", xx_single.shape)
+    #     attn_input = torch.cat((output, xx_single), dim=1)
+    #     # print("attn_input: ", attn_input.shape)
+    #     attention = self.attn_layer(attn_input).reshape(-1, 1, self.timesteps)
+    #
+    #     # print("attention: ", attention.shape)
+    #     x_attenuated = (xx * attention)
+    #     # print("xx attentuated: ",x_attenuated.shape)
+    #     x_attenuated = x_attenuated.reshape(-1, x_attenuated.shape[1]*x_attenuated.shape[2])
+    #
+    #
+    #     output = torch.cat((output, x_attenuated), dim=1)
+    #     # print("output concat with attenuated: ",output.shape)
+    #     # output = self.fc1(output)
+    #     # output = self.fc1_fn(output)
+    #     # if self.train_mode:
+    #     #     output = self.dropout(output)
+    #     #
+    #     # output = self.fc2(output)
+    #     # output = self.fc2_fn(output)
+    #     # if self.train_mode:
+    #     #     output = self.dropout(output)
+    #     output = self.fc3(output)
+    #
+    #     # output = torch.cat(
+    #     #     tuple(task_model(output) for task_model in self.task_nets),
+    #     #     dim=1
+    #     # )
+    #
+    #     return output
 
 
-    def forward(self, xx):
-        # print(xx.shape)
-        output = self.conv1(xx)
-        # print(output.shape)
-        output = self.conv1_fn(output)
-        output = self.avgpool1(output)
-        # print(output.shape)
+        ## Wavenet style model architecture
+        hyperparams = {}
+        hyperparams['nb_layers'] = 5 #5
+        # hyperparams['nb_filters'] = 64
+        hyperparams['kernel_size'] = 2
 
-        output = self.conv2(output)
-        # print(output.shape)
-        output = self.conv2_fn(output)
-        output = self.avgpool2(output)
-        # print(output.shape)
+        receptive_field = 2 ** (hyperparams['nb_layers'] - 1) * hyperparams['kernel_size']
+        self.padding = receptive_field - 1
 
-        output = self.conv3(output)
-        # print(output.shape)
-        output = self.conv3_fn(output)
-        output = self.avgpool3(output)
-        # print(output.shape)
-        output = output.reshape(-1, output.shape[1]*output.shape[2])
-        # print("after convolution: ", output.shape)
-        # Compute Context Vector
-        xx_single = self.conv_attn(xx).reshape(-1, self.timesteps)
-        # print("xx_single: ", xx_single.shape)
-        attn_input = torch.cat((output, xx_single), dim=1)
-        # print("attn_input: ", attn_input.shape)
-        attention = self.attn_layer(attn_input).reshape(-1, 1, self.timesteps)
+        in_channels = self.input_dim
+        self.dilation_factors = [2 ** i for i in range(0, hyperparams['nb_layers'])]
+        self.in_channels = [in_channels] + [32 for _ in range(hyperparams['nb_layers'])] #2**(5+_)
+        self.dilated_causal_convs = nn.ModuleList(
+            [DilatedCausalConv1d(hyperparams, self.dilation_factors[i], self.in_channels[i], self.in_channels[i+1]) for i in
+             range(hyperparams['nb_layers'])])
+        for dilated_causal_conv in self.dilated_causal_convs:
+            dilated_causal_conv.apply(weights_init)
 
-        # print("attention: ", attention.shape)
-        x_attenuated = (xx * attention)
-        # print("xx attentuated: ",x_attenuated.shape)
-        x_attenuated = x_attenuated.reshape(-1, x_attenuated.shape[1]*x_attenuated.shape[2])
+        #This is part of the original code: if you want to get [batch_size,1,timesteps] as output
+        # self.output_layer = nn.Conv1d(in_channels=self.in_channels[-1],
+        #                               out_channels=1,
+        #                               kernel_size=1)
+
+        ##This is when you want to use purely wavenet architecture and give n_outputs as output with 2 fc layers
+        self.fc_dim = self.in_channels[-1]*self.timesteps
+        self.output_layer1 = nn.Linear(self.in_channels[-1]*self.timesteps,int(self.fc_dim/2))
+        self.output_layer1.apply(weights_init)
+        self.output_layer2 = nn.Linear(int(self.fc_dim / 2),self.outputs)
+        self.output_layer2.apply(weights_init)
+        self.leaky_relu = nn.LeakyReLU(0.1)
+        self.dropout = nn.Dropout(0.5)
+
+        ## This is when you want to add self attention to the wavent style architecture
+        # in_dim = self.in_channels[-1]
+        # self.query_conv = nn.Conv1d(in_channels=in_dim, out_channels=in_dim // 8, kernel_size=1) #8
+        # self.key_conv = nn.Conv1d(in_channels=in_dim, out_channels=in_dim // 8, kernel_size=1) #8
+        # self.value_conv = nn.Conv1d(in_channels=in_dim, out_channels=in_dim, kernel_size=1)
+        # self.gamma = nn.Parameter(torch.zeros(1))
+        # self.softmax = nn.Softmax(dim=-1)
+        # self.fc = nn.Linear(self.fc_dim, self.outputs)
 
 
-        output = torch.cat((output, x_attenuated), dim=1)
-        # print("output concat with attenuated: ",output.shape)
-        output = self.fc1(output)
-        output = self.fc1_fn(output)
-        if self.train_mode:
-            output = self.dropout(output)
+    # Forward function for wavenet style model
+    def forward(self, x):
 
-        output = self.fc2(output)
-        output = self.fc2_fn(output)
-        if self.train_mode:
-            output = self.dropout(output)
-        output = self.fc3(output)
 
-        # output = torch.cat(
-        #     tuple(task_model(output) for task_model in self.task_nets),
-        #     dim=1
-        # )
+        npad = ((0, 0), (0, 0), (self.padding, 0))
+        x = torch.from_numpy(np.pad(x, pad_width=npad, mode='constant', constant_values=0))
+
+        for dilated_causal_conv in self.dilated_causal_convs:
+            x = dilated_causal_conv(x)
+
+
+
+        # x = self.leaky_relu(self.output_layer(x))
+        # # output = x[:,0,-1]
+        # output = x[:,0,:]
+
+        output = x.reshape(-1,x.shape[1] * x.shape[2])
+        output = self.leaky_relu(self.output_layer1(output))
+        output = self.dropout(output)
+
+        output = self.leaky_relu(self.output_layer2(output))
+        # output = x
+        #
+        # proj_query = self.query_conv(output).permute(0, 2, 1)
+        # proj_key = self.key_conv(output)
+        # energy = torch.bmm(proj_query, proj_key)
+        # attention = self.softmax(energy)
+        # proj_value = self.value_conv(output)
+        #
+        # out = torch.bmm(proj_value, attention.permute(0,2,1))
+        # # print(out.shape)
+        #
+        # output = self.gamma * out + output
+        #
+        # output = output.reshape(-1, output.shape[1] * output.shape[2])
+        # output = self.leaky_relu(self.fc(output))
+
 
         return output
 
+
+    ## forward function for working with dilated kernels and self-attention
+    # def forward(self,xx):
+    #     # print(xx.shape)
+    #     output = self.conv1(xx)
+    #     # print(output.shape)
+    #     output = self.conv1_fn(output)
+    #     if self.train_mode:
+    #         output = self.dropout(output)
+    #     output = self.avgpool1(output)
+    #     # print(output.shape)
+    #
+    #     output = self.conv2(output)
+    #     # print(output.shape)
+    #     output = self.conv2_fn(output)
+    #     if self.train_mode:
+    #         output = self.dropout(output)
+    #     output = self.avgpool2(output)
+    #     # print(output.shape)
+    #
+    #     output = self.conv3(output)
+    #     # print(output.shape)
+    #     output = self.conv3_fn(output)
+    #     if self.train_mode:
+    #         output = self.dropout(output)
+    #     output = self.avgpool3(output)
+    #     # print(output.shape)
+    #
+    #     # output = output.reshape(-1, output.shape[1] * output.shape[2])
+    #     # print("batch, channels, timestep: ",m_batchsize, n_channel, timestep)
+    #
+    #     proj_query = self.query_conv(output).permute(0,2,1)
+    #     proj_key = self.key_conv(output)
+    #     energy = torch.bmm(proj_query, proj_key)
+    #     attention = self.softmax(energy)
+    #     proj_value = self.value_conv(output)
+    #
+    #     # print("value projected shape: ", proj_value.shape)
+    #     # print("query projected shape: ", proj_query.shape)
+    #     # print("key projected shape: ", proj_key.shape)
+    #     # print("attention shape: ", attention.shape)
+    #
+    #     out = torch.bmm(proj_value, attention.permute(0,2,1))
+    #     # print(out.shape)
+    #
+    #     output = self.gamma * out + output
+    #
+    #     output = output.reshape(-1, output.shape[1] * output.shape[2])
+    #     output = self.fc(output)
+    #
+    #     return output
+
     def trainBatchwise(self, trainX, trainY, epochs, batch_size, lr=0.0001, validX=None,
-                       validY=None, patience=None, verbose=None):
+                       validY=None, patience=None, verbose=None, reg_lamdba = 0.0001):
         optimizer = torch.optim.Adam(self.parameters(), lr=lr)
         criterion = torch.nn.MSELoss()
+        # criterion = nn.L1Loss()
         samples = trainX.size()[0]
         losses = []
         valid_losses = []
@@ -230,6 +439,7 @@ class ConvForecasterDilationLowRes(nn.Module):
 
                 if torch.cuda.is_available():
                     xx, yy = xx.cuda(), yy.cuda()
+
                 outputs = self.forward(xx)
                 optimizer.zero_grad()
                 if self.quantile:
@@ -237,18 +447,20 @@ class ConvForecasterDilationLowRes(nn.Module):
                 else:
                     loss = criterion(outputs, yy)
 
-                ## train loss for multiple outputs or multi-task learning
-                # total_loss = []
-                # for n in range(self.outputs):
-                #     y_pred = outputs[:, n]
-                #     # calculate the batch loss
-                #     loss = criterion(y_pred, yy[:, n])
-                #     total_loss.append(loss)
-                #
-                # loss = sum(total_loss)
+                    ## train loss for multiple outputs or multi-task learning
+                    # total_loss = []
+                    # for n in range(self.outputs):
+                    #     y_pred = outputs[:, n]
+                    #     # calculate the batch loss
+                    #     loss = criterion(y_pred, yy[:, n])
+                    #     total_loss.append(loss)
+                    #
+                    # loss = sum(total_loss)
 
+                reg_loss = np.sum([weights.norm(2) for weights in self.parameters()])
+                total_loss = loss + reg_lamdba/ 2 * reg_loss
                 # backward pass: compute gradient of the loss with respect to model parameters
-                loss.backward()
+                total_loss.backward()
                 # perform a single optimization step (parameter update)
                 optimizer.step()
                 per_epoch_loss+=loss.item()
@@ -262,7 +474,9 @@ class ConvForecasterDilationLowRes(nn.Module):
                 self.train_mode = False
                 self.eval()
                 if torch.cuda.is_available():
+
                     validX,validY = validX.cuda(), validY.cuda()
+
 
                 if self.quantile:
                     validYPred = self.forward(validX)
@@ -275,14 +489,14 @@ class ConvForecasterDilationLowRes(nn.Module):
                 else:
                     validYPred = self.forward(validX)
 
-                    # valid loss for multiple outputs or multi-task learning
+                    # # valid loss for multiple outputs or multi-task learning
                     # total_loss = []
                     # for n in range(self.outputs):
                     #     y_pred = validYPred[:, n]
-                    #     # calculate the batch loss
+                    #     # calculate the batch lossnb6h
                     #     validloss = criterion(y_pred, validY[:, n])
                     #     total_loss.append(validloss)
-                    #
+
                     # validloss = sum(total_loss)
                     # valid_loss_this_epoch = validloss.item()
                     valid_loss_this_epoch = criterion(validYPred, validY).item()
@@ -293,13 +507,14 @@ class ConvForecasterDilationLowRes(nn.Module):
                     print("Epoch: %d, train loss: %1.5f and valid loss : %1.5f" % (epoch, train_loss_this_epoch, valid_loss_this_epoch))
 
                 # early_stopping(valid_loss, self)
-                early_stopping(valid_loss_this_epoch, self)
+                early_stopping(valid_loss_this_epoch, self, epoch)
 
                 if early_stopping.early_stop:
                     print("Early stopping")
                     break
             else:
                 print("Epoch: %d, loss: %1.5f" % (epoch, train_loss_this_epoch))
+                torch.save(self.state_dict(), self.saving_path)
         # load the last checkpoint with the best model
         # self.load_state_dict(torch.load('checkpoint.pt'))
         return losses, valid_losses
@@ -332,112 +547,4 @@ class ConvForecasterDilationLowRes(nn.Module):
         return torch.mean(loss)
 
 
-
-## Keras models
-# def basic_CNN(X_train):
-#
-#     ## 2D convolution (vanilla CNN)
-#     input_shape = (X_train.shape[1], X_train.shape[2], X_train.shape[3])
-#
-#     model = Sequential()
-#
-#     ks1_first = 3
-#     ks1_second = 8
-#
-#     ks2_first = 4
-#     ks2_second = 5
-#
-#     model.add(Conv2D(filters=(3),
-#                      kernel_size=(ks1_first, ks1_second),
-#                      input_shape=input_shape,
-#                      padding='same',
-#                      kernel_initializer='TruncatedNormal'))
-#     model.add(BatchNormalization())
-#     model.add(LeakyReLU())
-#     model.add(Dropout(0.025))
-#
-#     for _ in range(1):#2
-#         model.add(Conv2D(filters=(4),
-#                          kernel_size=(ks2_first, ks2_second),
-#                          padding='same',
-#                          kernel_initializer='TruncatedNormal'))
-#         model.add(BatchNormalization())
-#         model.add(LeakyReLU())
-#         model.add(Dropout(0.280))
-#
-#     model.add(Flatten())
-#
-#     for _ in range(2):#4
-#         model.add(Dense(64, kernel_initializer='TruncatedNormal'))
-#         model.add(BatchNormalization())
-#         model.add(LeakyReLU())
-#         model.add(Dropout(0.435))
-#
-#     # for _ in range(3):
-#     #     model.add(Dense(128, kernel_initializer='TruncatedNormal'))
-#     #     model.add(BatchNormalization())
-#     #     model.add(LeakyReLU())
-#     #     model.add(Dropout(0.372))
-#
-#     model.add(Dense(128, kernel_initializer='TruncatedNormal'))#1024
-#     model.add(BatchNormalization())
-#     model.add(LeakyReLU())
-#     model.add(Dropout(0.793))
-#
-#     model.add(Dense(1))
-#
-#     return model
-#
-#
-# def DC_CNN_Model(n_timesteps, n_features, n_outputs = 1):
-#
-#     #1D conv with dilation
-#     n_filters = 32
-#     filter_width = 2
-#     dilation_rates = [2**i for i in range(8)] #changed from 5 in case of lag 1 hour
-#
-#     # define an input history series and pass it through a stack of dilated causal convolutions
-#     history_seq = Input(shape=(None, n_features))
-#     x = history_seq
-#
-#     for dilation_rate in dilation_rates:
-#         x = Conv1D(filters = n_filters,
-#                    kernel_size=filter_width,
-#                    padding='causal',
-#                    dilation_rate=dilation_rate, kernel_regularizer=l2(0.001))(x) ## add regularizer  kernel_regularizer=l2(0.001)
-#
-#     x = Dense(128, activation='relu')(x)
-#     x = Dropout(.4)(x) #0.2
-#     x = Dense(1)(x)
-#
-#
-#     def slice(x, seq_length):
-#
-#         return x[:, -seq_length:, :]
-#
-#     pred_seq_train = Lambda(slice, arguments={'seq_length': n_outputs})(x)
-#
-#     model = Model(history_seq, pred_seq_train)
-#
-#     #1D conv without dilation
-#     # input_shape = (n_timesteps,n_features)
-#     # model = Sequential()
-#     # model.add(Conv1D(32, kernel_size=9,padding='same',
-#     #                  activation='selu',
-#     #                  input_shape=input_shape))
-#     # model.add(MaxPooling1D(pool_size=2))
-#     # model.add(Conv1D(64, kernel_size=7,padding='same',
-#     #                  activation='selu')),
-#     # model.add(MaxPooling1D(pool_size=2))
-#     # model.add(Conv1D(128, kernel_size=5,padding='same',
-#     #                  activation='selu')),
-#     # model.add(MaxPooling1D(pool_size=2))
-#     # model.add(Flatten())
-#     # model.add(Dropout(0.3))#0.15
-#     # # model.add(Dense(1000, activation='relu'))
-#     # model.add(Dense(n_outputs, activation='relu'))
-#
-#     return model
-#
-#
 

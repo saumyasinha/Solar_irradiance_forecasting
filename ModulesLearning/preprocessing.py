@@ -198,12 +198,14 @@ def get_train_test_data(dataframe_train, dataframe_test, final_set_of_features, 
 
     dataframe_train['clearness_index_input'] = dataframe_train['dw_solar']/dataframe_train['clear_ghi']
     dataframe_test['clearness_index_input'] = dataframe_test['dw_solar'] / dataframe_test['clear_ghi']
+
     # shifted_clearghi_train = np.roll(dataframe_train['clear_ghi'].values, -lead)
     # shifted_clearghi_test = np.roll(dataframe_test['clear_ghi'].values, -lead)
     #
     #
     # dataframe_train['smart_persistence'] = dataframe_train['clearness_index_input']* shifted_clearghi_train
     # dataframe_test['smart_persistence'] = dataframe_test['clearness_index_input']* shifted_clearghi_test
+
     col_to_indices_mapping = {k: v for v, k in enumerate(final_features)}
     print(col_to_indices_mapping)
     # Selecting the final features and target variables

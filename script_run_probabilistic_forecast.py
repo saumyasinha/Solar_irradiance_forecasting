@@ -2,16 +2,11 @@ import numpy as np
 import pandas as pd
 import os
 import pickle
-# from sklearn.externals import joblib
-import matplotlib.pyplot as plt
-from collections import Counter
 from sklearn.model_selection import train_test_split
 from ngboost import NGBRegressor
 from SolarForecasting.ModulesProcessing import collect_data,clean_data
 from SolarForecasting.ModulesLearning import preprocessing as preprocess
 from SolarForecasting.ModulesLearning import postprocessing as postprocess
-from SolarForecasting.ModulesLearning import model as models
-from SolarForecasting.ModulesLearning import clustering as clustering
 from ngboost.scores import CRPS, MLE
 import scipy as sp
 from scipy.stats import norm as dist
@@ -26,12 +21,12 @@ pd.set_option('display.width', 1000)
 # city
 city = 'Sioux_Falls_SD'
 
-# lead time
+# lead time i.e how much in advance you want to make a prediction (lead of 4 corresponds to 1 hour..since the data is at 15min resolution)
 lead_times = [1,4,8,12,16,20,24,28,32] #from [1,2,3,4,5,6,7,8,9,10,11,12]
 
 # season
-seasons =['year'] #from ['fall', 'winter', 'spring', 'summer', 'year']
-res = '15min' #15min
+seasons =['fall', 'winter', 'spring', 'summer'] #from ['fall', 'winter', 'spring', 'summer', 'year']
+res = '15min'
 
 # file locations
 # path_project = "C:\\Users\Shivendra\Desktop\SolarProject\solar_forecasting/"
@@ -41,17 +36,15 @@ folder_saving = path_project + city+"/Models/"
 folder_plots = path_project + city+"/Plots/"
 clearsky_file_path = path+'clear-sky/'+city+'_15min_original.csv'
 
-# scan all the features (except the flags)
+# scan all the features
 features = ['year','month','day','hour','min','zen','dw_solar','uw_solar','direct_n','diffuse','dw_ir','dw_casetemp','dw_dometemp','uw_ir','uw_casetemp','uw_dometemp','uvb','par','netsolar','netir','totalnet','temp','rh','windspd','winddir','pressure']
 
 # selected features for the study
 # final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','dw_ir','temp','rh','windspd','winddir','pressure','clear_ghi']
-## exploring more features
-final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
-# final_features = ['year','month','day','hour','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
 
-# features_to_cluster_on = ['dw_solar','dw_ir', 'temp','pressure', 'windspd']
-# features_to_cluster_on = ['dw_solar','temp']
+## selected features for the study
+final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
+
 
 # target or Y
 target_feature = ['clearness_index']
@@ -68,9 +61,6 @@ testyear = 2008  # i.e all of Fall(Sep2008-Nov2008), Winter(Dec2008-Feb2009), Sp
 # hyperparameters
 n_timesteps = 1
 n_features = 14
-
-# If clustering before prediction
-# n_clusters = 3 #6
 
 
 def get_data():
@@ -89,7 +79,9 @@ def get_data():
 
 
 def include_previous_features(X, index_ghi):
-
+    '''
+    Features at time t includes features from previous n_timesteps
+    '''
     y_list = []
     previous_time_periods = list(range(1,n_timesteps))
     # dw_solar = X[:, index_ghi]
@@ -100,7 +92,6 @@ def include_previous_features(X, index_ghi):
         y_list.append(X_train_shifted)
         # y_list.append(dw_solar_rolled)
 
-    # print(y_list)
     previous_time_periods_columns = np.column_stack(y_list)
     X = np.column_stack([X,previous_time_periods_columns])
     # X = np.transpose(np.array(y_list), ((1, 0, 2)))
@@ -109,92 +100,47 @@ def include_previous_features(X, index_ghi):
     print("X shape after adding prev features: ", X.shape)
     return X
 
-def create_mulitple_lead_dataset(dataframe, final_set_of_features, target):
-    dataframe_lead = dataframe[final_set_of_features]
-    target = np.asarray(dataframe[target])
-
-    y_list = []
-    for lead in lead_times:
-        print("rolling by: ",lead)
-        target = np.roll(target, -lead)
-        y_list.append(target)
-
-    dataframe_lead['clearness_index'] = np.column_stack(y_list).tolist()
-    dataframe_lead['clearness_index'] = dataframe_lead['clearness_index'].apply(tuple)
-    # max_lead = np.max(lead_times)
-    # dataframe_lead['clearness_index'].values[-max_lead:] = np.nan
-    print(dataframe_lead['clearness_index'])
-
-    # remove rows which have any value as NaN
-    # dataframe_lead = dataframe_lead.dropna()
-    print("*****************")
-    print("dataframe with lead size: ", len(dataframe_lead))
-    return dataframe_lead
-
-def get_crps_score_with_quantiles(model, X,y):
-    alphas = np.arange(0.05, 1.0, 0.05)
-    target = y
-
-    params = model.pred_dist(X)._params
-    loc = params[0]
-    scale = np.exp(params[1])
-
-    loss = []
-    for i, alpha in enumerate(alphas):
-        # output = outputs[:, i].reshape((-1, 1))
-        print(alpha, loc[0],scale[0])
-        output = dist.ppf(alpha,loc, scale) * scale
-        print(output[0])
-        covered_flag = (output <= target).astype(np.float32)
-        uncovered_flag = (output > target).astype(np.float32)
-        if i == 0:
-            loss.append(np.mean(
-                ((target - output) * alpha * covered_flag + (output - target) * (1 - alpha) * uncovered_flag)))
-        else:
-            loss.append(np.mean(
-                ((target - output) * alpha * covered_flag + (output - target) * (1 - alpha) * uncovered_flag)))
-
-    return 2*np.mean(np.array(loss))
+# def get_crps_score_with_quantiles(model, X,y):
+#     alphas = np.arange(0.05, 1.0, 0.05)
+#     target = y
+#
+#     params = model.pred_dist(X)._params
+#     loc = params[0]
+#     scale = np.exp(params[1])
+#
+#     loss = []
+#     for i, alpha in enumerate(alphas):
+#         # output = outputs[:, i].reshape((-1, 1))
+#         print(alpha, loc[0],scale[0])
+#         output = dist.ppf(alpha,loc, scale) * scale
+#         print(output[0])
+#         covered_flag = (output <= target).astype(np.float32)
+#         uncovered_flag = (output > target).astype(np.float32)
+#         if i == 0:
+#             loss.append(np.mean(
+#                 ((target - output) * alpha * covered_flag + (output - target) * (1 - alpha) * uncovered_flag)))
+#         else:
+#             loss.append(np.mean(
+#                 ((target - output) * alpha * covered_flag + (output - target) * (1 - alpha) * uncovered_flag)))
+#
+#     return 2*np.mean(np.array(loss))
 
 def get_crps_for_ngboost(model, X, y):
-    # The normalization constant for the univariate standard Gaussian pdf
-    # _normconst = 1.0 / np.sqrt(2.0 * np.pi)
-    #
-    # def _normpdf(x):
-    #     """Probability density function of a univariate standard Gaussian
-    #     distribution with zero mean and unit variance.
-    #     """
-    #     return _normconst * np.exp(-(x * x) / 2.0)
-    #
-    # # Cumulative distribution function of a univariate standard Gaussian
-    # # distribution with zero mean and unit variance.
-    # _normcdf = special.ndtr
-    #
-    # x = np.asarray(y_dist)
-    # mu = np.asarray(y)
-    # sig = np.asarray(sig)
-    # # standadized x
-    # sx = (x - mu) / sig
-    # # some precomputations to speed up the gradient
-    # pdf = _normpdf(sx)
-    # cdf = _normcdf(sx)
-    # pi_inv = 1. / np.sqrt(np.pi)
-    # # the actual crps
-    # crps = sig * (sx * (2 * cdf - 1) + 2 * pdf - pi_inv)
-    #
-    # return crps
-    print(model.pred_dist(X)._params)
+    '''
+    CRPS is the evaluation metric to be used for probabilsitic forecasting
+    '''
+
     params = model.pred_dist(X)._params
     loc = params[0]
     scale = np.exp(params[1])
     Z = (y - loc) / scale
-    print(Z.shape)
+
     score = scale * (
             Z * (2 * sp.stats.norm.cdf(Z) - 1)
             + 2 * sp.stats.norm.pdf(Z)
             - 1 / np.sqrt(np.pi)
     )
-    print(score.shape)
+
     return np.average(score)
 
 def main():
@@ -251,17 +197,10 @@ def main():
     print(df.tail)
 
 
-    # ## removing outliers from this dataset and then removing nan rows
-    # df = preprocess.remove_negative_values(df, final_features[5:])
-    # df = df.dropna()
-
     ## convert negatives to 0 for all features
     df[df<0] = 0
     print("stats of selected features/columns after converting all negatives to 0")
     print(df.describe())
-
-    # adjust the boundary values (no need to do this anymore -- will drop the rows with 0 clear_ghi later)
-    # df = preprocess.adjust_boundary_values(df)
 
 
     # adding the clearness index and dropping rows with 0 clear_ghi and taking only daytimes
@@ -273,7 +212,7 @@ def main():
     print("after removing data points with 0 clear_ghi and selecting daytimes",len(df_final))
     # print(df_final.describe())
 
-    # # PLotting time series
+    # # Plotting time series
     # x = np.asarray(range(df_final.shape[0]))
     # plt.figure(figsize=(20, 10))
     # plt.plot(x, df_final.dw_solar.values, label="GHI values")
@@ -298,7 +237,7 @@ def main():
 
     for season_flag in seasons:
         os.makedirs(folder_saving + season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_without_lag_most_updated_with_errorbars/", exist_ok=True)
-        f = open(folder_saving + season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_without_lag_most_updated_with_errorbars//results.txt", 'a')
+        f = open(folder_saving + season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_without_lag_most_updated_with_errorbars//results_correct.txt", 'a')
 
         for lead in lead_times:
             # create dataset with lead
@@ -323,11 +262,8 @@ def main():
                 print("\n\n train and test df shapes ")
                 print(X_train.shape, y_train.shape, X_heldout.shape, y_heldout.shape)
 
-                # filter the training to have only day values
-                # X_train, y_train = preprocess.filter_dayvalues_and_zero_clearghi(X_train_all, y_train_all,
-                #                                                                       index_zen, index_clearghi)
 
-                # including features from prev imestamps
+                # including features from prev imestamps - didn't need to do that for NgBoost
                 # X_train = include_previous_features(X_train, index_ghi)
                 # X_heldout = include_previous_features(X_heldout, index_ghi)
 
@@ -340,26 +276,10 @@ def main():
                 print("Final heldout size: ", X_heldout.shape, y_heldout.shape)
 
                 ## dividing the X_train data into train(70%)/valid(20%)/test(10%), the heldout data is kept hidden
-
                 X_train, X_test, y_train, y_test = train_test_split(
                     X_train, y_train, test_size=0.3, random_state=42)
                 X_valid, X_test, y_valid, y_test = train_test_split(
                     X_test, y_test, test_size=0.3, random_state=42)
-
-                ## dividing the X_train data into train(70%)/valid(20%)/test(10%), the heldout data is kept hidden
-                # X_train, y_train = preprocess.shuffle(X_train, y_train, city, res)
-                # training_samples = int(0.7 * len(X_train))
-                # X_valid = X_train[training_samples:]
-                # X_train = X_train[:training_samples]
-                # y_valid = y_train[training_samples:]
-                # y_train = y_train[:training_samples]
-                #
-                # valid_samples = int(0.7*len(X_valid))
-                # X_test = X_valid[valid_samples:]
-                # X_valid = X_valid[:valid_samples]
-                # y_test = y_valid[valid_samples:]
-                # y_valid = y_valid[:valid_samples]
-
 
                 print("train/valid/test sizes: ",len(X_train)," ",len(X_valid)," ", len(X_test))
 
@@ -373,7 +293,8 @@ def main():
                 y_train = np.reshape(y_train, -1)
                 y_test = np.reshape(y_test, -1)
                 y_valid = np.reshape(y_valid, -1)
-                #
+
+                ## model built and saved (commented out as it's already built and just being loaded ad below
                 # model = NGBRegressor(n_estimators=2000).fit(X_train, y_train)
                 #
                 # pickle.dump(model, open(
@@ -384,39 +305,41 @@ def main():
                     model = pickle.load(file)
 
                 print(model)
-                # f.write("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
+                f.write("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
 
+                ## making predictions
                 y_pred = model.predict(X_test)
                 y_valid_pred = model.predict(X_valid)
 
                 y_pred = np.reshape(y_pred, -1)
                 y_valid_pred = np.reshape(y_valid_pred, -1)
 
-                # print("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
+                print("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
 
-                # print("##########VALID##########")
-                # rmse_our, mae_our, mean_our, std_our, r2_our = postprocess.evaluation_metrics(y_valid,
-                #                                                                               y_valid_pred)
-                # print("Performance of our model (rmse, mae, mb,sd, r2): \n\n", round(rmse_our, 2), round(mae_our, 2),
-                #       round(mean_our, 2), round(std_our, 2), round(r2_our, 2))
-                # f.write('\n evaluation metrics (rmse, mae, mb,sd, r2) on valid data for ' + reg + '=' + str(
-                #     round(rmse_our, 2)) + "," + str(round(mae_our, 2)) + "," +
-                #         str(round(mean_our, 2)) + "," + str(round(std_our, 2)) + "," + str(round(r2_our, 2)) + '\n')
-                #
-                # print("##########Test##########")
-                # rmse_our, mae_our, mean_our, std_our, r2_our = postprocess.evaluation_metrics(y_test,
-                #                                                                               y_pred)
-                # print("Performance of our model (rmse, mae, mb,sd, r2): \n\n", round(rmse_our, 2), round(mae_our, 2),
-                #       round(mean_our, 2), round(std_our, 2), round(r2_our, 2))
-                # f.write('\n evaluation metrics (rmse, mae, mb,sd, r2) on test data for ' + reg + '=' + str(
-                #     round(rmse_our, 2)) + "," + str(round(mae_our, 2)) + "," +
-                #         str(round(mean_our, 2)) + "," + str(round(std_our, 2)) + "," + str(round(r2_our, 2)) + '\n')
-                #
 
-                # crps_valid = get_crps_for_ngboost(model, X_valid, y_valid)
-                # crps_test = get_crps_for_ngboost(model, X_test, y_test)
-                crps_valid = get_crps_score_with_quantiles(model, X_valid, y_valid)
-                crps_test = get_crps_score_with_quantiles(model, X_test, y_test)
+                ## Obtain the evaluation metrics (other than crps, in case it can be used later)
+                print("##########VALID##########")
+                rmse_our, mae_our, mean_our, std_our, r2_our = postprocess.evaluation_metrics(y_valid,
+                                                                                              y_valid_pred)
+                print("Performance of our model (rmse, mae, mb,sd, r2): \n\n", round(rmse_our, 2), round(mae_our, 2),
+                      round(mean_our, 2), round(std_our, 2), round(r2_our, 2))
+                f.write('\n evaluation metrics (rmse, mae, mb,sd, r2) on valid data for ' + reg + '=' + str(
+                    round(rmse_our, 2)) + "," + str(round(mae_our, 2)) + "," +
+                        str(round(mean_our, 2)) + "," + str(round(std_our, 2)) + "," + str(round(r2_our, 2)) + '\n')
+
+                print("##########Test##########")
+                rmse_our, mae_our, mean_our, std_our, r2_our = postprocess.evaluation_metrics(y_test,
+                                                                                              y_pred)
+                print("Performance of our model (rmse, mae, mb,sd, r2): \n\n", round(rmse_our, 2), round(mae_our, 2),
+                      round(mean_our, 2), round(std_our, 2), round(r2_our, 2))
+                f.write('\n evaluation metrics (rmse, mae, mb,sd, r2) on test data for ' + reg + '=' + str(
+                    round(rmse_our, 2)) + "," + str(round(mae_our, 2)) + "," +
+                        str(round(mean_our, 2)) + "," + str(round(std_our, 2)) + "," + str(round(r2_our, 2)) + '\n')
+
+
+                ## get CRPS score
+                crps_valid = get_crps_for_ngboost(model, X_valid, y_valid)
+                crps_test = get_crps_for_ngboost(model, X_test, y_test)
 
                 f.write('\n CRPS score on valid data for lead ' + str(lead) + '=' + str(
                     round(crps_valid, 2)) + '\n')

@@ -23,7 +23,7 @@ pd.set_option('display.width', 1000)
 city = 'Sioux_Falls_SD'
 
 # lead time
-lead_times = [1, 4, 8, 12, 16, 20, 24, 28, 32]  # from [1,2,3,4,5,6,7,8,9,10,11,12]
+lead_times = [4, 8, 12, 16, 20, 24, 28, 32]  # from [1,2,3,4,5,6,7,8,9,10,11,12]
 
 # season
 seasons = ['year']  # from ['fall', 'winter', 'spring', 'summer', 'year']
@@ -32,6 +32,7 @@ res = '15min'  # 15min
 # file locations
 # path_project = "C:\\Users\Shivendra\Desktop\SolarProject\solar_forecasting/"
 path_project = "/Users/saumya/Desktop/SolarProject/"
+
 path = path_project + "Data/"
 folder_saving = path_project + city + "/Models/"
 folder_plots = path_project + city + "/Plots/"
@@ -42,31 +43,9 @@ features = ['year', 'month', 'day', 'hour', 'min', 'zen', 'dw_solar', 'uw_solar'
             'dw_casetemp', 'dw_dometemp', 'uw_ir', 'uw_casetemp', 'uw_dometemp', 'uvb', 'par', 'netsolar', 'netir',
             'totalnet', 'temp', 'rh', 'windspd', 'winddir', 'pressure']
 
-# final_features = ['year', 'month', 'day', 'hour', 'MinFlag', 'zen', 'dw_solar', 'direct_n', 'dw_ir', 'temp', 'windspd',
-#                   'winddir', 'pressure', 'clear_ghi']
-#
-# # features_to_cluster_on = ['dw_solar','dw_ir', 'temp','pressure', 'windspd']
-# # features_to_cluster_on = ['dw_solar','temp']
-#
-# # target or Y
-# target_feature = ['clearness_index']
-#
-# # start and end month+year
-# startyear = 2005
-# endyear = 2009
-# startmonth = 9
-# endmonth = 8
-#
-# # test year
-# testyear = 2008  # i.e all of Fall(Sep2008-Nov2008), Winter(Dec2008-Feb2009), Spring(Mar2009-May2009), Summer(June2009-Aug2009), year(Sep2008-Aug2009)
-#
-# # hyperparameters
-# n_timesteps = 72  # 72
-# n_features = 10  # 13
-# quantile = False
 
-final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
-# final_features = ['year','month','day','hour','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
+final_features = ['year', 'month', 'day', 'hour', 'MinFlag', 'zen', 'dw_solar', 'direct_n', 'dw_ir', 'temp', 'windspd',
+                  'winddir', 'pressure', 'clear_ghi']
 
 # features_to_cluster_on = ['dw_solar','dw_ir', 'temp','pressure', 'windspd']
 # features_to_cluster_on = ['dw_solar','temp']
@@ -84,8 +63,30 @@ endmonth = 8
 testyear = 2008  # i.e all of Fall(Sep2008-Nov2008), Winter(Dec2008-Feb2009), Spring(Mar2009-May2009), Summer(June2009-Aug2009), year(Sep2008-Aug2009)
 
 # hyperparameters
-n_timesteps = 1
-n_features = 14
+n_timesteps = 72  # 72
+n_features = 10  # 13
+quantile = True
+
+# final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
+#
+# # features_to_cluster_on = ['dw_solar','dw_ir', 'temp','pressure', 'windspd']
+# # features_to_cluster_on = ['dw_solar','temp']
+#
+# # target or Y
+# target_feature = ['clearness_index']
+#
+# # start and end month+year
+# startyear = 2005
+# endyear = 2009
+# startmonth = 9
+# endmonth = 8
+#
+# # test year
+# testyear = 2008  # i.e all of Fall(Sep2008-Nov2008), Winter(Dec2008-Feb2009), Spring(Mar2009-May2009), Summer(June2009-Aug2009), year(Sep2008-Aug2009)
+#
+# # hyperparameters
+# n_timesteps = 1
+# n_features = 14
 
 
 
@@ -112,10 +113,10 @@ def include_previous_features(X, index_ghi):
         X_train_shifted = np.roll(X, l)
         y_list.append(X_train_shifted)
         # y_list.append(dw_solar_rolled)
-
+    y_list = y_list[::-1]
     # print(y_list)
     previous_time_periods_columns = np.column_stack(y_list)
-    X = np.column_stack([X, previous_time_periods_columns])
+    X = np.column_stack([previous_time_periods_columns, X])
     # X = np.transpose(np.array(y_list), ((1, 0, 2)))
     # max_lead = np.max(previous_time_periods)
     # X = X[max_lead:]
@@ -187,6 +188,7 @@ def get_crps_for_ngboost(model, X, y):
     )
     print(score.shape)
     return np.average(score)
+
 
 def main():
     ## pre-processing steps
@@ -264,16 +266,17 @@ def main():
     for season_flag in seasons:
         ## ML_models_2008 is the folder to save results on testyear 2008
         ## creating different folder for different methods: nn for fully connected networks, rf for random forest etc.
-        # os.makedirs(
-        #     folder_saving + season_flag + "/ML_models_2008/dcnn_lag/" + str(
-        #         res) + "/1dcnn_with_attention_and_errorbars/",
-        #     exist_ok=True)
-        # f = open(folder_saving + season_flag + "/ML_models_2008/dcnn_lag/" + str(
-        #     res) + "/1dcnn_with_attention_and_errorbars/results.txt", 'a')
-        os.makedirs(folder_saving + season_flag + "/ML_models_2008/probabilistic/" + str(
-            res) + "/ngboost_without_lag_most_updated_with_errorbars/", exist_ok=True)
-        f = open(folder_saving + season_flag + "/ML_models_2008/probabilistic/" + str(
-            res) + "/ngboost_without_lag_most_updated_with_errorbars//results.txt", 'a')
+        os.makedirs(
+            folder_saving + season_flag + "/ML_models_2008/dcnn_lag/" + str(
+                res) + "/Final_wavenet_quantile_loss/",
+            exist_ok=True)
+        f = open(folder_saving + season_flag + "/ML_models_2008/dcnn_lag/" + str(
+            res) + "/Final_wavenet_quantile_loss/results.txt", 'a')
+        # os.makedirs(folder_saving + season_flag + "/ML_models_2008/probabilistic/" + str(
+        #     res) + "/ngboost_without_lag_most_updated_with_errorbars/", exist_ok=True)
+        # f = open(folder_saving + season_flag + "/ML_models_2008/probabilistic/" + str(
+        #     res) + "/ngboost_without_lag_most_updated_with_errorbars//results.txt", 'a')
+
 
         for lead in lead_times:
             # create dataset with lead
@@ -302,9 +305,11 @@ def main():
                 # X_train, y_train = preprocess.filter_dayvalues_and_zero_clearghi(X_train_all, y_train_all,
                 #                                                                       index_zen, index_clearghi)
 
+
                 # including features from prev imestamps
-                # X_train = include_previous_features(X_train, index_ghi)
-                # X_heldout = include_previous_features(X_heldout, index_ghi)
+                X_train = include_previous_features(X_train, index_ghi)
+                X_heldout = include_previous_features(X_heldout, index_ghi)
+
 
                 X_train = X_train[n_timesteps:, :]  # technically should be n_timesteps-1
                 X_heldout = X_heldout[n_timesteps:, :]
@@ -316,39 +321,55 @@ def main():
 
                 X_test_before_normalized = X_heldout.copy()
 
-                reg = "ngboost_without_lag_most_updated_with_errorbars"#"cnn" ## giving a name to the regression models -- useful when saving results
+
+                reg = "cnn" #"ngboost_without_lag_most_updated_with_errorbars"### giving a name to the regression models -- useful when saving results
 
                 ## normalizing the heldout with the X_train used for training
                 X_train, X_valid, X_test = preprocess.standardize_from_train(X_train=None, X_valid=None, X_test=X_heldout, index_ghi = index_ghi,
-                                                                             index_clearghi = index_clearghi, folder_saving = folder_saving + season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_without_lag_most_updated_with_errorbars/",model = reg, lead = lead)
-
+                                                                             index_clearghi = index_clearghi, folder_saving = folder_saving + season_flag + "/ML_models_2008/dcnn_lag/"+str(res)+"/Final_wavenet_quantile_loss/",model = reg, lead = lead)
+                print("heldout size:", X_test.shape, y_heldout.shape)
+                ## normalizing the heldout with the X_train used for training
+                # X_train, X_valid, X_test = preprocess.standardize_from_train(X_train=None, X_valid=None, X_test=X_heldout, index_ghi = index_ghi,
+                #                                                              index_clearghi = index_clearghi, folder_saving = folder_saving + season_flag + "/ML_models_2008/dcnn_lag/" + str(
+                #                               res) + "/1dcnn_more_conv_with_attention_quantile_loss//",model = reg, lead = lead)
+                #
 
                 # normalizing the Xtrain, Xvalid and Xtest data and saving the mean,std of train to normalize the heldout data later
                 # X_train, X_valid, X_test = preprocess.standardize_from_train(X_train=None, X_valid=None, X_test=X_heldout,index_ghi = index_ghi,
                 #                                                              index_clearghi = index_clearghi,
                 #                                                              folder_saving=folder_saving + season_flag + "/ML_models_2008/dcnn_lag/" + str(
-                #                                                                  res) + "/1dcnn_with_attention_and_errorbars/",model = reg, lead=lead)
+                #                                                                  res) + "/Final_wavenet_quantile_loss/",model = reg, lead=lead)
                 #
-                # y_test=y_heldout
-                # y_true = y_test
+                y_test=y_heldout
+                y_true = y_test
 
-                y_test = np.reshape(y_heldout, -1)
+                # y_test = np.reshape(y_heldout, -1)
 
                 f.write("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
 
-                with open(folder_saving + season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_without_lag_most_updated_with_errorbars/model_at_lead_" + str(lead) + ".pkl", 'rb') as file:
-                    model = pickle.load(file)
-                y_true = y_test
+                # with open(folder_saving + season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_without_lag_most_updated_with_errorbars/model_at_lead_" + str(lead) + ".pkl", 'rb') as file:
+                #     model = pickle.load(file)
+                # y_true = y_test
+                #
+                # y_pred = model.predict(X_test)
+                #
+                # y_pred = np.reshape(y_pred, -1)
 
-                y_pred = model.predict(X_test)
 
-                y_pred = np.reshape(y_pred, -1)
+                y_pred, y_valid_pred, valid_crps, test_crps = cnn.test_DCNN_with_attention(quantile,None, None,
+                                                                                           X_test, y_test, n_timesteps,
+                                                                                           n_features,
+                                                                                           folder_saving + season_flag + "/ML_models_2008/dcnn_lag/" + str(
+                                              res) + "/Final_wavenet_quantile_loss//",
+                                                                                           model_saved="dcnn_lag_for_lead_" + str(
+                                                                                               lead))  # , n_outputs=len(lead_times))
+                print(y_pred.shape, y_true.shape)
 
                 # y_pred, y_valid_pred, valid_crps, test_crps = cnn.test_DCNN_with_attention(quantile,None, None,
                 #                                                                            X_test, y_test, n_timesteps,
                 #                                                                            n_features,
                 #                                                                            folder_saving + season_flag + "/ML_models_2008/dcnn_lag/" + str(
-                #                                                                                res) + "/1dcnn_with_attention_and_errorbars/",
+                #                                                                                res) + "/Final_wavenet_quantile_loss/",
                 #                                                                            model_saved="dcnn_lag_for_lead_" + str(
                 #                                                                                lead))  # , n_outputs=len(lead_times))
                 #
@@ -359,6 +380,9 @@ def main():
                 #       round(mb_our, 2), round(r2_our, 2))
 
                 print("#####TEST#################")
+
+                index_ghi = -(n_features-index_ghi)
+                index_clearghi = -(index_clearghi - index_clearghi)
                 # ## postprocessing on test
                 y_true, y_pred = postprocess.postprocessing_target(y_pred, y_true, X_test_before_normalized, index_ghi, index_clearghi, lead)
                 # normal and smart persistence model
@@ -372,33 +396,32 @@ def main():
                       round(mb_our, 2), round(sd_our, 2), round(r2_our, 2))
 
 
-                # rmse_sp, mae_sp, mb_sp, sd_sp, r2_sp = postprocess.evaluation_metrics(true_day_test, sp_day_test)
-                # print("Performance of smart persistence model (rmse, mae, mb, sd, r2): \n\n", round(rmse_sp, 2),
-                #       round(mae_sp, 2),
-                #       round(mb_sp, 2), round(sd_sp, 2), round(r2_sp, 2))
-                #
-                # rmse_np, mae_np, mb_np, sd_np, r2_np = postprocess.evaluation_metrics(true_day_test, np_day_test)
-                # print("Performance of normal persistence model (rmse, mae, mb, sd, r2): \n\n", round(rmse_np, 1),
-                #       round(mae_np, 1),
-                #       round(mb_np, 1), round(sd_np, 1), round(r2_np, 1))
-                #
-                # # calculate the skill score of our model over persistence model
-                # skill_sp = postprocess.skill_score(rmse_our, rmse_sp)
-                #
-                #
-                #
-                # print("\nSkill of our model over smart persistence: ", round(skill_sp, 2))
-                #
-                # skill_np = postprocess.skill_score(rmse_our, rmse_np)
-                # print("\nSkill of our model over normal persistence: ", round(skill_np, 2))
-                #
-                #
-                # f.write('score on heldout data for year 2008 for lead' + str(lead) + '=' + str(round(skill_sp, 2)) + '\n')
-                crps_test = get_crps_for_ngboost(model, X_test, y_test)
-                f.write(
-                    'CRPS score on heldout data for year 2008 for lead' + str(lead) + '=' + str(round(crps_test, 2)) + '\n')
+                rmse_sp, mae_sp, mb_sp, sd_sp, r2_sp = postprocess.evaluation_metrics(true_day_test, sp_day_test)
+                print("Performance of smart persistence model (rmse, mae, mb, sd, r2): \n\n", round(rmse_sp, 2),
+                      round(mae_sp, 2),
+                      round(mb_sp, 2), round(sd_sp, 2), round(r2_sp, 2))
+
+                rmse_np, mae_np, mb_np, sd_np, r2_np = postprocess.evaluation_metrics(true_day_test, np_day_test)
+                print("Performance of normal persistence model (rmse, mae, mb, sd, r2): \n\n", round(rmse_np, 1),
+                      round(mae_np, 1),
+                      round(mb_np, 1), round(sd_np, 1), round(r2_np, 1))
+
+                # calculate the skill score of our model over persistence model
+                skill_sp = postprocess.skill_score(rmse_our, rmse_sp)
+
+
+
+                print("\nSkill of our model over smart persistence: ", round(skill_sp, 2))
+
+                skill_np = postprocess.skill_score(rmse_our, rmse_np)
+                print("\nSkill of our model over normal persistence: ", round(skill_np, 2))
+
+
+                f.write('score on heldout data for year 2008 for lead' + str(lead) + '=' + str(round(skill_sp, 2)) + '\n')
+
                 # # postprocess.plot_results(true_day_test, pred_day_test, sp_day_test, lead, season_flag, folder_plots,
                 # #                          model="random_forest_model")
+                f.write('CRPS score on heldout data for year 2008 for lead' + str(lead) + '=' + str(round(test_crps, 2)) + '\n')
 
 
             else:
