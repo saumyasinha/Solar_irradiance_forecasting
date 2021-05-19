@@ -11,7 +11,7 @@ import scipy as sp
 from SolarForecasting.ModulesProcessing import collect_data, clean_data
 from SolarForecasting.ModulesLearning import preprocessing as preprocess
 from SolarForecasting.ModulesLearning import postprocessing as postprocess
-from SolarForecasting.ModulesLearning.ModulesCNN import train as cnn
+from SolarForecasting.ModulesLearning.ModulesCNN import train as probabilistic
 pd.set_option('display.max_rows', 500)
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.width', 1000)
@@ -22,10 +22,10 @@ pd.set_option('display.width', 1000)
 city = 'Sioux_Falls_SD'
 
 # lead time
-lead_times = [16,20,24,28,32,12*4,24*4]
+lead_times = [1,4,8,12,16,20,24,28,32,12*4,24*4]
 
 # season
-seasons =['year'] #from ['fall', 'winter', 'spring', 'summer', 'year']
+seasons =['fall', 'winter', 'spring', 'summer', 'year'] #from ['fall', 'winter', 'spring', 'summer', 'year']
 res = '15min' #15min
 
 # file locations
@@ -62,7 +62,7 @@ endmonth = 8
 testyear = 2017
 
 # hyperparameters
-n_timesteps = 72 #72
+n_timesteps = 0 #72
 n_features = 15 #10 before
 quantile = True
 
@@ -218,14 +218,14 @@ def main():
 
     # df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
 
-    reg = "dcnn_with_lag72"
+    reg = "ngboost_without_lag"
     for season_flag in seasons:
         ## ML_models_2008 is the folder to save results on testyear 2008
         ## creating different folder for different methods: nn for fully connected networks, rf for random forest etc.
         os.makedirs(
-            folder_saving + season_flag + "/ML_models_" + str(testyear) + "/cnn/" + str(res) + "/" + reg + "/",
+            folder_saving + season_flag + "/ML_models_" + str(testyear) + "/probabilistic/" + str(res) + "/" + reg + "/",
             exist_ok=True)
-        f = open(folder_saving + season_flag + "/ML_models_" + str(testyear) + "/cnn/" + str(
+        f = open(folder_saving + season_flag + "/ML_models_" + str(testyear) + "/probabilistic/" + str(
             res) + "/" + reg + "/results.txt", 'a')
 
         for lead in lead_times:
@@ -253,8 +253,8 @@ def main():
                 print(X_train.shape, y_train.shape, X_heldout.shape, y_heldout.shape)
 
                 # including features from prev imestamps
-                X_train = include_previous_features(X_train, index_ghi)
-                X_heldout = include_previous_features(X_heldout, index_ghi)
+                # X_train = include_previous_features(X_train, index_ghi)
+                # X_heldout = include_previous_features(X_heldout, index_ghi)
 
                 X_train = X_train[n_timesteps:, :]
                 X_heldout = X_heldout[n_timesteps:, :]
@@ -265,43 +265,48 @@ def main():
 
                 X_test_before_normalized = X_heldout.copy()
 
+                print("sanity check: ",n_features,len(col_to_indices_mapping))
                 ## normalizing the heldout with the X_train used for training
                 X_train, X_valid, X_test = preprocess.standardize_from_train(X_train=None, X_valid=None, X_test=X_heldout, index_ghi = index_ghi,
                                                                              index_clearghi = index_clearghi, total_features=len(col_to_indices_mapping),folder_saving = folder_saving + season_flag + "/ML_models_" + str(
-                                                                                 testyear) + "/cnn/" + str(
+                                                                                 testyear) + "/probabilistic/" + str(
                                                                                  res) + "/" + reg + "/", lead = lead)
                 print("heldout size:", X_test.shape, y_heldout.shape)
 
                 y_test=y_heldout
                 y_true = y_test
 
-                # y_test = np.reshape(y_heldout, -1)
+                y_test = np.reshape(y_heldout, -1)
 
                 f.write("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
 
-                # with open(folder_saving + season_flag + "/ML_models_"+str(testyear)+"/probabilistic/"+str(res)+"/"+reg+"//model_at_lead_" + str(lead) + ".pkl", 'rb') as file:
-                #     model = pickle.load(file)
-                # y_true = y_test
-                #
-                # y_pred = model.predict(X_test)
-                #
-                # y_pred = np.reshape(y_pred, -1)
+                with open(folder_saving + season_flag + "/ML_models_"+str(testyear)+"/probabilistic/"+str(res)+"/"+reg+"//model_at_lead_" + str(lead) + ".pkl", 'rb') as file:
+                    model = pickle.load(file)
+                y_true = y_test
+
+                y_pred = model.predict(X_test)
+
+                y_pred = np.reshape(y_pred, -1)
+
+                ## The CRPS scores would be calculated on the clearness index
+                test_crps = get_crps_for_ngboost(model, X_test, y_test)
 
 
-                y_pred, y_valid_pred, valid_crps, test_crps = cnn.test_DCNN_with_attention(quantile,None, None,
-                                                                                           X_test, y_test, n_timesteps,
-                                                                                           n_features,
-                                                                                           folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",
-                                                                                           model_saved="dcnn_lag_for_lead_" + str(
-                                                                                               lead))  # , n_outputs=len(lead_times))
+                # y_pred, y_valid_pred, valid_crps, test_crps = cnn.test_dcnn_with_attention(quantile,None, None,
+                #                                                                            X_test, y_test, n_timesteps,
+                #                                                                            n_features,
+                #                                                                            folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",
+                #                                                                            model_saved="dcnn_lag_for_lead_" + str(
+                #                                                                                lead))  # , n_outputs=len(lead_times))
+
                 print(y_pred.shape, y_true.shape)
 
                 print("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
 
                 print("#####TEST#################")
 
-                index_ghi = -(n_features-index_ghi)
-                index_clearghi = -(index_clearghi - index_clearghi)
+                index_ghi = -n_features+index_ghi
+                index_clearghi = -n_features+index_clearghi
                 # ## postprocessing on test
                 y_true, y_pred = postprocess.postprocessing_target(y_pred, y_true, X_test_before_normalized, index_ghi, index_clearghi, lead)
                 # normal and smart persistence model
@@ -335,12 +340,10 @@ def main():
                 skill_np = postprocess.skill_score(rmse_our, rmse_np)
                 print("\nSkill of our model over normal persistence: ", round(skill_np, 2))
 
+                f.write('skill score on heldout data for year 2017 for lead' + str(lead) + '=' + str(round(skill_sp, 2)) + '\n')
 
-                f.write('score on heldout data for year 2008 for lead' + str(lead) + '=' + str(round(skill_sp, 2)) + '\n')
 
-                # # postprocess.plot_results(true_day_test, pred_day_test, sp_day_test, lead, season_flag, folder_plots,
-                # #                          model="random_forest_model")
-                f.write('CRPS score on heldout data for year 2008 for lead' + str(lead) + '=' + str(round(test_crps, 2)) + '\n')
+                f.write('CRPS score on heldout data for year 2017 for lead' + str(lead) + '=' + str(round(test_crps, 2)) + '\n')
 
 
             else:
