@@ -1,10 +1,3 @@
-# from keras.models import Model, load_model, Sequential
-# from keras.layers import Input, Lambda, MaxPooling1D
-# from keras.layers import Dense, Conv1D, Flatten, Dropout, Conv2D,Activation, Add
-# from keras.layers.advanced_activations import LeakyReLU, ELU
-# from keras.layers.normalization import BatchNormalization
-# from keras.initializers import TruncatedNormal
-# from keras.regularizers import l2
 
 import torch
 import torch.nn as nn
@@ -12,6 +5,7 @@ import numpy as np
 import sys
 from sklearn.metrics import mean_squared_error
 from torch.autograd import Variable
+# import torch.optim.lr_scheduler.StepLR
 from torch.nn.utils import weight_norm
 
 
@@ -131,81 +125,62 @@ class ConvForecasterDilationLowRes(nn.Module):
         self.train_mode = False
         self.saving_path = folder_saving+model
 
-        # self.conv1 = nn.Conv1d(self.input_dim, 40, 2, stride=1)
-        # self.conv1_fn = nn.ReLU()
-        # self.avgpool1 = nn.AvgPool1d(kernel_size=2, stride=1)
-        # self.conv1.apply(weights_init)
-        #
-        # self.conv2 = nn.Conv1d(40, 80, 3, stride=1, dilation=2)
-        # self.conv2_fn = nn.ReLU()
-        # self.avgpool2 = nn.AvgPool1d(kernel_size=2, stride=2)
-        # self.conv2.apply(weights_init)
-        #
-        # self.conv3 = nn.Conv1d(80, 128, 3, stride=1, dilation=4)
-        # self.conv3_fn = nn.ReLU()
-        # # self.avgpool3 = nn.AvgPool1d(kernel_size=2, stride=1)
+        self.conv1 = nn.Conv1d(self.input_dim, 40, 2, stride=1)
+        self.conv1_fn = nn.ReLU()
+        self.avgpool1 = nn.AvgPool1d(kernel_size=2, stride=1)
+        self.conv1.apply(weights_init)
+
+        self.conv2 = nn.Conv1d(40, 80, 3, stride=1, dilation=2)
+        self.conv2_fn = nn.ReLU()
+        self.avgpool2 = nn.AvgPool1d(kernel_size=2, stride=2)
+        self.conv2.apply(weights_init)
+
+        self.conv3 = nn.Conv1d(80, 128, 3, stride=1, dilation=4)
+        self.conv3_fn = nn.ReLU()
+        self.avgpool3 = nn.AvgPool1d(kernel_size=2, stride=1)
         # self.avgpool3 = nn.AvgPool1d(kernel_size=2, stride=2)
-        # self.conv3.apply(weights_init)
-        #
-        # # self.conv1 = nn.Conv1d(self.input_dim, 25, 2, stride=1)
-        # # self.conv1_fn = nn.ReLU()
-        # # self.avgpool1 = nn.AvgPool1d(kernel_size=2, stride=1)
-        # #
-        # # self.conv2 = nn.Conv1d(25, 50, 3, stride=1, dilation=2)
-        # # self.conv2_fn = nn.ReLU()
-        # # self.avgpool2 = nn.AvgPool1d(kernel_size=2, stride=2)
-        # #
-        # # self.conv3 = nn.Conv1d(50, 100, 3, stride=1, dilation=4)
-        # # self.conv3_fn = nn.ReLU()
-        # # self.avgpool3 = nn.AvgPool1d(kernel_size=2, stride=2)
-        #
-        #
-        # conv_layers = [ self.conv1,self.conv1_fn,self.avgpool1,self.conv2,self.conv2_fn,self.avgpool2,self.conv3,self.conv3_fn,self.avgpool3]
-        # # conv_layers = [self.conv1, self.conv1_fn, self.conv2, self.conv2_fn, self.conv3,
-        # #                self.conv3_fn]
-        #
-        # # self.conv4 = nn.Conv1d(100, 150, 3, stride=1, dilation=6)
-        # # self.conv4_fn = nn.ReLU()
-        # # self.avgpool4 = nn.AvgPool1d(kernel_size=2, stride=1)
-        #
-        # conv_module = nn.Sequential(*conv_layers)
-        #
-        # test_ipt = Variable(torch.zeros(1, self.input_dim, self.timesteps))
-        # test_out = conv_module(test_ipt)
-        #
-        # self.conv_output_size = test_out.size(1) * test_out.size(2)
-        # fc1_dim = self.conv_output_size+(self.input_dim*self.timesteps)
-        #
-        # self.dropout = nn.Dropout(0.25) #0.5
-        #
-        # # self.fc1 = nn.Linear(fc1_dim, int(fc1_dim/2))#int(fc1_dim/4))
-        # # self.fc1_fn = nn.Tanh()
-        # #
-        # # self.fc2 = nn.Linear(int(fc1_dim/2), int(fc1_dim/4))
-        # # self.fc2_fn = nn.Tanh()
-        #
-        #
-        # # Attention Layer :
-        # self.conv_attn = nn.Conv1d(self.input_dim, 1, 1, stride=1)
-        # self.attn_layer = nn.Sequential(
-        #     nn.Linear(self.conv_output_size+self.timesteps, self.timesteps*self.input_dim),
-        #     nn.Tanh(),
-        #     nn.Linear(self.timesteps*self.input_dim, self.timesteps),
-        #     # nn.Linear(self.conv_output_size+self.timesteps, self.timesteps),
-        #     nn.Softmax(dim=1)
-        # )
-        #
-        #
-        # # self.fc3 = nn.Linear(int(fc1_dim/4), self.outputs)
+        self.conv3.apply(weights_init)
+
+        conv_layers = [ self.conv1,self.conv1_fn,self.avgpool1,self.conv2,self.conv2_fn,self.avgpool2,self.conv3,self.conv3_fn,self.avgpool3]
+        # conv_layers = [self.conv1, self.conv1_fn, self.conv2, self.conv2_fn, self.conv3,
+        #                self.conv3_fn]
+
+        # self.conv4 = nn.Conv1d(100, 150, 3, stride=1, dilation=6)
+        # self.conv4_fn = nn.ReLU()
+        # self.avgpool4 = nn.AvgPool1d(kernel_size=2, stride=1)
+
+        conv_module = nn.Sequential(*conv_layers)
+
+        test_ipt = Variable(torch.zeros(1, self.input_dim, self.timesteps))
+        test_out = conv_module(test_ipt)
+
+        self.conv_output_size = test_out.size(1) * test_out.size(2)
+        fc1_dim = self.conv_output_size+(self.input_dim*self.timesteps)
+
+        self.dropout = nn.Dropout(0.5)
+
+        self.fc1 = nn.Linear(fc1_dim, int(fc1_dim/2))#int(fc1_dim/4))
+        self.fc1_fn = nn.Tanh()
+
+        # self.fc2 = nn.Linear(int(fc1_dim/2), int(fc1_dim/4))
+        # self.fc2_fn = nn.Tanh()
+
+
+        # Attention Layer :
+        self.conv_attn = nn.Conv1d(self.input_dim, 1, 1, stride=1)
+        self.attn_layer = nn.Sequential(
+            nn.Linear(self.conv_output_size+self.timesteps, self.timesteps*self.input_dim),
+            nn.Tanh(),
+            nn.Linear(self.timesteps*self.input_dim, self.timesteps),
+            # nn.Linear(self.conv_output_size+self.timesteps, self.timesteps),
+            nn.Softmax(dim=1)
+        )
+
+
+        self.fc3 = nn.Linear(int(fc1_dim/2), self.outputs)
         # self.fc3 = nn.Linear(fc1_dim, self.outputs)
 
-
-        # Adding task independent layers for multi-task learning
-        # self.task_nets = nn.ModuleList()
-        # for _ in range(self.outputs):
-        #     self.task_nets.append(
-        #         Task_independent_module(int(fc1_dim/2),int(fc1_dim/4))
-        #          1
+        ## adding self attention (and not the one above)
         # in_dim = test_out.size(1)
         # self.query_conv = nn.Conv1d(in_channels=in_dim, out_channels=in_dim // 8, kernel_size=1)
         # self.key_conv = nn.Conv1d(in_channels=in_dim, out_channels=in_dim // 8, kernel_size=1)
@@ -214,149 +189,62 @@ class ConvForecasterDilationLowRes(nn.Module):
         # self.softmax = nn.Softmax(dim=-1)
         # self.fc = nn.Linear(self.conv_output_size,self.outputs)
 
-    # def forward(self, xx):
-    #     # print(xx.shape)
-    #     output = self.conv1(xx)
-    #     # print(output.shape)
-    #     output = self.conv1_fn(output)
-    #     if self.train_mode:
-    #         output = self.dropout(output)
-    #     output = self.avgpool1(output)
-    #     # print(output.shape)
-    #
-    #     output = self.conv2(output)
-    #     # print(output.shape)
-    #     output = self.conv2_fn(output)
-    #     if self.train_mode:
-    #         output = self.dropout(output)
-    #     output = self.avgpool2(output)
-    #
-    #     # print(output.shape)
-    #
-    #     output = self.conv3(output)
-    #     # print(output.shape)
-    #     output = self.conv3_fn(output)
-    #     if self.train_mode:
-    #         output = self.dropout(output)
-    #     output = self.avgpool3(output)
-    #
-    #     # output = self.conv4(output)
-    #     # output = self.conv4_fn(output)
-    #     # output = self.avgpool4(output)
-    #     output = output.reshape(-1, output.shape[1]*output.shape[2])
-    #     # print("after convolution: ", output.shape)
-    #     # Compute Context Vector
-    #     xx_single = self.conv_attn(xx).reshape(-1, self.timesteps)
-    #     # print("xx_single: ", xx_single.shape)
-    #     attn_input = torch.cat((output, xx_single), dim=1)
-    #     # print("attn_input: ", attn_input.shape)
-    #     attention = self.attn_layer(attn_input).reshape(-1, 1, self.timesteps)
-    #
-    #     # print("attention: ", attention.shape)
-    #     x_attenuated = (xx * attention)
-    #     # print("xx attentuated: ",x_attenuated.shape)
-    #     x_attenuated = x_attenuated.reshape(-1, x_attenuated.shape[1]*x_attenuated.shape[2])
-    #
-    #
-    #     output = torch.cat((output, x_attenuated), dim=1)
-    #     # print("output concat with attenuated: ",output.shape)
-    #     # output = self.fc1(output)
-    #     # output = self.fc1_fn(output)
-    #     # if self.train_mode:
-    #     #     output = self.dropout(output)
-    #     #
-    #     # output = self.fc2(output)
-    #     # output = self.fc2_fn(output)
-    #     # if self.train_mode:
-    #     #     output = self.dropout(output)
-    #     output = self.fc3(output)
-    #
-    #     # output = torch.cat(
-    #     #     tuple(task_model(output) for task_model in self.task_nets),
-    #     #     dim=1
-    #     # )
-    #
-    #     return output
+    def forward(self, xx):
+        # print(xx.shape)
+        output = self.conv1(xx)
+        # print(output.shape)
+        output = self.conv1_fn(output)
+        if self.train_mode:
+            output = self.dropout(output)
+        output = self.avgpool1(output)
+        # print(output.shape)
+
+        output = self.conv2(output)
+        # print(output.shape)
+        output = self.conv2_fn(output)
+        if self.train_mode:
+            output = self.dropout(output)
+        output = self.avgpool2(output)
+
+        # print(output.shape)
+
+        output = self.conv3(output)
+        # print(output.shape)
+        output = self.conv3_fn(output)
+        if self.train_mode:
+            output = self.dropout(output)
+        output = self.avgpool3(output)
+
+        # output = self.conv4(output)
+        # output = self.conv4_fn(output)
+        # output = self.avgpool4(output)
+        output = output.reshape(-1, output.shape[1]*output.shape[2])
+        # print("after convolution: ", output.shape)
+        # Compute Context Vector
+        xx_single = self.conv_attn(xx).reshape(-1, self.timesteps)
+        # print("xx_single: ", xx_single.shape)
+        attn_input = torch.cat((output, xx_single), dim=1)
+        # print("attn_input: ", attn_input.shape)
+        attention = self.attn_layer(attn_input).reshape(-1, 1, self.timesteps)
+
+        # print("attention: ", attention.shape)
+        x_attenuated = (xx * attention)
+        # print("xx attentuated: ",x_attenuated.shape)
+        x_attenuated = x_attenuated.reshape(-1, x_attenuated.shape[1]*x_attenuated.shape[2])
 
 
-        ## Wavenet style model architecture
-        hyperparams = {}
-        hyperparams['nb_layers'] = 5 #5
-        # hyperparams['nb_filters'] = 64
-        hyperparams['kernel_size'] = 2
-
-        receptive_field = 2 ** (hyperparams['nb_layers'] - 1) * hyperparams['kernel_size']
-        self.padding = receptive_field - 1
-
-        in_channels = self.input_dim
-        self.dilation_factors = [2 ** i for i in range(0, hyperparams['nb_layers'])]
-        self.in_channels = [in_channels] + [32 for _ in range(hyperparams['nb_layers'])] #2**(5+_)
-        self.dilated_causal_convs = nn.ModuleList(
-            [DilatedCausalConv1d(hyperparams, self.dilation_factors[i], self.in_channels[i], self.in_channels[i+1]) for i in
-             range(hyperparams['nb_layers'])])
-        for dilated_causal_conv in self.dilated_causal_convs:
-            dilated_causal_conv.apply(weights_init)
-
-        #This is part of the original code: if you want to get [batch_size,1,timesteps] as output
-        # self.output_layer = nn.Conv1d(in_channels=self.in_channels[-1],
-        #                               out_channels=1,
-        #                               kernel_size=1)
-
-        ##This is when you want to use purely wavenet architecture and give n_outputs as output with 2 fc layers
-        self.fc_dim = self.in_channels[-1]*self.timesteps
-        self.output_layer1 = nn.Linear(self.in_channels[-1]*self.timesteps,int(self.fc_dim/2))
-        self.output_layer1.apply(weights_init)
-        self.output_layer2 = nn.Linear(int(self.fc_dim / 2),self.outputs)
-        self.output_layer2.apply(weights_init)
-        self.leaky_relu = nn.LeakyReLU(0.1)
-        self.dropout = nn.Dropout(0.5)
-
-        ## This is when you want to add self attention to the wavent style architecture
-        # in_dim = self.in_channels[-1]
-        # self.query_conv = nn.Conv1d(in_channels=in_dim, out_channels=in_dim // 8, kernel_size=1) #8
-        # self.key_conv = nn.Conv1d(in_channels=in_dim, out_channels=in_dim // 8, kernel_size=1) #8
-        # self.value_conv = nn.Conv1d(in_channels=in_dim, out_channels=in_dim, kernel_size=1)
-        # self.gamma = nn.Parameter(torch.zeros(1))
-        # self.softmax = nn.Softmax(dim=-1)
-        # self.fc = nn.Linear(self.fc_dim, self.outputs)
-
-
-    # Forward function for wavenet style model
-    def forward(self, x):
-
-
-        npad = ((0, 0), (0, 0), (self.padding, 0))
-        x = torch.from_numpy(np.pad(x, pad_width=npad, mode='constant', constant_values=0))
-
-        for dilated_causal_conv in self.dilated_causal_convs:
-            x = dilated_causal_conv(x)
-
-
-
-        # x = self.leaky_relu(self.output_layer(x))
-        # # output = x[:,0,-1]
-        # output = x[:,0,:]
-
-        output = x.reshape(-1,x.shape[1] * x.shape[2])
-        output = self.leaky_relu(self.output_layer1(output))
-        output = self.dropout(output)
-
-        output = self.leaky_relu(self.output_layer2(output))
-        # output = x
+        output = torch.cat((output, x_attenuated), dim=1)
+        # print("output concat with attenuated: ",output.shape)
+        output = self.fc1(output)
+        output = self.fc1_fn(output)
+        if self.train_mode:
+            output = self.dropout(output)
         #
-        # proj_query = self.query_conv(output).permute(0, 2, 1)
-        # proj_key = self.key_conv(output)
-        # energy = torch.bmm(proj_query, proj_key)
-        # attention = self.softmax(energy)
-        # proj_value = self.value_conv(output)
-        #
-        # out = torch.bmm(proj_value, attention.permute(0,2,1))
-        # # print(out.shape)
-        #
-        # output = self.gamma * out + output
-        #
-        # output = output.reshape(-1, output.shape[1] * output.shape[2])
-        # output = self.leaky_relu(self.fc(output))
+        # output = self.fc2(output)
+        # output = self.fc2_fn(output)
+        # if self.train_mode:
+        #     output = self.dropout(output)
+        output = self.fc3(output)
 
 
         return output
@@ -416,6 +304,7 @@ class ConvForecasterDilationLowRes(nn.Module):
     def trainBatchwise(self, trainX, trainY, epochs, batch_size, lr=0.0001, validX=None,
                        validY=None, patience=None, verbose=None, reg_lamdba = 0.0001):
         optimizer = torch.optim.Adam(self.parameters(), lr=lr)
+        # scheduler = StepLR(optimizer, step_size=25, gamma=0.1)
         criterion = torch.nn.MSELoss()
         # criterion = nn.L1Loss()
         samples = trainX.size()[0]
@@ -463,6 +352,7 @@ class ConvForecasterDilationLowRes(nn.Module):
                 total_loss.backward()
                 # perform a single optimization step (parameter update)
                 optimizer.step()
+                # scheduler.step()
                 per_epoch_loss+=loss.item()
                 count_train+=1
 
@@ -546,5 +436,88 @@ class ConvForecasterDilationLowRes(nn.Module):
 
         return torch.mean(loss)
 
+
+
+ # ## Wavenet style model architecture
+        # hyperparams = {}
+        # hyperparams['nb_layers'] = 5 #5
+        # # hyperparams['nb_filters'] = 64
+        # hyperparams['kernel_size'] = 2
+        #
+        # receptive_field = 2 ** (hyperparams['nb_layers'] - 1) * hyperparams['kernel_size']
+        # self.padding = receptive_field - 1
+        #
+        # in_channels = self.input_dim
+        # self.dilation_factors = [2 ** i for i in range(0, hyperparams['nb_layers'])]
+        # self.in_channels = [in_channels] + [32 for _ in range(hyperparams['nb_layers'])] #2**(5+_)
+        # self.dilated_causal_convs = nn.ModuleList(
+        #     [DilatedCausalConv1d(hyperparams, self.dilation_factors[i], self.in_channels[i], self.in_channels[i+1]) for i in
+        #      range(hyperparams['nb_layers'])])
+        # for dilated_causal_conv in self.dilated_causal_convs:
+        #     dilated_causal_conv.apply(weights_init)
+        #
+        # #This is part of the original code: if you want to get [batch_size,1,timesteps] as output
+        # # self.output_layer = nn.Conv1d(in_channels=self.in_channels[-1],
+        # #                               out_channels=1,
+        # #                               kernel_size=1)
+        #
+        # ##This is when you want to use purely wavenet architecture and give n_outputs as output with 2 fc layers
+        # self.fc_dim = self.in_channels[-1]*self.timesteps
+        # self.output_layer1 = nn.Linear(self.in_channels[-1]*self.timesteps,int(self.fc_dim/2))
+        # self.output_layer1.apply(weights_init)
+        # self.output_layer2 = nn.Linear(int(self.fc_dim / 2),self.outputs)
+        # self.output_layer2.apply(weights_init)
+        # self.leaky_relu = nn.LeakyReLU(0.1)
+        # self.dropout = nn.Dropout(0.5)
+        #
+        # ## This is when you want to add self attention to the wavent style architecture
+        # # in_dim = self.in_channels[-1]
+        # # self.query_conv = nn.Conv1d(in_channels=in_dim, out_channels=in_dim // 8, kernel_size=1) #8
+        # # self.key_conv = nn.Conv1d(in_channels=in_dim, out_channels=in_dim // 8, kernel_size=1) #8
+        # # self.value_conv = nn.Conv1d(in_channels=in_dim, out_channels=in_dim, kernel_size=1)
+        # # self.gamma = nn.Parameter(torch.zeros(1))
+        # # self.softmax = nn.Softmax(dim=-1)
+        # # self.fc = nn.Linear(self.fc_dim, self.outputs)
+
+
+    # Forward function for wavenet style model
+    # def forward(self, x):
+    #
+    #
+    #     npad = ((0, 0), (0, 0), (self.padding, 0))
+    #     x = torch.from_numpy(np.pad(x, pad_width=npad, mode='constant', constant_values=0))
+    #
+    #     for dilated_causal_conv in self.dilated_causal_convs:
+    #         x = dilated_causal_conv(x)
+    #
+    #
+    #
+    #     # x = self.leaky_relu(self.output_layer(x))
+    #     # # output = x[:,0,-1]
+    #     # output = x[:,0,:]
+    #
+    #     output = x.reshape(-1,x.shape[1] * x.shape[2])
+    #     output = self.leaky_relu(self.output_layer1(output))
+    #     output = self.dropout(output)
+    #
+    #     output = self.leaky_relu(self.output_layer2(output))
+    #     # output = x
+    #     #
+    #     # proj_query = self.query_conv(output).permute(0, 2, 1)
+    #     # proj_key = self.key_conv(output)
+    #     # energy = torch.bmm(proj_query, proj_key)
+    #     # attention = self.softmax(energy)
+    #     # proj_value = self.value_conv(output)
+    #     #
+    #     # out = torch.bmm(proj_value, attention.permute(0,2,1))
+    #     # # print(out.shape)
+    #     #
+    #     # output = self.gamma * out + output
+    #     #
+    #     # output = output.reshape(-1, output.shape[1] * output.shape[2])
+    #     # output = self.leaky_relu(self.fc(output))
+    #
+
+        # return output
 
 

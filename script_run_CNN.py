@@ -22,8 +22,7 @@ pd.set_option('display.width', 1000)
 city = 'Sioux_Falls_SD'
 
 # lead time
-lead_times = [32,28,24] #from [1,2,3,4,5,6,7,8,9,10,11,12]
-# lead_times = [i+1 for i in range(24)]
+lead_times = [16,20,24,28,32,12*4,24*4]
 
 # season
 seasons =['year'] #from ['fall', 'winter', 'spring', 'summer', 'year']
@@ -44,40 +43,34 @@ features = ['year','month','day','hour','min','zen','dw_solar','uw_solar','direc
 
 # selected features for the study
 # final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','dw_ir','temp','rh','windspd','winddir','pressure','clear_ghi']
-## exploring more features 
-# final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
-final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','direct_n','dw_ir','temp','windspd','winddir','pressure', 'clear_ghi']
 
-# features_to_cluster_on = ['dw_solar','dw_ir', 'temp','pressure', 'windspd']
-# features_to_cluster_on = ['dw_solar','temp']
+## ## selected features for the study (exploring multiple combinations)
+final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
+# final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','direct_n','dw_ir','temp','windspd','winddir','pressure', 'clear_ghi']
 
 # target or Y
 target_feature = ['clearness_index']
 
 # start and end month+year
-startyear = 2005
-endyear = 2009
+startyear = 2015 #2005
+endyear = 2018 #2009
 startmonth = 9
 endmonth = 8
 
 # test year
-testyear = 2008  # i.e all of Fall(Sep2008-Nov2008), Winter(Dec2008-Feb2009), Spring(Mar2009-May2009), Summer(June2009-Aug2009), year(Sep2008-Aug2009)
+# testyear = 2008  # i.e all of Fall(Sep2008-Nov2008), Winter(Dec2008-Feb2009), Spring(Mar2009-May2009), Summer(June2009-Aug2009), year(Sep2008-Aug2009)
+testyear = 2017
 
 # hyperparameters
-
 n_timesteps = 72 #72
-n_features = 10 #13
+n_features = 15 #10 before
 quantile = True
-
-
-# If clustering before prediction
-# n_clusters = 3 #6
 
 
 def get_data():
 
     ## collect raw data
-    years = [2005, 2006, 2007, 2008, 2009]
+    years = [2015, 2016, 2017, 2018] #[2005, 2006, 2007, 2008, 2009]
     object = collect_data.SurfradDataCollector(years, [city], path)
 
     object.download_data()
@@ -90,47 +83,50 @@ def get_data():
 
 
 def include_previous_features(X, index_ghi):
-
+    '''
+    Features at time t includes features from previous n_timesteps
+    '''
     y_list = []
-    previous_time_periods = list(range(1,n_timesteps))
+    previous_time_periods = list(range(1, n_timesteps+1))
     # dw_solar = X[:, index_ghi]
 
     for l in previous_time_periods:
         # print("rolling by: ", l)
-        X_train_shifted = np.roll(X,l)
+        X_train_shifted = np.roll(X, l)
         y_list.append(X_train_shifted)
         # y_list.append(dw_solar_rolled)
     y_list = y_list[::-1]
     # print(y_list)
     previous_time_periods_columns = np.column_stack(y_list)
-    X = np.column_stack([previous_time_periods_columns,X])
+    X = np.column_stack([previous_time_periods_columns, X])
     # X = np.transpose(np.array(y_list), ((1, 0, 2)))
     # max_lead = np.max(previous_time_periods)
     # X = X[max_lead:]
     print("X shape after adding prev features: ", X.shape)
     return X
 
-def create_mulitple_lead_dataset(dataframe, final_set_of_features, target):
-    dataframe_lead = dataframe[final_set_of_features]
-    target = np.asarray(dataframe[target])
 
-    y_list = []
-    for lead in lead_times:
-        print("rolling by: ",lead)
-        target = np.roll(target, -lead)
-        y_list.append(target)
-
-    dataframe_lead['clearness_index'] = np.column_stack(y_list).tolist()
-    dataframe_lead['clearness_index'] = dataframe_lead['clearness_index'].apply(tuple)
-    max_lead = np.max(lead_times)
-    dataframe_lead['clearness_index'].values[-max_lead:] = np.nan
-    print(dataframe_lead['clearness_index'])
-
-    # remove rows which have any value as NaN
-    dataframe_lead = dataframe_lead.dropna()
-    print("*****************")
-    print("dataframe with lead size: ", len(dataframe_lead))
-    return dataframe_lead
+# def create_mulitple_lead_dataset(dataframe, final_set_of_features, target):
+#     dataframe_lead = dataframe[final_set_of_features]
+#     target = np.asarray(dataframe[target])
+#
+#     y_list = []
+#     for lead in lead_times:
+#         print("rolling by: ",lead)
+#         target = np.roll(target, -lead)
+#         y_list.append(target)
+#
+#     dataframe_lead['clearness_index'] = np.column_stack(y_list).tolist()
+#     dataframe_lead['clearness_index'] = dataframe_lead['clearness_index'].apply(tuple)
+#     max_lead = np.max(lead_times)
+#     dataframe_lead['clearness_index'].values[-max_lead:] = np.nan
+#     print(dataframe_lead['clearness_index'])
+#
+#     # remove rows which have any value as NaN
+#     dataframe_lead = dataframe_lead.dropna()
+#     print("*****************")
+#     print("dataframe with lead size: ", len(dataframe_lead))
+#     return dataframe_lead
 
 # def create_labels_for_wavenet(dataframe, lead, final_set_of_features, target):
 #
@@ -155,7 +151,6 @@ def create_mulitple_lead_dataset(dataframe, final_set_of_features, target):
 #     return dataframe_lead
 #
 
-## change standarization error (i.e take index_ghi of all Xs)
 
 
 def main():
@@ -234,15 +229,15 @@ def main():
     print("after removing data points with 0 clear_ghi and selecting daytimes",len(df_final))
     
     # df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
-    #
+
+    reg = "dcnn_with_lag72"
     for season_flag in seasons:
         ## ML_models_2008 is the folder to save results on testyear 2008
         ## creating different folder for different methods: nn for fully connected networks, rf for random forest etc.
         os.makedirs(
-            folder_saving + season_flag + "/ML_models_2008/dcnn_lag/" + str(res) + "/wavenet_quantile_loss//",
+            folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",
             exist_ok=True)
-        f = open(folder_saving + season_flag + "/ML_models_2008/dcnn_lag/" + str(
-            res) + "/wavenet_quantile_loss//results.txt", 'a')
+        f = open(folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/results.txt", 'a')
 
         for lead in lead_times:
             # create dataset with lead
@@ -268,15 +263,12 @@ def main():
                 print("\n\n train and test df shapes ")
                 print(X_train.shape, y_train.shape, X_heldout.shape, y_heldout.shape)
 
-                # filter the training to have only day values
-                # X_train, y_train = preprocess.filter_dayvalues_and_zero_clearghi(X_train_all, y_train_all,
-                #                                                                       index_zen, index_clearghi)
 
                 # including features from prev imestamps
                 X_train = include_previous_features(X_train, index_ghi)
                 X_heldout = include_previous_features(X_heldout, index_ghi)
 
-                X_train = X_train[n_timesteps:,:] #technically should be n_timesteps-1
+                X_train = X_train[n_timesteps:,:]
                 X_heldout = X_heldout[n_timesteps:, :]
                 y_train = y_train[n_timesteps:, :]
                 y_heldout = y_heldout[n_timesteps:, :]
@@ -291,41 +283,20 @@ def main():
                 X_valid, X_test, y_valid, y_test = train_test_split(
                     X_test, y_test, test_size=0.3, random_state=42)
 
-                # X_train, y_train = preprocess.shuffle(X_train, y_train, city, res, lead)
-                # training_samples = int(0.7 * len(X_train))
-                # X_valid = X_train[training_samples:]
-                # X_train = X_train[:training_samples]
-                # y_valid = y_train[training_samples:]
-                # y_train = y_train[:training_samples]
-                #
-                # valid_samples = int(0.7 * len(X_valid))
-                # X_test = X_valid[valid_samples:]
-                # X_valid = X_valid[:valid_samples]
-                # y_test = y_valid[valid_samples:]
-                # y_valid = y_valid[:valid_samples]
 
                 print("train/valid/test sizes: ", len(X_train), " ", len(X_valid), " ", len(X_test))
 
-                reg = "cnn"  ## giving a name to the regression models -- useful when saving results
 
                 # normalizing the Xtrain, Xvalid and Xtest data and saving the mean,std of train to normalize the heldout data later
-                X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, X_test,index_ghi,index_clearghi,
-                                                                             folder_saving + season_flag + "/ML_models_2008/dcnn_lag/" + str(
-
-                                                                                 res) + "/wavenet_quantile_loss//",reg, lead = lead)
+                X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, X_test,index_ghi,index_clearghi, len(col_to_indices_mapping),
+                                                                             folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/", lead = lead)
 
 
-                # X_train = X_train.reshape((X_train.shape[0], n_timesteps, n_features))
-                # X_valid = X_valid.reshape((X_valid.shape[0], n_timesteps, n_features))
-                # X_test = X_test.reshape((X_test.shape[0], n_timesteps, n_features))
+                cnn.train_DCNN_with_attention(quantile, X_train, y_train, X_valid, y_valid, n_timesteps+1, n_features,
+                                          folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved = "dcnn_lag_for_lead_" + str(lead)) #, n_outputs=n_timesteps)
 
-                cnn.train_DCNN_with_attention(quantile, X_train, y_train, n_timesteps, n_features,
-                                          folder_saving + season_flag + "/ML_models_2008/dcnn_lag/" + str(
-                                              res) + "/wavenet_quantile_loss//",model_saved = "dcnn_lag_for_lead_" + str(lead)) #, n_outputs=n_timesteps)
-
-                y_pred, y_valid_pred, valid_crps, test_crps  = cnn.test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_features,
-                                              folder_saving + season_flag + "/ML_models_2008/dcnn_lag/" + str(
-                                                  res) + "/wavenet_quantile_loss//",model_saved = "dcnn_lag_for_lead_" + str(lead))  #, n_outputs=n_timesteps)
+                y_pred, y_valid_pred, valid_crps, test_crps  = cnn.test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_timesteps+1, n_features,
+                                              folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved = "dcnn_lag_for_lead_" + str(lead))  #, n_outputs=n_timesteps)
 
                 # y_pred = model.predict(X_test.reshape(X_test.shape[0],n_timesteps, n_features))
                 # y_valid_pred = model.predict(X_valid.reshape(X_valid.shape[0], n_timesteps, n_features))

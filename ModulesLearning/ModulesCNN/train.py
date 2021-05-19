@@ -129,13 +129,13 @@ def loss_plots(train_loss, valid_loss, folder_saving, loss_type=""):
     plt.close()
 
 
-def train_DCNN_with_attention(quantile, X_train, y_train, n_timesteps, n_features, folder_saving, model_saved, n_outputs = 1):
+def train_DCNN_with_attention(quantile, X_train, y_train, X_valid, y_valid, n_timesteps, n_features, folder_saving, model_saved, n_outputs = 1):
 
     valid = True
 
-    if valid:
-        X_train, X_valid, y_train, y_valid = train_test_split(
-            X_train, y_train, test_size=0.15, random_state=42)
+    # if valid:
+    #     X_train, X_valid, y_train, y_valid = train_test_split(
+    #         X_train, y_train, test_size=0.15, random_state=42)
 
     X_train, y_train = X_train.astype(np.float32), y_train.astype(np.float32)
     X_train = torch.from_numpy(X_train).reshape(-1, n_features, n_timesteps)

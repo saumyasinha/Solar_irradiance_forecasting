@@ -181,17 +181,19 @@ def get_train_test_data(dataframe_train, dataframe_test, final_set_of_features, 
     '''
     final_features = []
     for feature in final_set_of_features:
-        if feature not in ['year', 'month', 'day', 'hour', 'MinFlag']:
-        # if feature not in ['year', 'month', 'day', 'MinFlag']:
+        # if feature not in ['year', 'month', 'day', 'hour', 'MinFlag']:
+        if feature not in ['year', 'day', 'MinFlag']:
             final_features.append(feature)
 
     final_features.extend(['clearness_index_input'])#,'smart_persistence'])
+
+
     # storing the position/indices of clear_ghi, ghi, and zen
     for ind in range(len(final_features)):
         if final_features[ind] == 'clear_ghi':
             index_clearghi = ind
         if final_features[ind] == 'dw_solar':
-            index_ghi = ind
+            index_ghi =  ind
         if final_features[ind] == 'zen':
             index_zen = ind
 
@@ -285,18 +287,23 @@ def filter_dayvalues_and_zero_clearghi(X_all, y_all, index_zen, index_clearghi, 
 
 
 
-def standardize_from_train(X_train, X_valid, X_test, index_ghi, index_clearghi, folder_saving, model, lead=""):
+def standardize_from_train(X_train, X_valid, X_test, index_ghi, index_clearghi, total_features, folder_saving, lead=""):
 
     '''
     Standardize (or 'normalize') the feature matrices.
     '''
+
+    diff = index_clearghi-index_ghi
+    print("total features: ", total_features)
+    print("diff between ghi and clear ghi: ", diff)
 
     if X_train is not None:
         cols = X_train.shape[1]
         standarize_dict = {}
         for i in range(cols):
 
-            if i==index_ghi:
+            if i%total_features==index_ghi:
+                index_clearghi = i+diff
                 ## normalizing of dw_solar wrt clearGHI (to take the cloud factor into account)
                 mean_clear = np.mean(X_train[:, index_clearghi])
                 std_clear = np.std(X_train[:, index_clearghi])
@@ -323,14 +330,14 @@ def standardize_from_train(X_train, X_valid, X_test, index_ghi, index_clearghi, 
 
 
 
-        with open(folder_saving+model+"_standarize_data_for_lead_"+str(lead)+".pickle", 'wb') as handle:
+        with open(folder_saving+"standarize_data_for_lead_"+str(lead)+".pickle", 'wb') as handle:
             pickle.dump(standarize_dict, handle)
 
 
     else:
         cols = X_test.shape[1]
 
-        with open(folder_saving+model+"_standarize_data_for_lead_"+str(lead)+".pickle", 'rb') as handle:
+        with open(folder_saving+"standarize_data_for_lead_"+str(lead)+".pickle", 'rb') as handle:
             standarize_dict = pickle.load(handle)
 
         for i in range(cols):

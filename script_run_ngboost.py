@@ -4,6 +4,7 @@ import os
 import pickle
 from sklearn.model_selection import train_test_split
 from ngboost import NGBRegressor
+import matplotlib.pyplot as plt
 from SolarForecasting.ModulesProcessing import collect_data,clean_data
 from SolarForecasting.ModulesLearning import preprocessing as preprocess
 from SolarForecasting.ModulesLearning import postprocessing as postprocess
@@ -22,10 +23,10 @@ pd.set_option('display.width', 1000)
 city = 'Sioux_Falls_SD'
 
 # lead time i.e how much in advance you want to make a prediction (lead of 4 corresponds to 1 hour..since the data is at 15min resolution)
-lead_times = [1,4,8,12,16,20,24,28,32] #from [1,2,3,4,5,6,7,8,9,10,11,12]
+lead_times = [1,4,8,12,16,20,24,28,32,12*4,24*4]
 
 # season
-seasons =['fall', 'winter', 'spring', 'summer'] #from ['fall', 'winter', 'spring', 'summer', 'year']
+seasons =['fall', 'winter', 'spring', 'summer', 'year'] #from ['fall', 'winter', 'spring', 'summer', 'year']
 res = '15min'
 
 # file locations
@@ -50,23 +51,24 @@ final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_sol
 target_feature = ['clearness_index']
 
 # start and end month+year
-startyear = 2005
-endyear = 2009
+startyear = 2015 #2005
+endyear = 2018 #2009
 startmonth = 9
 endmonth = 8
 
 # test year
-testyear = 2008  # i.e all of Fall(Sep2008-Nov2008), Winter(Dec2008-Feb2009), Spring(Mar2009-May2009), Summer(June2009-Aug2009), year(Sep2008-Aug2009)
+# testyear = 2008  # i.e all of Fall(Sep2008-Nov2008), Winter(Dec2008-Feb2009), Spring(Mar2009-May2009), Summer(June2009-Aug2009), year(Sep2008-Aug2009)
+testyear = 2017
 
 # hyperparameters
-n_timesteps = 1
-n_features = 14
+n_timesteps = 24
+n_features = 15 #(after including montth and hour)
 
 
 def get_data():
 
     ## collect raw data
-    years = [2005, 2006, 2007, 2008, 2009]
+    years = [2015, 2016, 2017, 2018] #[2005, 2006, 2007, 2008, 2009]
     object = collect_data.SurfradDataCollector(years, [city], path)
 
     object.download_data()
@@ -83,47 +85,24 @@ def include_previous_features(X, index_ghi):
     Features at time t includes features from previous n_timesteps
     '''
     y_list = []
-    previous_time_periods = list(range(1,n_timesteps))
+    previous_time_periods = list(range(1, n_timesteps+1))
     # dw_solar = X[:, index_ghi]
 
     for l in previous_time_periods:
-        print("rolling by: ", l)
-        X_train_shifted = np.roll(X,l)
+        # print("rolling by: ", l)
+        X_train_shifted = np.roll(X, l)
         y_list.append(X_train_shifted)
         # y_list.append(dw_solar_rolled)
-
+    y_list = y_list[::-1]
+    # print(y_list)
     previous_time_periods_columns = np.column_stack(y_list)
-    X = np.column_stack([X,previous_time_periods_columns])
+    X = np.column_stack([previous_time_periods_columns, X])
     # X = np.transpose(np.array(y_list), ((1, 0, 2)))
     # max_lead = np.max(previous_time_periods)
     # X = X[max_lead:]
     print("X shape after adding prev features: ", X.shape)
     return X
 
-# def get_crps_score_with_quantiles(model, X,y):
-#     alphas = np.arange(0.05, 1.0, 0.05)
-#     target = y
-#
-#     params = model.pred_dist(X)._params
-#     loc = params[0]
-#     scale = np.exp(params[1])
-#
-#     loss = []
-#     for i, alpha in enumerate(alphas):
-#         # output = outputs[:, i].reshape((-1, 1))
-#         print(alpha, loc[0],scale[0])
-#         output = dist.ppf(alpha,loc, scale) * scale
-#         print(output[0])
-#         covered_flag = (output <= target).astype(np.float32)
-#         uncovered_flag = (output > target).astype(np.float32)
-#         if i == 0:
-#             loss.append(np.mean(
-#                 ((target - output) * alpha * covered_flag + (output - target) * (1 - alpha) * uncovered_flag)))
-#         else:
-#             loss.append(np.mean(
-#                 ((target - output) * alpha * covered_flag + (output - target) * (1 - alpha) * uncovered_flag)))
-#
-#     return 2*np.mean(np.array(loss))
 
 def get_crps_for_ngboost(model, X, y):
     '''
@@ -140,6 +119,7 @@ def get_crps_for_ngboost(model, X, y):
             + 2 * sp.stats.norm.pdf(Z)
             - 1 / np.sqrt(np.pi)
     )
+
 
     return np.average(score)
 
@@ -158,12 +138,12 @@ def main():
     dataset = combined_csv[features]
     print('dataset size: ',len(dataset))
 
-    #1hour resolution #15 mins resolution
+     #15 mins resolution
     dataset['MinFlag'] = dataset['min'].apply(preprocess.generateFlag)
     dataset = dataset.groupby(['year', 'month', 'day', 'hour', 'MinFlag']).mean()
     # dataset = dataset.groupby(['year', 'month', 'day', 'hour']).mean()
     dataset.reset_index(inplace=True)
-    print('dataset size on a 1hour resolution: ',len(dataset))
+    print('dataset size : ',len(dataset))
 
     print(dataset.isnull().values.any())
 
@@ -212,7 +192,7 @@ def main():
     print("after removing data points with 0 clear_ghi and selecting daytimes",len(df_final))
     # print(df_final.describe())
 
-    # # Plotting time series
+    # Plotting time series
     # x = np.asarray(range(df_final.shape[0]))
     # plt.figure(figsize=(20, 10))
     # plt.plot(x, df_final.dw_solar.values, label="GHI values")
@@ -233,11 +213,12 @@ def main():
     # plt.legend(loc="upper left")
     # plt.savefig("time series of clearness index zoomed")
     # plt.clf()
-
+    #
+    reg = "ngboost_with_lag24"  ## giving a name to the regression models -- useful when saving results
 
     for season_flag in seasons:
-        os.makedirs(folder_saving + season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_without_lag_most_updated_with_errorbars/", exist_ok=True)
-        f = open(folder_saving + season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_without_lag_most_updated_with_errorbars//results_correct.txt", 'a')
+        os.makedirs(folder_saving + season_flag + "/ML_models_"+str(testyear)+"/probabilistic/"+str(res)+"/"+reg+"/", exist_ok=True)
+        f = open(folder_saving + season_flag + "/ML_models_"+str(testyear)+"/probabilistic/"+str(res)+"/"+reg+"//results.txt", 'a')
 
         for lead in lead_times:
             # create dataset with lead
@@ -264,8 +245,8 @@ def main():
 
 
                 # including features from prev imestamps - didn't need to do that for NgBoost
-                # X_train = include_previous_features(X_train, index_ghi)
-                # X_heldout = include_previous_features(X_heldout, index_ghi)
+                X_train = include_previous_features(X_train, index_ghi)
+                X_heldout = include_previous_features(X_heldout, index_ghi)
 
                 X_train = X_train[n_timesteps:, :]
                 X_heldout = X_heldout[n_timesteps:, :]
@@ -283,26 +264,23 @@ def main():
 
                 print("train/valid/test sizes: ",len(X_train)," ",len(X_valid)," ", len(X_test))
 
-
-                reg = "ngboost_without_lag_most_updated_with_errorbars" ## giving a name to the regression models -- useful when saving results
-
                 # normalizing the Xtrain, Xvalid and Xtest data and saving the mean,std of train to normalize the heldout data later
-                X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, X_test, index_ghi, index_clearghi, folder_saving+season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_without_lag_most_updated_with_errorbars/",reg, lead)
+                X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, X_test, index_ghi, index_clearghi, len(col_to_indices_mapping), folder_saving+season_flag + "/ML_models_"+str(testyear)+"/probabilistic/"+str(res)+"/"+reg+"/",lead)
 
 
                 y_train = np.reshape(y_train, -1)
                 y_test = np.reshape(y_test, -1)
                 y_valid = np.reshape(y_valid, -1)
 
-                ## model built and saved (commented out as it's already built and just being loaded ad below
-                # model = NGBRegressor(n_estimators=2000).fit(X_train, y_train)
-                #
-                # pickle.dump(model, open(
-                #     folder_saving + season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_without_lag_most_updated_with_errorbars/model_at_lead_" + str(lead) + ".pkl",
-                #     "wb"))
+                ## model built and saved (commented if it's already built and just being loaded as below)
+                model = NGBRegressor(n_estimators=2000).fit(X_train, y_train)
 
-                with open(folder_saving + season_flag + "/ML_models_2008/probabilistic/"+str(res)+"/ngboost_without_lag_most_updated_with_errorbars/model_at_lead_" + str(lead) + ".pkl", 'rb') as file:
-                    model = pickle.load(file)
+                pickle.dump(model, open(
+                    folder_saving + season_flag + "/ML_models_"+str(testyear)+"/probabilistic/"+str(res)+"/"+reg+"/model_at_lead_" + str(lead) + ".pkl",
+                    "wb"))
+
+                # with open(folder_saving + season_flag + "/ML_models_"+str(testyear)+"/probabilistic/"+str(res)+"/"+reg+"//model_at_lead_" + str(lead) + ".pkl", 'rb') as file:
+                #     model = pickle.load(file)
 
                 print(model)
                 f.write("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")

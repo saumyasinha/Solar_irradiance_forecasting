@@ -10,12 +10,12 @@ from ngboost import NGBRegressor
 from SolarForecasting.ModulesProcessing import collect_data,clean_data
 from SolarForecasting.ModulesLearning import preprocessing as preprocess
 from SolarForecasting.ModulesLearning import postprocessing as postprocess
-from SolarForecasting.ModulesLearning import model as models
+from SolarForecasting.ModulesLearning import ml_models as models
 from SolarForecasting.ModulesLearning import clustering as clustering
 from ngboost.scores import CRPS, MLE
 
 
-pd.set_option('display.max_rows', 500)
+ppd.set_option('display.max_rows', 500)
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.width', 1000)
 
@@ -25,13 +25,14 @@ pd.set_option('display.width', 1000)
 city = 'Sioux_Falls_SD'
 
 # lead time
-lead_times = [1,2,3,4] #from [1,2,3,4,5,6,7,8,9,10,11,12]
+lead_times = [16,20,24,28,32,12*4,24*4]
 
 # season
 seasons =['year'] #from ['fall', 'winter', 'spring', 'summer', 'year']
 res = '15min' #15min
 
 # file locations
+
 # path_project = "C:\\Users\Shivendra\Desktop\SolarProject\solar_forecasting/"
 path_project = "/Users/saumya/Desktop/SolarProject/"
 path = path_project+"Data/"
@@ -39,42 +40,39 @@ folder_saving = path_project + city+"/Models/"
 folder_plots = path_project + city+"/Plots/"
 clearsky_file_path = path+'clear-sky/'+city+'_15min_original.csv'
 
+
 # scan all the features (except the flags)
 features = ['year','month','day','hour','min','zen','dw_solar','uw_solar','direct_n','diffuse','dw_ir','dw_casetemp','dw_dometemp','uw_ir','uw_casetemp','uw_dometemp','uvb','par','netsolar','netir','totalnet','temp','rh','windspd','winddir','pressure']
 
 # selected features for the study
 # final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','dw_ir','temp','rh','windspd','winddir','pressure','clear_ghi']
-## exploring more features
-final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
-# final_features = ['year','month','day','hour','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
 
-# features_to_cluster_on = ['dw_solar','dw_ir', 'temp','pressure', 'windspd']
-# features_to_cluster_on = ['dw_solar','temp']
+## ## selected features for the study (exploring multiple combinations)
+final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
+# final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','direct_n','dw_ir','temp','windspd','winddir','pressure', 'clear_ghi']
 
 # target or Y
 target_feature = ['clearness_index']
 
 # start and end month+year
-startyear = 2005
-endyear = 2009
+startyear = 2015 #2005
+endyear = 2018 #2009
 startmonth = 9
 endmonth = 8
 
 # test year
-testyear = 2008  # i.e all of Fall(Sep2008-Nov2008), Winter(Dec2008-Feb2009), Spring(Mar2009-May2009), Summer(June2009-Aug2009), year(Sep2008-Aug2009)
+# testyear = 2008  # i.e all of Fall(Sep2008-Nov2008), Winter(Dec2008-Feb2009), Spring(Mar2009-May2009), Summer(June2009-Aug2009), year(Sep2008-Aug2009)
+testyear = 2017
 
 # hyperparameters
-n_timesteps = 1
-n_features = 13
-
-# If clustering before prediction
-# n_clusters = 3 #6
+n_timesteps = 0 #72
+n_features = 15 #10 before
 
 
 def get_data():
 
     ## collect raw data
-    years = [2005, 2006, 2007, 2008, 2009]
+    years = [2015, 2016, 2017, 2018] #[2005, 2006, 2007, 2008, 2009]
     object = collect_data.SurfradDataCollector(years, [city], path)
 
     object.download_data()
@@ -87,48 +85,50 @@ def get_data():
 
 
 def include_previous_features(X, index_ghi):
-
+    '''
+    Features at time t includes features from previous n_timesteps
+    '''
     y_list = []
-    previous_time_periods = list(range(1,n_timesteps))
+    previous_time_periods = list(range(1, n_timesteps+1))
     # dw_solar = X[:, index_ghi]
 
     for l in previous_time_periods:
-        print("rolling by: ", l)
-        X_train_shifted = np.roll(X,l)
+        # print("rolling by: ", l)
+        X_train_shifted = np.roll(X, l)
         y_list.append(X_train_shifted)
         # y_list.append(dw_solar_rolled)
-
+    y_list = y_list[::-1]
     # print(y_list)
     previous_time_periods_columns = np.column_stack(y_list)
-    X = np.column_stack([X,previous_time_periods_columns])
+    X = np.column_stack([previous_time_periods_columns, X])
     # X = np.transpose(np.array(y_list), ((1, 0, 2)))
     # max_lead = np.max(previous_time_periods)
     # X = X[max_lead:]
     print("X shape after adding prev features: ", X.shape)
     return X
 
-def create_mulitple_lead_dataset(dataframe, final_set_of_features, target):
-    dataframe_lead = dataframe[final_set_of_features]
-    target = np.asarray(dataframe[target])
 
-    y_list = []
-    for lead in lead_times:
-        print("rolling by: ",lead)
-        target = np.roll(target, -lead)
-        y_list.append(target)
-
-    dataframe_lead['clearness_index'] = np.column_stack(y_list).tolist()
-    dataframe_lead['clearness_index'] = dataframe_lead['clearness_index'].apply(tuple)
-    # max_lead = np.max(lead_times)
-    # dataframe_lead['clearness_index'].values[-max_lead:] = np.nan
-    print(dataframe_lead['clearness_index'])
-
-    # remove rows which have any value as NaN
-    # dataframe_lead = dataframe_lead.dropna()
-    print("*****************")
-    print("dataframe with lead size: ", len(dataframe_lead))
-    return dataframe_lead
-
+# def create_mulitple_lead_dataset(dataframe, final_set_of_features, target):
+#     dataframe_lead = dataframe[final_set_of_features]
+#     target = np.asarray(dataframe[target])
+#
+#     y_list = []
+#     for lead in lead_times:
+#         print("rolling by: ",lead)
+#         target = np.roll(target, -lead)
+#         y_list.append(target)
+#
+#     dataframe_lead['clearness_index'] = np.column_stack(y_list).tolist()
+#     dataframe_lead['clearness_index'] = dataframe_lead['clearness_index'].apply(tuple)
+#     max_lead = np.max(lead_times)
+#     dataframe_lead['clearness_index'].values[-max_lead:] = np.nan
+#     print(dataframe_lead['clearness_index'])
+#
+#     # remove rows which have any value as NaN
+#     dataframe_lead = dataframe_lead.dropna()
+#     print("*****************")
+#     print("dataframe with lead size: ", len(dataframe_lead))
+#     return dataframe_lead
 
 def main():
 
@@ -204,18 +204,25 @@ def main():
     # df_final['clearness_index'] = df_final['dw_solar']
     df_final.reset_index(drop=True, inplace=True)
     print("after removing data points with 0 clear_ghi and selecting daytimes",len(df_final))
-    # print(df_final.describe())
+    
+    # df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
 
+    reg = "nn_without_lag"
     for season_flag in seasons:
-        os.makedirs(folder_saving + season_flag + "/ML_models_2008/nn/"+str(res)+"/nn_without_lag/", exist_ok=True)
-        f = open(folder_saving + season_flag + "/ML_models_2008/nn/"+str(res)+"/nn_without_lag//results.txt", 'a')
+        ## ML_models_2008 is the folder to save results on testyear 2008
+        ## creating different folder for different methods: nn for fully connected networks, rf for random forest etc.
+        os.makedirs(
+            folder_saving + season_flag + "/ML_models_"+str(testyear)+"/traditional/"+str(res)+"/"+reg+"/",
+            exist_ok=True)
+        f = open(folder_saving + season_flag + "/ML_models_"+str(testyear)+"/traditional/"+str(res)+"/"+reg+"/results.txt", 'a')
 
         for lead in lead_times:
             # create dataset with lead
             df_lead = preprocess.create_lead_dataset(df_final, lead, final_features, target_feature)
-            df_lead = df_lead[:len(df_lead) - lead]
+            # df_lead = create_labels_for_wavenet(df_final, lead, final_features, target_feature)
+            df_lead = df_lead[:len(df_lead)-lead]
 
-            # get the seasonal data you want
+                # get the seasonal data you want
             df, test_startdate, test_enddate = preprocess.get_yearly_or_season_data(df_lead, season_flag, testyear)
             print("\n\n after getting seasonal data (test_startdate; test_enddate)", test_startdate, test_enddate)
             print(df.tail)
@@ -229,19 +236,16 @@ def main():
             if len(df_train) > 0 and len(df_heldout) > 0:
                 # extract the X_train, y_train, X_test, y_test
                 X_train, y_train, X_heldout, y_heldout, index_clearghi, index_ghi, index_zen, col_to_indices_mapping = preprocess.get_train_test_data(
-                    df_train, df_heldout, final_features, target_feature, lead)
+                    df_train, df_heldout, final_features, target_feature)#, lead)
                 print("\n\n train and test df shapes ")
                 print(X_train.shape, y_train.shape, X_heldout.shape, y_heldout.shape)
 
-                # filter the training to have only day values
-                # X_train, y_train = preprocess.filter_dayvalues_and_zero_clearghi(X_train_all, y_train_all,
-                #                                                                       index_zen, index_clearghi)
 
                 # including features from prev imestamps
-                # X_train = include_previous_features(X_train, index_ghi)
-                # X_heldout = include_previous_features(X_heldout, index_ghi)
+                X_train = include_previous_features(X_train, index_ghi)
+                X_heldout = include_previous_features(X_heldout, index_ghi)
 
-                X_train = X_train[n_timesteps:, :]
+                X_train = X_train[n_timesteps:,:]
                 X_heldout = X_heldout[n_timesteps:, :]
                 y_train = y_train[n_timesteps:, :]
                 y_heldout = y_heldout[n_timesteps:, :]
@@ -256,32 +260,18 @@ def main():
                 X_valid, X_test, y_valid, y_test = train_test_split(
                     X_test, y_test, test_size=0.3, random_state=42)
 
-                ## dividing the X_train data into train(70%)/valid(20%)/test(10%), the heldout data is kept hidden
-                # X_train, y_train = preprocess.shuffle(X_train, y_train, city, res)
-                # training_samples = int(0.7 * len(X_train))
-                # X_valid = X_train[training_samples:]
-                # X_train = X_train[:training_samples]
-                # y_valid = y_train[training_samples:]
-                # y_train = y_train[:training_samples]
-                #
-                # valid_samples = int(0.7*len(X_valid))
-                # X_test = X_valid[valid_samples:]
-                # X_valid = X_valid[:valid_samples]
-                # y_test = y_valid[valid_samples:]
-                # y_valid = y_valid[:valid_samples]
 
+                print("train/valid/test sizes: ", len(X_train), " ", len(X_valid), " ", len(X_test))
 
-                print("train/valid/test sizes: ",len(X_train)," ",len(X_valid)," ", len(X_test))
-
-
-                reg = "nn_without_lag" ## giving a name to the regression models -- useful when saving results
 
                 # normalizing the Xtrain, Xvalid and Xtest data and saving the mean,std of train to normalize the heldout data later
-                X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, X_test, index_ghi, index_clearghi, folder_saving+season_flag + "/ML_models_2008/nn/"+str(res)+"/nn_without_lag/",reg, lead)
+                X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, X_test,index_ghi,index_clearghi, len(col_to_indices_mapping),
+                                                                             folder_saving + season_flag + "/ML_models_"+str(testyear)+"/traditional/"+str(res)+"/"+reg+"/", lead = lead)
 
-                model = models.fnn_train(X_train, y_train, folder_saving = folder_saving + season_flag + "/ML_models_2008/nn/"+str(res)+"/nn_without_lag/", model_saved = "model_at_lead_" + str(lead))
 
-                # with open(folder_saving + season_flag + "/ML_models_2008/nn/"+str(res)+"/nn_without_lag/model_at_lead_" + str(lead)+ ".pkl", 'rb') as file:
+                model = models.fnn_train(X_train, y_train, folder_saving = folder_saving + season_flag + "/ML_models_"+str(testyear)+"/traditional/"+str(res)+"/"+reg+"/", model_saved = "model_at_lead_" + str(lead))
+
+                # with open(folder_saving + season_flag + "/ML_models_"+str(testyear)+"/traditional/"+str(res)+"/"+reg+"/"+model_at_lead_" + str(lead)+ ".pkl", 'rb') as file:
                 #     model = pickle.load(file)
 
 
