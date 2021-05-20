@@ -2,9 +2,9 @@
 
 # === 2. List of SBATCH arguements ===
 #SBATCH --job-name=test-job
-#SBATCH --partition= bgpu-kann1 #sgpu
+#SBATCH --partition= bgpu-kann1
 #SBATCH --time=23:00:00
-#SBATCH --output=/pl/active/machinelearning/SolarProject/job_outputs/test-job.%j.out
+#SBATCH --output=/pl/active/machinelearning/Solar_forecasting_project/job_outputs/test-job.%j.out
 
 # === 3. Purge and load needed modules ===
 module purge

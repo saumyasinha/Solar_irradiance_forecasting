@@ -2,12 +2,10 @@ import os
 # from SolarForecasting.ModulesLearning.ModulesCNN.Model import basic_CNN, DC_CNN_Model
 import torch
 from SolarForecasting.ModulesLearning.ModulesCNN.Model import ConvForecasterDilationLowRes
-# from keras.optimizers import Adam, Nadam
-# from keras.models import load_model
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
-# from keras.callbacks import EarlyStopping, TensorBoard, ModelCheckpoint, EarlyStopping
+
 
 
 

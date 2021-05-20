@@ -32,9 +32,10 @@ seasons =['year'] #from ['fall', 'winter', 'spring', 'summer', 'year']
 res = '15min' #15min
 
 # file locations
-
-# path_project = "C:\\Users\Shivendra\Desktop\SolarProject\solar_forecasting/"
-path_project = "/Users/saumya/Desktop/SolarProject/"
+# path_desktop = "C:\\Users\Shivendra\Desktop\SolarProject\solar_forecasting/"
+path_local = "/Users/saumya/Desktop/SolarProject/"
+path_cluster = "/pl/active/machinelearning/Solar_forecasting_project/"
+path_project = path_cluster
 path = path_project+"Data/"
 folder_saving = path_project + city+"/Models/"
 folder_plots = path_project + city+"/Plots/"
