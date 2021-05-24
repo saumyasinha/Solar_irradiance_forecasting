@@ -159,8 +159,8 @@ class ConvForecasterDilationLowRes(nn.Module):
 
         self.dropout = nn.Dropout(0.5)
 
-        self.fc1 = nn.Linear(fc1_dim, int(fc1_dim/2))#int(fc1_dim/4))
-        self.fc1_fn = nn.Tanh()
+        #self.fc1 = nn.Linear(fc1_dim, int(fc1_dim/2))#int(fc1_dim/4))
+        #self.fc1_fn = nn.Tanh()
 
         # self.fc2 = nn.Linear(int(fc1_dim/2), int(fc1_dim/4))
         # self.fc2_fn = nn.Tanh()
@@ -169,16 +169,16 @@ class ConvForecasterDilationLowRes(nn.Module):
         # Attention Layer :
         self.conv_attn = nn.Conv1d(self.input_dim, 1, 1, stride=1)
         self.attn_layer = nn.Sequential(
-            nn.Linear(self.conv_output_size+self.timesteps, self.timesteps*self.input_dim),
-            nn.Tanh(),
+            #nn.Linear(self.conv_output_size+self.timesteps, self.timesteps*self.input_dim),
+            #nn.Tanh(),
             nn.Linear(self.timesteps*self.input_dim, self.timesteps),
             # nn.Linear(self.conv_output_size+self.timesteps, self.timesteps),
             nn.Softmax(dim=1)
         )
 
 
-        self.fc3 = nn.Linear(int(fc1_dim/2), self.outputs)
-        # self.fc3 = nn.Linear(fc1_dim, self.outputs)
+        #self.fc3 = nn.Linear(int(fc1_dim/2), self.outputs)
+        self.fc3 = nn.Linear(fc1_dim, self.outputs)
 
         ## adding self attention (and not the one above)
         # in_dim = test_out.size(1)
@@ -235,10 +235,10 @@ class ConvForecasterDilationLowRes(nn.Module):
 
         output = torch.cat((output, x_attenuated), dim=1)
         # print("output concat with attenuated: ",output.shape)
-        output = self.fc1(output)
-        output = self.fc1_fn(output)
-        if self.train_mode:
-            output = self.dropout(output)
+        #output = self.fc1(output)
+        #output = self.fc1_fn(output)
+        #if self.train_mode:
+         #   output = self.dropout(output)
         #
         # output = self.fc2(output)
         # output = self.fc2_fn(output)

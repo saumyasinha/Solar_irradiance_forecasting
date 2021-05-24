@@ -2,7 +2,11 @@
 
 # === 2. List of SBATCH arguements ===
 #SBATCH --job-name=test-job
-#SBATCH --partition= bgpu-kann1
+#SBATCH --partition=blanca-kann
+#SBATCH --account=blanca-kann
+#SBATCH --qos=blanca-kann
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
 #SBATCH --time=23:00:00
 #SBATCH --output=/pl/active/machinelearning/Solar_forecasting_project/job_outputs/test-job.%j.out
 
