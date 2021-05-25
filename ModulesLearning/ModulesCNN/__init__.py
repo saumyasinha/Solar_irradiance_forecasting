@@ -1,1 +1,1 @@
-all__: object = ["train", "Model"]
+all__: object = ["train", "Model","tcn"]

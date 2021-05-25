@@ -1,12 +1,14 @@
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
 import sys
 from sklearn.metrics import mean_squared_error
 from torch.autograd import Variable
 # import torch.optim.lr_scheduler.StepLR
 from torch.nn.utils import weight_norm
+from tcn import TemporalConvNet
 
 
 class EarlyStopping:
@@ -54,55 +56,7 @@ class EarlyStopping:
         torch.save(model.state_dict(), self.saving_path)
         self.val_loss_min = val_loss
 
-class Task_independent_module(nn.Module):
 
-    def __init__(
-        self,
-        input_size,
-        hidden_size
-    ):
-
-        super().__init__()
-
-        self.layers = nn.ModuleList([nn.Linear(input_size, hidden_size),nn.Tanh(),nn.Linear(hidden_size, 1)])
-
-
-    def forward(self, x):
-
-        for layer in self.layers:
-            x = layer(x)
-
-        return x
-
-
-
-class DilatedCausalConv1d(nn.Module):
-    def __init__(self, hyperparams: dict, dilation_factor: int, in_channels: int, out_channels: int):
-        super().__init__()
-
-        def weights_init(m):
-            if isinstance(m, nn.Conv1d):
-                nn.init.kaiming_normal_(m.weight.data)
-                nn.init.zeros_(m.bias.data)
-
-        self.dilation_factor = dilation_factor
-        self.dilated_causal_conv = nn.Conv1d(in_channels=in_channels,
-                                             out_channels=out_channels,
-                                             kernel_size=hyperparams['kernel_size'],
-                                             dilation=dilation_factor)
-        self.dilated_causal_conv.apply(weights_init)
-
-        self.skip_connection = nn.Conv1d(in_channels=in_channels,
-                                         out_channels=out_channels,
-                                         kernel_size=1)
-        self.skip_connection.apply(weights_init)
-        self.leaky_relu = nn.LeakyReLU(0.1)
-
-    def forward(self, x):
-        x1 = self.leaky_relu(self.dilated_causal_conv(x))
-        x2 = x[:, :, self.dilation_factor:]
-        x2 = self.skip_connection(x2)
-        return x1 + x2
 
 class ConvForecasterDilationLowRes(nn.Module):
     def __init__(self, input_dim, timesteps, folder_saving, model, quantile, alphas=None, outputs=None, valid=False):
@@ -125,132 +79,140 @@ class ConvForecasterDilationLowRes(nn.Module):
         self.train_mode = False
         self.saving_path = folder_saving+model
 
-        self.conv1 = nn.Conv1d(self.input_dim, 40, 2, stride=1)
-        self.conv1_fn = nn.ReLU()
-        self.avgpool1 = nn.AvgPool1d(kernel_size=2, stride=1)
-        self.conv1.apply(weights_init)
+        # self.conv1 = nn.Conv1d(self.input_dim, 40, 2, stride=1)
+        # self.conv1_fn = nn.ReLU()
+        # self.avgpool1 = nn.AvgPool1d(kernel_size=2, stride=1)
+        # self.conv1.apply(weights_init)
+        #
+        # self.conv2 = nn.Conv1d(40, 80, 3, stride=1, dilation=2)
+        # self.conv2_fn = nn.ReLU()
+        # self.avgpool2 = nn.AvgPool1d(kernel_size=2, stride=2)
+        # self.conv2.apply(weights_init)
+        #
+        # self.conv3 = nn.Conv1d(80, 128, 3, stride=1, dilation=4)
+        # self.conv3_fn = nn.ReLU()
+        # self.avgpool3 = nn.AvgPool1d(kernel_size=2, stride=1)
+        # # self.avgpool3 = nn.AvgPool1d(kernel_size=2, stride=2)
+        # self.conv3.apply(weights_init)
+        #
+        # conv_layers = [ self.conv1,self.conv1_fn,self.avgpool1,self.conv2,self.conv2_fn,self.avgpool2,self.conv3,self.conv3_fn,self.avgpool3]
+        # # conv_layers = [self.conv1, self.conv1_fn, self.conv2, self.conv2_fn, self.conv3,
+        # #                self.conv3_fn]
+        #
+        # # self.conv4 = nn.Conv1d(100, 150, 3, stride=1, dilation=6)
+        # # self.conv4_fn = nn.ReLU()
+        # # self.avgpool4 = nn.AvgPool1d(kernel_size=2, stride=1)
+        #
+        # conv_module = nn.Sequential(*conv_layers)
+        #
+        # test_ipt = Variable(torch.zeros(1, self.input_dim, self.timesteps))
+        # test_out = conv_module(test_ipt)
+        #
+        # self.conv_output_size = test_out.size(1) * test_out.size(2)
+        # fc1_dim = self.conv_output_size+(self.input_dim*self.timesteps)
+        #
+        # self.dropout = nn.Dropout(0.5)
+        #
+        # #self.fc1 = nn.Linear(fc1_dim, int(fc1_dim/2))#int(fc1_dim/4))
+        # #self.fc1_fn = nn.Tanh()
+        #
+        # # self.fc2 = nn.Linear(int(fc1_dim/2), int(fc1_dim/4))
+        # # self.fc2_fn = nn.Tanh()
+        #
+        #
+        # # Attention Layer :
+        # self.conv_attn = nn.Conv1d(self.input_dim, 1, 1, stride=1)
+        # self.attn_layer = nn.Sequential(
+        #     #nn.Linear(self.conv_output_size+self.timesteps, self.timesteps*self.input_dim),
+        #     #nn.Tanh(),
+        #     # nn.Linear(self.timesteps*self.input_dim, self.timesteps),
+        #     nn.Linear(self.conv_output_size+self.timesteps, self.timesteps),
+        #     nn.Softmax(dim=1)
+        # )
+        #
+        #
+        # #self.fc3 = nn.Linear(int(fc1_dim/2), self.outputs)
+        # self.fc3 = nn.Linear(fc1_dim, self.outputs)
+        #
+        # ## adding self attention (and not the one above)
+        # # in_dim = test_out.size(1)
+        # # self.query_conv = nn.Conv1d(in_channels=in_dim, out_channels=in_dim // 8, kernel_size=1)
+        # # self.key_conv = nn.Conv1d(in_channels=in_dim, out_channels=in_dim // 8, kernel_size=1)
+        # # self.value_conv = nn.Conv1d(in_channels=in_dim, out_channels=in_dim, kernel_size=1)
+        # # self.gamma = nn.Parameter(torch.zeros(1))
+        # # self.softmax = nn.Softmax(dim=-1)
+        # # self.fc = nn.Linear(self.conv_output_size,self.outputs)
+        num_channels = [25]*6
+        self.tcn = TemporalConvNet(self.input_dim, num_channels, kernel_size =3, dropout = 0.5)
+        self.linear = nn.Linear(num_channels[-1], self.outputs)
 
-        self.conv2 = nn.Conv1d(40, 80, 3, stride=1, dilation=2)
-        self.conv2_fn = nn.ReLU()
-        self.avgpool2 = nn.AvgPool1d(kernel_size=2, stride=2)
-        self.conv2.apply(weights_init)
-
-        self.conv3 = nn.Conv1d(80, 128, 3, stride=1, dilation=4)
-        self.conv3_fn = nn.ReLU()
-        self.avgpool3 = nn.AvgPool1d(kernel_size=2, stride=1)
-        # self.avgpool3 = nn.AvgPool1d(kernel_size=2, stride=2)
-        self.conv3.apply(weights_init)
-
-        conv_layers = [ self.conv1,self.conv1_fn,self.avgpool1,self.conv2,self.conv2_fn,self.avgpool2,self.conv3,self.conv3_fn,self.avgpool3]
-        # conv_layers = [self.conv1, self.conv1_fn, self.conv2, self.conv2_fn, self.conv3,
-        #                self.conv3_fn]
-
-        # self.conv4 = nn.Conv1d(100, 150, 3, stride=1, dilation=6)
-        # self.conv4_fn = nn.ReLU()
-        # self.avgpool4 = nn.AvgPool1d(kernel_size=2, stride=1)
-
-        conv_module = nn.Sequential(*conv_layers)
-
-        test_ipt = Variable(torch.zeros(1, self.input_dim, self.timesteps))
-        test_out = conv_module(test_ipt)
-
-        self.conv_output_size = test_out.size(1) * test_out.size(2)
-        fc1_dim = self.conv_output_size+(self.input_dim*self.timesteps)
-
-        self.dropout = nn.Dropout(0.5)
-
-        #self.fc1 = nn.Linear(fc1_dim, int(fc1_dim/2))#int(fc1_dim/4))
-        #self.fc1_fn = nn.Tanh()
-
-        # self.fc2 = nn.Linear(int(fc1_dim/2), int(fc1_dim/4))
-        # self.fc2_fn = nn.Tanh()
-
-
-        # Attention Layer :
-        self.conv_attn = nn.Conv1d(self.input_dim, 1, 1, stride=1)
-        self.attn_layer = nn.Sequential(
-            #nn.Linear(self.conv_output_size+self.timesteps, self.timesteps*self.input_dim),
-            #nn.Tanh(),
-            nn.Linear(self.timesteps*self.input_dim, self.timesteps),
-            # nn.Linear(self.conv_output_size+self.timesteps, self.timesteps),
-            nn.Softmax(dim=1)
-        )
-
-
-        #self.fc3 = nn.Linear(int(fc1_dim/2), self.outputs)
-        self.fc3 = nn.Linear(fc1_dim, self.outputs)
-
-        ## adding self attention (and not the one above)
-        # in_dim = test_out.size(1)
-        # self.query_conv = nn.Conv1d(in_channels=in_dim, out_channels=in_dim // 8, kernel_size=1)
-        # self.key_conv = nn.Conv1d(in_channels=in_dim, out_channels=in_dim // 8, kernel_size=1)
-        # self.value_conv = nn.Conv1d(in_channels=in_dim, out_channels=in_dim, kernel_size=1)
-        # self.gamma = nn.Parameter(torch.zeros(1))
-        # self.softmax = nn.Softmax(dim=-1)
-        # self.fc = nn.Linear(self.conv_output_size,self.outputs)
 
     def forward(self, xx):
-        # print(xx.shape)
-        output = self.conv1(xx)
-        # print(output.shape)
-        output = self.conv1_fn(output)
-        if self.train_mode:
-            output = self.dropout(output)
-        output = self.avgpool1(output)
-        # print(output.shape)
-
-        output = self.conv2(output)
-        # print(output.shape)
-        output = self.conv2_fn(output)
-        if self.train_mode:
-            output = self.dropout(output)
-        output = self.avgpool2(output)
-
-        # print(output.shape)
-
-        output = self.conv3(output)
-        # print(output.shape)
-        output = self.conv3_fn(output)
-        if self.train_mode:
-            output = self.dropout(output)
-        output = self.avgpool3(output)
-
-        # output = self.conv4(output)
-        # output = self.conv4_fn(output)
-        # output = self.avgpool4(output)
-        output = output.reshape(-1, output.shape[1]*output.shape[2])
-        # print("after convolution: ", output.shape)
-        # Compute Context Vector
-        xx_single = self.conv_attn(xx).reshape(-1, self.timesteps)
-        # print("xx_single: ", xx_single.shape)
-        attn_input = torch.cat((output, xx_single), dim=1)
-        # print("attn_input: ", attn_input.shape)
-        attention = self.attn_layer(attn_input).reshape(-1, 1, self.timesteps)
-
-        # print("attention: ", attention.shape)
-        x_attenuated = (xx * attention)
-        # print("xx attentuated: ",x_attenuated.shape)
-        x_attenuated = x_attenuated.reshape(-1, x_attenuated.shape[1]*x_attenuated.shape[2])
-
-
-        output = torch.cat((output, x_attenuated), dim=1)
-        # print("output concat with attenuated: ",output.shape)
-        #output = self.fc1(output)
-        #output = self.fc1_fn(output)
-        #if self.train_mode:
-         #   output = self.dropout(output)
-        #
-        # output = self.fc2(output)
-        # output = self.fc2_fn(output)
+        # # print(xx.shape)
+        # output = self.conv1(xx)
+        # # print(output.shape)
+        # output = self.conv1_fn(output)
         # if self.train_mode:
         #     output = self.dropout(output)
-        output = self.fc3(output)
-
+        # output = self.avgpool1(output)
+        # # print(output.shape)
+        #
+        # output = self.conv2(output)
+        # # print(output.shape)
+        # output = self.conv2_fn(output)
+        # if self.train_mode:
+        #     output = self.dropout(output)
+        # output = self.avgpool2(output)
+        #
+        # # print(output.shape)
+        #
+        # output = self.conv3(output)
+        # # print(output.shape)
+        # output = self.conv3_fn(output)
+        # if self.train_mode:
+        #     output = self.dropout(output)
+        # output = self.avgpool3(output)
+        #
+        # # output = self.conv4(output)
+        # # output = self.conv4_fn(output)
+        # # output = self.avgpool4(output)
+        # output = output.reshape(-1, output.shape[1]*output.shape[2])
+        # # print("after convolution: ", output.shape)
+        # # Compute Context Vector
+        # xx_single = self.conv_attn(xx).reshape(-1, self.timesteps)
+        # # print("xx_single: ", xx_single.shape)
+        # attn_input = torch.cat((output, xx_single), dim=1)
+        # # print("attn_input: ", attn_input.shape)
+        # attention = self.attn_layer(attn_input).reshape(-1, 1, self.timesteps)
+        #
+        # # print("attention: ", attention.shape)
+        # x_attenuated = (xx * attention)
+        # # print("xx attentuated: ",x_attenuated.shape)
+        # x_attenuated = x_attenuated.reshape(-1, x_attenuated.shape[1]*x_attenuated.shape[2])
+        #
+        #
+        # output = torch.cat((output, x_attenuated), dim=1)
+        # # print("output concat with attenuated: ",output.shape)
+        # #output = self.fc1(output)
+        # #output = self.fc1_fn(output)
+        # #if self.train_mode:
+        #  #   output = self.dropout(output)
+        # #
+        # # output = self.fc2(output)
+        # # output = self.fc2_fn(output)
+        # # if self.train_mode:
+        # #     output = self.dropout(output)
+        # output = self.fc3(output)
+        #
+        #
+        output = self.tcn(xx)
+        output = self.linear(output[:,:,-1])
 
         return output
 
 
-    ## forward function for working with dilated kernels and self-attention
+
+        ## forward function for working with dilated kernels and self-attention
     # def forward(self,xx):
     #     # print(xx.shape)
     #     output = self.conv1(xx)
@@ -439,6 +401,34 @@ class ConvForecasterDilationLowRes(nn.Module):
 
 
  # ## Wavenet style model architecture
+
+# class DilatedCausalConv1d(nn.Module):
+#     def __init__(self, hyperparams: dict, dilation_factor: int, in_channels: int, out_channels: int):
+#         super().__init__()
+#
+#         def weights_init(m):
+#             if isinstance(m, nn.Conv1d):
+#                 nn.init.kaiming_normal_(m.weight.data)
+#                 nn.init.zeros_(m.bias.data)
+#
+#         self.dilation_factor = dilation_factor
+#         self.dilated_causal_conv = nn.Conv1d(in_channels=in_channels,
+#                                              out_channels=out_channels,
+#                                              kernel_size=hyperparams['kernel_size'],
+#                                              dilation=dilation_factor)
+#         self.dilated_causal_conv.apply(weights_init)
+#
+#         self.skip_connection = nn.Conv1d(in_channels=in_channels,
+#                                          out_channels=out_channels,
+#                                          kernel_size=1)
+#         self.skip_connection.apply(weights_init)
+#         self.leaky_relu = nn.LeakyReLU(0.1)
+#
+#     def forward(self, x):
+#         x1 = self.leaky_relu(self.dilated_causal_conv(x))
+#         x2 = x[:, :, self.dilation_factor:]
+#         x2 = self.skip_connection(x2)
+#         return x1 + x2
         # hyperparams = {}
         # hyperparams['nb_layers'] = 5 #5
         # # hyperparams['nb_filters'] = 64
