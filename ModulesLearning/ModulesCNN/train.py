@@ -158,7 +158,7 @@ def train_DCNN_with_attention(quantile, X_train, y_train, X_valid, y_valid, n_ti
     print(quantile_foreaster)
     learning_rate = 1e-6#0.0001 orig
 
-    epochs = 300 #200
+    epochs = 300 #200 for orig
     batch_size = 32
     train_loss, valid_loss = quantile_foreaster.trainBatchwise(X_train, y_train, epochs, batch_size,learning_rate, X_valid, y_valid, patience=1000)
     loss_plots(train_loss,valid_loss,folder_saving,model_saved)
