@@ -171,8 +171,8 @@ class ConvForecasterDilationLowRes(nn.Module):
         self.attn_layer = nn.Sequential(
             #nn.Linear(self.conv_output_size+self.timesteps, self.timesteps*self.input_dim),
             #nn.Tanh(),
-            nn.Linear(self.timesteps*self.input_dim, self.timesteps),
-            # nn.Linear(self.conv_output_size+self.timesteps, self.timesteps),
+            #nn.Linear(self.timesteps*self.input_dim, self.timesteps),
+            nn.Linear(self.conv_output_size+self.timesteps, self.timesteps),
             nn.Softmax(dim=1)
         )
 
