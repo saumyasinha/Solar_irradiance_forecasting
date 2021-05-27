@@ -8,7 +8,7 @@ from sklearn.metrics import mean_squared_error
 from torch.autograd import Variable
 # import torch.optim.lr_scheduler.StepLR
 from torch.nn.utils import weight_norm
-from tcn import TemporalConvNet
+from ModulesLearning.ModulesCNN.tcn import TemporalConvNet
 
 
 class EarlyStopping:
@@ -143,7 +143,7 @@ class ConvForecasterDilationLowRes(nn.Module):
         # # self.softmax = nn.Softmax(dim=-1)
         # # self.fc = nn.Linear(self.conv_output_size,self.outputs)
         num_channels = [25]*6
-        self.tcn = TemporalConvNet(self.input_dim, num_channels, kernel_size =3, dropout = 0.5)
+        self.tcn = TemporalConvNet(self.input_dim, num_channels, kernel_size =3, dropout = 0.5, max_length=9, attention=True)
         self.linear = nn.Linear(num_channels[-1], self.outputs)
 
 
