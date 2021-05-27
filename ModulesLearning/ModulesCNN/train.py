@@ -156,7 +156,7 @@ def train_DCNN_with_attention(quantile, X_train, y_train, X_valid, y_valid, n_ti
         # point_foreaster = point_foreaster.cuda()
 
     print(quantile_foreaster)
-    learning_rate = 1e-6#0.0001 orig
+    learning_rate = 1e-4#changed from 1e-6
 
     epochs = 300 #200 for orig
     batch_size = 32

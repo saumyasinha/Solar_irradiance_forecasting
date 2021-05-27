@@ -63,7 +63,7 @@ endmonth = 8
 testyear = 2017
 
 # hyperparameters
-n_timesteps = 96 #72
+n_timesteps = 24*7 #tch: 96 #orig:72
 n_features = 15 #10 before
 quantile = True
 
@@ -231,7 +231,7 @@ def main():
     
     # df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
 
-    reg = "dcnn_with_lag96_tcn_without_attention"
+    reg = "dcnn_with_lag96_tcn_without_attention_ditto_hyp_from_paper"
     for season_flag in seasons:
         ## ML_models_2008 is the folder to save results on testyear 2008
         ## creating different folder for different methods: nn for fully connected networks, rf for random forest etc.
