@@ -2,9 +2,9 @@
 
 # === 2. List of SBATCH arguements ===
 #SBATCH --job-name=test-job
-#SBATCH --partition=blanca-kann
+#SBATCH --nodelist=bgpu-dhl1
 #SBATCH --account=blanca-kann
-#SBATCH --qos=blanca-kann
+#SBATCH --qos=preemptable
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --time=23:00:00

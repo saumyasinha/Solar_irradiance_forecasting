@@ -64,7 +64,7 @@ endmonth = 8
 testyear = 2017
 
 # hyperparameters
-n_timesteps = 72 #96
+n_timesteps = 24*7 #tcn: 96 #orig:72
 n_features = 15 #10 before
 quantile = True
 
@@ -232,8 +232,9 @@ def main():
     
     # df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
 
-    # reg = "dcnn_with_lag96_tcn_without_attention"
-    reg = "lstm_with_lag72"
+    # reg = "lstm_with_lag72"
+    reg = "dcnn_with_lag96_tcn_without_attention_ditto_hyp_from_paper"
+
     for season_flag in seasons:
         ## ML_models_2008 is the folder to save results on testyear 2008
         ## creating different folder for different methods: nn for fully connected networks, rf for random forest etc.
@@ -295,25 +296,25 @@ def main():
                                                                              folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/", lead = lead)
 
 
-                # cnn.train_DCNN_with_attention(quantile, X_train, y_train, X_valid, y_valid, n_timesteps+1, n_features,
-                #                           folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved = "dcnn_lag_for_lead_" + str(lead)) #, n_outputs=n_timesteps)
+                cnn.train_DCNN_with_attention(quantile, X_train, y_train, X_valid, y_valid, n_timesteps+1, n_features,
+                                          folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved = "dcnn_lag_for_lead_" + str(lead)) #, n_outputs=n_timesteps)
+
+                y_pred, y_valid_pred, valid_crps, test_crps  = cnn.test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_timesteps+1, n_features,
+                                              folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved = "dcnn_lag_for_lead_" + str(lead))  #, n_outputs=n_timesteps)
+
+                # lstm.train_LSTM(quantile, X_train, y_train, X_valid, y_valid, n_timesteps + 1, n_features,
+                #                               folder_saving + season_flag + "/ML_models_" + str(
+                #                                   testyear) + "/cnn/" + str(res) + "/" + reg + "/",
+                #                               model_saved="lstm_lag_for_lead_" + str(lead))  # , n_outputs=n_timesteps)
                 #
-                # y_pred, y_valid_pred, valid_crps, test_crps  = cnn.test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_timesteps+1, n_features,
-                #                               folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved = "dcnn_lag_for_lead_" + str(lead))  #, n_outputs=n_timesteps)
-
-                lstm.train_LSTM(quantile, X_train, y_train, X_valid, y_valid, n_timesteps + 1, n_features,
-                                              folder_saving + season_flag + "/ML_models_" + str(
-                                                  testyear) + "/cnn/" + str(res) + "/" + reg + "/",
-                                              model_saved="lstm_lag_for_lead_" + str(lead))  # , n_outputs=n_timesteps)
-
-                y_pred, y_valid_pred, valid_crps, test_crps = lstm.test_LSTM(quantile, X_valid, y_valid,
-                                                                                           X_test, y_test,
-                                                                                           n_timesteps + 1, n_features,
-                                                                                           folder_saving + season_flag + "/ML_models_" + str(
-                                                                                               testyear) + "/cnn/" + str(
-                                                                                               res) + "/" + reg + "/",
-                                                                                           model_saved="lstm_lag_for_lead_" + str(
-                                                                                               lead))  # , n_outputs=n_timesteps)
+                # y_pred, y_valid_pred, valid_crps, test_crps = lstm.test_LSTM(quantile, X_valid, y_valid,
+                #                                                                            X_test, y_test,
+                #                                                                            n_timesteps + 1, n_features,
+                #                                                                            folder_saving + season_flag + "/ML_models_" + str(
+                #                                                                                testyear) + "/cnn/" + str(
+                #                                                                                res) + "/" + reg + "/",
+                #                                                                            model_saved="lstm_lag_for_lead_" + str(
+                #                                                                                lead))  # , n_outputs=n_timesteps)
 
                 # y_pred = model.predict(X_test.reshape(X_test.shape[0],n_timesteps, n_features))
                 # y_valid_pred = model.predict(X_valid.reshape(X_valid.shape[0], n_timesteps, n_features))
