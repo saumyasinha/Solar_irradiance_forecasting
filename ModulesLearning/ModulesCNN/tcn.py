@@ -63,6 +63,7 @@ class TemporalConvNet(nn.Module):
             if attention == True:
                 layers += [AttentionBlock(max_length,max_length,max_length)]
 
+
         self.network = nn.Sequential(*layers)
 
     def forward(self, x):
@@ -85,23 +86,20 @@ class AttentionBlock(nn.Module):
   """
   def __init__(self, dims, k_size, v_size, seq_len=None):
     super(AttentionBlock, self).__init__()
-    # self.key_layer = nn.Linear(dims, k_size)
-    # self.query_layer = nn.Linear(dims, k_size)
-    # self.value_layer = nn.Linear(dims, v_size)
-    self.query_layer = nn.Conv1d(in_channels=dims, out_channels=k_size, kernel_size=1)
-    self.key_layer = nn.Conv1d(in_channels=dims, out_channels=k_size, kernel_size=1)
-    self.value_layer = nn.Conv1d(in_channels=dims, out_channels=k_size, kernel_size=1)
+    self.key_layer = nn.Linear(dims, k_size)
+    self.query_layer = nn.Linear(dims, k_size)
+    self.value_layer = nn.Linear(dims, v_size)
+    # self.query_layer = nn.Conv1d(in_channels=dims, out_channels=k_size, kernel_size=1)
+    # self.key_layer = nn.Conv1d(in_channels=dims, out_channels=k_size, kernel_size=1)
+    # self.value_layer = nn.Conv1d(in_channels=dims, out_channels=k_size, kernel_size=1)
     self.sqrt_k = math.sqrt(k_size)
 
   def forward(self, minibatch):
-    # minibatch = minibatch.permute(0,2,1)
-    print("minibatch shape",minibatch.shape)
-    keys = self.key_layer(minibatch).permute(0,2,1)
-    print("k,q,v shape", keys.shape)
-    queries = self.query_layer(minibatch).permute(0,2,1)
-    values = self.value_layer(minibatch).permute(0,2,1)
+    minibatch = minibatch.permute(0,2,1)
+    keys = self.key_layer(minibatch) #.permute(0,2,1)
+    queries = self.query_layer(minibatch) #.permute(0,2,1)
+    values = self.value_layer(minibatch) #.permute(0,2,1)
     logits = torch.bmm(queries, keys.transpose(2,1))
-    print("logits shape",logits.shape)
     # Use numpy triu because you can't do 3D triu with PyTorch
     # TODO: using float32 here might break for non FloatTensor inputs.
     # Should update this later to use numpy/PyTorch types of the input.
@@ -113,7 +111,7 @@ class AttentionBlock(nn.Module):
     # support masked_fill_ w/-inf directly on Variables for some reason.
     logits.data.masked_fill_(mask, float('-inf'))
     probs = F.softmax(logits, dim=1) / self.sqrt_k
-    print("probs shape", probs.shape)
     read = torch.bmm(probs, values)
-    # out = (minibatch + read).permute(0,2,1)
-    return minibatch+read.permute(0,2,1)
+    return (minibatch + read).permute(0,2,1)
+    # return minibatch+(read.permute(0,2,1))
+
