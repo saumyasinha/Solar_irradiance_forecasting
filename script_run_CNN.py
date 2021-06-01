@@ -9,8 +9,8 @@ from datetime import timedelta
 from ModulesProcessing import collect_data, clean_data
 from ModulesLearning import preprocessing as preprocess
 from ModulesLearning import postprocessing as postprocess
-from SolarForecasting.ModulesLearning.ModulesCNN import train as cnn
-from ModulesLearning.ModuleLSTM import train as lstm
+from ModulesLearning.ModulesCNN import train as cnn
+#from ModulesLearning.ModuleLSTM import train as lstm
 
 pd.set_option('display.max_rows', 500)
 pd.set_option('display.max_columns', 500)
@@ -25,7 +25,7 @@ city = 'Sioux_Falls_SD'
 lead_times = [1,4,8,12,16,20,24,28,32,12*4,24*4]
 
 # season
-seasons =['year'] #from ['fall', 'winter', 'spring', 'summer', 'year']
+seasons =['year','fall', 'winter', 'spring', 'summer']
 res = '15min' #15min
 
 # file locations
@@ -233,7 +233,7 @@ def main():
     # df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
 
     # reg = "lstm_with_lag72"
-    reg = "dcnn_with_lag96_tcn_without_attention_ditto_hyp_from_paper"
+    reg = "dcnn_with_lag96_tcn_without_attention_largechannels_ditto_hyp_from_paper"
 
     for season_flag in seasons:
         ## ML_models_2008 is the folder to save results on testyear 2008

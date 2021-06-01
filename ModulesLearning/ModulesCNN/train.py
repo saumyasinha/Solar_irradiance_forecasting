@@ -156,10 +156,10 @@ def train_DCNN_with_attention(quantile, X_train, y_train, X_valid, y_valid, n_ti
         # point_foreaster = point_foreaster.cuda()
 
     print(quantile_foreaster)
-    learning_rate = 1e-4#changed from 1e-6
+    learning_rate = 1e-5#changed from 1e-6
 
     epochs = 300 #200 for orig
-    batch_size = 32
+    batch_size = 64 #32
     train_loss, valid_loss = quantile_foreaster.trainBatchwise(X_train, y_train, epochs, batch_size,learning_rate, X_valid, y_valid, patience=1000)
     loss_plots(train_loss,valid_loss,folder_saving,model_saved)
 
@@ -185,6 +185,10 @@ def test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_times
     quantile_foreaster.load_state_dict(torch.load(folder_saving + model_saved))
 
     quantile_foreaster.eval()
+
+    if torch.cuda.is_available():
+        X_test, X_valid = X_test.cuda(),X_valid.cuda()
+        quantile_foreaster = quantile_foreaster.cuda()        
 
     y_pred = quantile_foreaster.forward(X_test)
     y_pred = y_pred.cpu().detach().numpy()

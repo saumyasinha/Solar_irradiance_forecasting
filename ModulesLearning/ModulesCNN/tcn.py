@@ -60,8 +60,8 @@ class TemporalConvNet(nn.Module):
             layers += [TemporalBlock(in_channels, out_channels, kernel_size, stride=1, dilation=dilation_size,
                                      padding=(kernel_size-1) * dilation_size, dropout=dropout)]
 
-            if attention == True:
-                layers += [AttentionBlock(max_length, max_length, max_length)]
+        if attention == True:
+            layers += [AttentionBlock(max_length, max_length, max_length)]
 
         self.network = nn.Sequential(*layers)
 
@@ -97,8 +97,10 @@ class AttentionBlock(nn.Module):
     # Use numpy triu because you can't do 3D triu with PyTorch
     # TODO: using float32 here might break for non FloatTensor inputs.
     # Should update this later to use numpy/PyTorch types of the input.
-    mask = np.triu(np.ones(logits.size()), k=1).astype('uint8')
-    mask = torch.from_numpy(mask).cuda()
+    mask = np.triu(np.ones(logits.size()), k=1).astype('bool')
+    mask = torch.from_numpy(mask)
+    if torch.cuda.is_available():
+        mask = mask.cuda()
     # do masked_fill_ on data rather than Variable because PyTorch doesn't
     # support masked_fill_ w/-inf directly on Variables for some reason.
     logits.data.masked_fill_(mask, float('-inf'))
