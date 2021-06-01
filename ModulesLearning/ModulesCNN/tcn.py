@@ -61,12 +61,13 @@ class TemporalConvNet(nn.Module):
                                      padding=(kernel_size-1) * dilation_size, dropout=dropout)]
 
             if attention == True:
-                layers += [AttentionBlock(max_length, max_length, max_length)]
+                layers += [AttentionBlock(max_length,max_length,max_length)]
 
         self.network = nn.Sequential(*layers)
 
     def forward(self, x):
         return self.network(x)
+
 
 class AttentionBlock(nn.Module):
   """An attention mechanism similar to Vaswani et al (2017)
@@ -84,24 +85,35 @@ class AttentionBlock(nn.Module):
   """
   def __init__(self, dims, k_size, v_size, seq_len=None):
     super(AttentionBlock, self).__init__()
-    self.key_layer = nn.Linear(dims, k_size)
-    self.query_layer = nn.Linear(dims, k_size)
-    self.value_layer = nn.Linear(dims, v_size)
+    # self.key_layer = nn.Linear(dims, k_size)
+    # self.query_layer = nn.Linear(dims, k_size)
+    # self.value_layer = nn.Linear(dims, v_size)
+    self.query_layer = nn.Conv1d(in_channels=dims, out_channels=k_size, kernel_size=1)
+    self.key_layer = nn.Conv1d(in_channels=dims, out_channels=k_size, kernel_size=1)
+    self.value_layer = nn.Conv1d(in_channels=dims, out_channels=k_size, kernel_size=1)
     self.sqrt_k = math.sqrt(k_size)
 
   def forward(self, minibatch):
-    keys = self.key_layer(minibatch)
-    queries = self.query_layer(minibatch)
-    values = self.value_layer(minibatch)
+    # minibatch = minibatch.permute(0,2,1)
+    print("minibatch shape",minibatch.shape)
+    keys = self.key_layer(minibatch).permute(0,2,1)
+    print("k,q,v shape", keys.shape)
+    queries = self.query_layer(minibatch).permute(0,2,1)
+    values = self.value_layer(minibatch).permute(0,2,1)
     logits = torch.bmm(queries, keys.transpose(2,1))
+    print("logits shape",logits.shape)
     # Use numpy triu because you can't do 3D triu with PyTorch
     # TODO: using float32 here might break for non FloatTensor inputs.
     # Should update this later to use numpy/PyTorch types of the input.
-    mask = np.triu(np.ones(logits.size()), k=1).astype('uint8')
-    mask = torch.from_numpy(mask).cuda()
+    mask = np.triu(np.ones(logits.size()), k=1).astype('bool')
+    mask = torch.from_numpy(mask)
+    if torch.cuda.is_available():
+        mask = mask.cuda()
     # do masked_fill_ on data rather than Variable because PyTorch doesn't
     # support masked_fill_ w/-inf directly on Variables for some reason.
     logits.data.masked_fill_(mask, float('-inf'))
     probs = F.softmax(logits, dim=1) / self.sqrt_k
+    print("probs shape", probs.shape)
     read = torch.bmm(probs, values)
-    return minibatch + read
+    # out = (minibatch + read).permute(0,2,1)
+    return minibatch+read.permute(0,2,1)
