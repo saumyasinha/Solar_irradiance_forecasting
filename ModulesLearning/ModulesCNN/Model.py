@@ -8,7 +8,7 @@ from sklearn.metrics import mean_squared_error
 from torch.autograd import Variable
 # import torch.optim.lr_scheduler.StepLR
 from torch.nn.utils import weight_norm
-from SolarForecasting.ModulesLearning.ModulesCNN.tcn import TemporalConvNet
+from ModulesLearning.ModulesCNN.tcn import TemporalConvNet
 
 
 class EarlyStopping:

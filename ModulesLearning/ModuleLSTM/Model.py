@@ -1,4 +1,5 @@
 import torch
+import math
 import numpy as np
 import torch.nn as nn
 from torch.autograd import Variable
@@ -91,6 +92,67 @@ class quantileLSTM(nn.Module):
 
         return out
 
+class PositionalEncoding(nn.Module):
+
+    def __init__(self, d_model, max_len=5000):
+        super(PositionalEncoding, self).__init__()
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+
+        ##apparently num  of features needs to be even if using follwing slicer
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0).transpose(0, 1)
+        # pe.requires_grad = False
+        self.register_buffer('pe', pe)
+
+    def forward(self, x):
+        return x + self.pe[:x.size(0), :]
+
+class TransAm(nn.Module):
+    def __init__(self, input_dim, timesteps, folder_saving, model, quantile, alphas = None, outputs = None, valid = False,num_layers=1, dropout=0.1):
+        super(TransAm, self).__init__()
+        self.model_type = 'Transformer'
+
+        self.outputs = outputs
+        self.num_layers = num_layers
+        self.input_dim = input_dim
+        self.timesteps = timesteps
+        self.alphas = alphas
+        self.valid = valid
+        self.train_mode = False
+        self.saving_path = folder_saving + model
+        self.quantile = quantile
+
+        self.src_mask = None
+        self.pos_encoder = PositionalEncoding(self.input_dim)
+        self.encoder_layer = nn.TransformerEncoderLayer(d_model=self.input_dim, nhead=3, dropout=dropout) #embed_dim must be divisible by n_heads
+        self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=self.num_layers)
+        self.decoder = nn.Linear(self.input_dim, self.outputs)
+        self.init_weights()
+
+    def init_weights(self):
+        initrange = 0.1
+        self.decoder.bias.data.zero_()
+        self.decoder.weight.data.uniform_(-initrange, initrange)
+
+    def forward(self, src):
+        if self.src_mask is None or self.src_mask.size(0) != len(src):
+            device = src.device
+            mask = self._generate_square_subsequent_mask(len(src)).to(device)
+            self.src_mask = mask
+
+        src = self.pos_encoder(src)
+        output = self.transformer_encoder(src, self.src_mask)  # , self.src_mask)
+        output = self.decoder(output)
+        return output[-1,:,:]
+
+    def _generate_square_subsequent_mask(self, sz):
+        mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
+        mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
+        return mask
+
 
     def trainBatchwise(self, trainX, trainY, epochs, batch_size, lr=0.0001, validX=None,
                        validY=None, patience=None, verbose=None, reg_lamdba = 0.0001):
@@ -98,7 +160,7 @@ class quantileLSTM(nn.Module):
         # scheduler = StepLR(optimizer, step_size=25, gamma=0.1)
         criterion = torch.nn.MSELoss()
         # criterion = nn.L1Loss()
-        samples = trainX.size()[0]
+        samples = trainX.size()[1]#[0]
         losses = []
         valid_losses = []
 
@@ -110,17 +172,18 @@ class quantileLSTM(nn.Module):
                 self.train_mode = True
 
             indices = torch.randperm(samples)
-            trainX, trainY = trainX[indices, :, :], trainY[indices]
+            trainX, trainY = trainX[:, indices, :], trainY[indices] #trainX[indices, :, :], trainY[indices]
             per_epoch_loss = 0
             count_train = 0
             for i in range(0, samples, batch_size):
-                xx = trainX[i: i + batch_size, :, :]
-                yy = trainY[i: i + batch_size]
+                xx = trainX[:, i: i + batch_size, :]#trainX[i: i + batch_size, :, :]
+                yy = trainY[i: i + batch_size]#trainY[i: i + batch_size]
 
                 if torch.cuda.is_available():
                     xx, yy = xx.cuda(), yy.cuda()
 
                 outputs = self.forward(xx)
+                # print(outputs.shape)
                 optimizer.zero_grad()
                 if self.quantile:
                     loss = self.quantile_loss(outputs, yy)
