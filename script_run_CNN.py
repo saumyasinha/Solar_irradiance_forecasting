@@ -236,7 +236,7 @@ def main():
 
     # reg = "lstm_with_lag72"
 
-    reg = "dcnn_with_lag96_tcn_with_correct_attention_ditto_hyp_from_paper"
+    reg = "dcnn_with_lag96_tcn_with_correct_convattention_ditto_hyp_from_paper"
 
 
     for season_flag in seasons:
