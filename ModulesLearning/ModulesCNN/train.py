@@ -1,7 +1,7 @@
 import os
 # from SolarForecasting.ModulesLearning.ModulesCNN.Model import basic_CNN, DC_CNN_Model
 import torch
-from SolarForecasting.ModulesLearning.ModulesCNN.Model import ConvForecasterDilationLowRes
+from ModulesLearning.ModulesCNN.Model import ConvForecasterDilationLowRes
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
@@ -159,7 +159,7 @@ def train_DCNN_with_attention(quantile, X_train, y_train, X_valid, y_valid, n_ti
     learning_rate = 1e-5#changed from 1e-6
 
     epochs = 300 #200 for orig
-    batch_size = 64 #32
+    batch_size = 32 #32
 
     train_loss, valid_loss = quantile_forecaster.trainBatchwise(X_train, y_train, epochs, batch_size,learning_rate, X_valid, y_valid, patience=1000)
     loss_plots(train_loss,valid_loss,folder_saving,model_saved)
