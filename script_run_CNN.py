@@ -35,7 +35,7 @@ res = '15min' #15min
 # path_desktop = "C:\\Users\Shivendra\Desktop\SolarProject\solar_forecasting/"
 path_local = "/Users/saumya/Desktop/SolarProject/"
 path_cluster = "/pl/active/machinelearning/Solar_forecasting_project/"
-path_project = path_local
+path_project = path_cluster
 path = path_project+"Data/"
 folder_saving = path_project + city+"/Models/"
 folder_plots = path_project + city+"/Plots/"
@@ -234,10 +234,11 @@ def main():
     
     # df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
 
-    # reg = "lstm_with_lag72"
-
-    # reg = "dcnn_with_lag96_tcn_with_correct_attention_ditto_hyp_from_paper"
     reg = "transformers"
+
+    # reg = "dcnn_with_lag96_tcn_with_correct_convattention_ditto_hyp_from_paper"
+
+
 
     for season_flag in seasons:
         ## ML_models_2008 is the folder to save results on testyear 2008

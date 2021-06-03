@@ -60,8 +60,8 @@ class TemporalConvNet(nn.Module):
             layers += [TemporalBlock(in_channels, out_channels, kernel_size, stride=1, dilation=dilation_size,
                                      padding=(kernel_size-1) * dilation_size, dropout=dropout)]
 
-            if attention == True:
-                layers += [AttentionBlock(max_length,max_length,max_length)]
+        if attention == True:
+            layers += [ConvAttentionBlock(max_length)]
 
         # if attention == True:
         #     layers += [ConvAttentionBlock(max_length)]
@@ -116,6 +116,38 @@ class AttentionBlock(nn.Module):
     read = torch.bmm(probs, values)
     return (minibatch + read).permute(0,2,1)
 
+
+
+class ConvAttentionBlock(nn.Module):
+  """
+    Similar to the SAGAN paper: https://discuss.pytorch.org/t/attention-in-image-classification/80147/3
+  """
+
+  def __init__(self, dims):
+    super(ConvAttentionBlock, self).__init__()
+    self.query_layer = nn.Conv1d(in_channels=dims, out_channels=dims//8, kernel_size=1)
+    self.key_layer = nn.Conv1d(in_channels=dims, out_channels=dims//8, kernel_size=1)
+    self.value_layer = nn.Conv1d(in_channels=dims, out_channels=dims, kernel_size=1)
+
+    self.softmax = nn.Softmax(dim=-1)
+    self.gamma = nn.Parameter(torch.zeros(1))
+
+  def forward(self, minibatch):
+    keys = self.key_layer(minibatch)
+    queries = self.query_layer(minibatch).permute(0,2,1)
+    values = self.value_layer(minibatch)
+    logits = torch.bmm(queries, keys)
+    mask = np.triu(np.ones(logits.size()), k=1).astype('bool')
+    mask = torch.from_numpy(mask)
+    if torch.cuda.is_available():
+        mask = mask.cuda()
+    # do masked_fill_ on data rather than Variable because PyTorch doesn't
+    # support masked_fill_ w/-inf directly on Variables for some reason.
+    logits.data.masked_fill_(mask, float('-inf'))
+
+    probs = self.softmax(logits)
+    read = torch.bmm(values, probs.permute(0,2,1))
+    return (self.gamma*read)+minibatch
 
 
 class ConvAttentionBlock(nn.Module):
