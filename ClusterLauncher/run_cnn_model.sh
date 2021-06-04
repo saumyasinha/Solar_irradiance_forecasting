@@ -2,7 +2,7 @@
 
 # === 2. List of SBATCH arguements ===
 #SBATCH --job-name=test-job
-#SBATCH --nodelist=bgpu-casa1
+#SBATCH --nodelist=bgpu-bortz1
 #SBATCH --account=blanca-kann
 #SBATCH --qos=preemptable
 #SBATCH --nodes=1
