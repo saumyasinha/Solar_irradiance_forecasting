@@ -7,11 +7,11 @@ from collections import Counter
 from sklearn.model_selection import train_test_split
 from datetime import timedelta
 
-from SolarForecasting.ModulesProcessing import collect_data, clean_data
-from SolarForecasting.ModulesLearning import preprocessing as preprocess
-from SolarForecasting.ModulesLearning import postprocessing as postprocess
-from SolarForecasting.ModulesLearning.ModulesCNN import train as cnn
-from SolarForecasting.ModulesLearning.ModuleLSTM import train as tranformers
+from ModulesProcessing import collect_data, clean_data
+from ModulesLearning import preprocessing as preprocess
+from ModulesLearning import postprocessing as postprocess
+from ModulesLearning.ModulesCNN import train as cnn
+from ModulesLearning.ModuleLSTM import train as tranformers
 
 
 pd.set_option('display.max_rows', 500)

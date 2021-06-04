@@ -125,10 +125,10 @@ def train_transformer(quantile, X_train, y_train, X_valid, y_valid, n_timesteps,
         point_foreaster = point_foreaster.cuda()
 
     print(point_foreaster)
-    learning_rate = 0.005
+    learning_rate = 0.0001
 
-    epochs = 1
-    batch_size = 32
+    epochs = 100
+    batch_size = 16
     train_loss, valid_loss = point_foreaster.trainBatchwise(X_train, y_train, epochs, batch_size,learning_rate, X_valid, y_valid, patience=1000)
     loss_plots(train_loss,valid_loss,folder_saving,model_saved)
 
