@@ -127,7 +127,7 @@ class TransAm(nn.Module):
 
         self.src_mask = None
         self.pos_encoder = PositionalEncoding(self.input_dim)
-        self.encoder_layer = nn.TransformerEncoderLayer(d_model=self.input_dim, nhead=3, dropout=dropout) #embed_dim must be divisible by n_heads
+        self.encoder_layer = nn.TransformerEncoderLayer(d_model=self.input_dim, nhead=2, dim_feedforward=200,dropout=dropout) #embed_dim must be divisible by n_heads
         self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=self.num_layers)
         self.decoder = nn.Linear(self.input_dim, self.outputs)
         self.init_weights()

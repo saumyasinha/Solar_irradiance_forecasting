@@ -7,11 +7,11 @@ from collections import Counter
 from sklearn.model_selection import train_test_split
 from datetime import timedelta
 
-from ModulesProcessing import collect_data, clean_data
-from ModulesLearning import preprocessing as preprocess
-from ModulesLearning import postprocessing as postprocess
-from ModulesLearning.ModulesCNN import train as cnn
-from ModulesLearning.ModuleLSTM import train as tranformers
+from SolarForecasting.ModulesProcessing import collect_data, clean_data
+from SolarForecasting.ModulesLearning import preprocessing as preprocess
+from SolarForecasting.ModulesLearning import postprocessing as postprocess
+from SolarForecasting.ModulesLearning.ModulesCNN import train as cnn
+from SolarForecasting.ModulesLearning.ModuleLSTM import train as tranformers
 
 
 pd.set_option('display.max_rows', 500)
@@ -35,7 +35,7 @@ res = '15min' #15min
 # path_desktop = "C:\\Users\Shivendra\Desktop\SolarProject\solar_forecasting/"
 path_local = "/Users/saumya/Desktop/SolarProject/"
 path_cluster = "/pl/active/machinelearning/Solar_forecasting_project/"
-path_project = path_cluster
+path_project = path_local
 path = path_project+"Data/"
 folder_saving = path_project + city+"/Models/"
 folder_plots = path_project + city+"/Plots/"
@@ -67,8 +67,8 @@ testyear = 2017
 
 # hyperparameters
 n_timesteps = 24*7 #tcn: 96 #orig:72
-n_features = 12 #15 for everything
-quantile = False #True
+n_features = 12 #15 for everything (taking 12(even) features for mulit-head and transformers)
+quantile = True #True
 
 
 def get_data():
@@ -234,9 +234,9 @@ def main():
     
     # df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
 
-    reg = "transformers"
+    # reg = "transformers"
 
-    # reg = "dcnn_with_lag96_tcn_with_correct_convattention_ditto_hyp_from_paper"
+    reg = "dcnn_with_lag96_tcn_with_correct_multiheadedconvattention_ditto_hyp_from_paper"
 
 
 
@@ -301,10 +301,10 @@ def main():
                                                                              folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/", lead = lead)
 
 
-                tranformers.train_transformer(quantile, X_train, y_train, X_valid, y_valid, n_timesteps+1, n_features,
+                cnn.train_DCNN_with_attention(quantile, X_train, y_train, X_valid, y_valid, n_timesteps+1, n_features,
                                           folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved = "dcnn_lag_for_lead_" + str(lead)) #, n_outputs=n_timesteps)
 
-                y_pred, y_valid_pred, valid_crps, test_crps  = tranformers.test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps+1, n_features,
+                y_pred, y_valid_pred, valid_crps, test_crps  = cnn.test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_timesteps+1, n_features,
                                               folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved = "dcnn_lag_for_lead_" + str(lead))  #, n_outputs=n_timesteps)
 
                 # lstm.train_LSTM(quantile, X_train, y_train, X_valid, y_valid, n_timesteps + 1, n_features,

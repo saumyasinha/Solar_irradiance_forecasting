@@ -4,7 +4,9 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils import weight_norm
+from torch.nn.modules.activation import MultiheadAttention
 
+activation_dict = {"ReLU": torch.nn.ReLU(), "Softplus": torch.nn.Softplus(), "Softmax": torch.nn.Softmax}
 
 class Chomp1d(nn.Module):
     def __init__(self, chomp_size):
@@ -49,7 +51,7 @@ class TemporalBlock(nn.Module):
 
 
 class TemporalConvNet(nn.Module):
-    def __init__(self, num_inputs, num_channels, kernel_size=2, dropout=0.2, max_length=200, attention=False):
+    def __init__(self, num_inputs, num_channels, kernel_size=2, dropout=0.2, attention=False):
         super(TemporalConvNet, self).__init__()
         layers = []
         num_levels = len(num_channels)
@@ -60,11 +62,11 @@ class TemporalConvNet(nn.Module):
             layers += [TemporalBlock(in_channels, out_channels, kernel_size, stride=1, dilation=dilation_size,
                                      padding=(kernel_size-1) * dilation_size, dropout=dropout)]
 
-        if attention == True:
-            layers += [ConvAttentionBlock(max_length)]
-
         # if attention == True:
-        #     layers += [ConvAttentionBlock(max_length)]
+        #     layers += [ConvAttentionBlock(num_channels[-1])]
+
+        if attention == True:
+            layers += [MultiAttnHeadSimple(d_model = num_channels[-1])]
 
         self.network = nn.Sequential(*layers)
 
@@ -150,34 +152,68 @@ class ConvAttentionBlock(nn.Module):
     return (self.gamma*read)+minibatch
 
 
-class ConvAttentionBlock(nn.Module):
-  """
-    Similar to the SAGAN paper: https://discuss.pytorch.org/t/attention-in-image-classification/80147/3
-  """
+class SimplePositionalEncoding(torch.nn.Module):
+    def __init__(self, d_model, dropout=0.1, max_len=5000):
+        super(SimplePositionalEncoding, self).__init__()
+        self.dropout = torch.nn.Dropout(p=dropout)
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0).transpose(0, 1)
+        self.register_buffer('pe', pe)
 
-  def __init__(self, dims):
-    super(ConvAttentionBlock, self).__init__()
-    self.query_layer = nn.Conv1d(in_channels=dims, out_channels=dims//8, kernel_size=1)
-    self.key_layer = nn.Conv1d(in_channels=dims, out_channels=dims//8, kernel_size=1)
-    self.value_layer = nn.Conv1d(in_channels=dims, out_channels=dims, kernel_size=1)
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Creates a basic positional encoding"""
+        x = x + self.pe[:x.size(0), :]
+        return self.dropout(x)
 
-    self.softmax = nn.Softmax(dim=-1)
-    self.gamma = nn.Parameter(torch.zeros(1))
 
-  def forward(self, minibatch):
-    keys = self.key_layer(minibatch)
-    queries = self.query_layer(minibatch).permute(0,2,1)
-    values = self.value_layer(minibatch)
-    logits = torch.bmm(queries, keys)
-    mask = np.triu(np.ones(logits.size()), k=1).astype('bool')
-    mask = torch.from_numpy(mask)
-    if torch.cuda.is_available():
-        mask = mask.cuda()
-    # do masked_fill_ on data rather than Variable because PyTorch doesn't
-    # support masked_fill_ w/-inf directly on Variables for some reason.
-    logits.data.masked_fill_(mask, float('-inf'))
 
-    probs = self.softmax(logits)
-    read = torch.bmm(values, probs.permute(0,2,1))
-    return (self.gamma*read)+minibatch
+class MultiAttnHeadSimple(torch.nn.Module):
+    """A simple multi-head attention model inspired by Vaswani et al."""
 
+    def __init__(
+            self,
+            d_model=128,
+            num_heads=3,
+            dropout=0.1):
+        super().__init__()
+        self.pe = SimplePositionalEncoding(d_model)
+        self.multi_attn = MultiheadAttention(
+            embed_dim=d_model, num_heads=num_heads, dropout=dropout)
+
+
+    def forward(self, x: torch.Tensor, mask=None) -> torch.Tensor:
+
+        # x = self.dense_shape(x)
+
+        # Permute to (L, B, M)
+        print("input shape:", x.shape)
+        x = x.permute(2,0,1)
+
+        x = self.pe(x)
+        print("After positional encoding shape:", x.shape)
+
+        self.mask = mask
+
+        if self.mask is None:
+            device = x.device
+            self.mask = self._generate_square_subsequent_mask(len(x)).to(device)
+
+        # if mask is None:
+        #     x = self.multi_attn(x, x, x)[0]
+        # else:
+        x = self.multi_attn(x, x, x, attn_mask=self.mask)[0]
+
+        print("Attention output shape:", x.shape)
+        x = x.permute(1, 2, 0)
+
+        print("final return shape",x.shape)
+        return x
+
+    def _generate_square_subsequent_mask(self, sz):
+        mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
+        mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
+        return mask
