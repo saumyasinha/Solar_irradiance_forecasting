@@ -1,5 +1,5 @@
 import torch
-from SolarForecasting.ModulesLearning.ModuleLSTM.Model import MultiAttnHeadSimple
+from ModulesLearning.ModuleLSTM.Model import MultiAttnHeadSimple
 import numpy as np
 import matplotlib.pyplot as plt
 

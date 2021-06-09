@@ -3,7 +3,7 @@ import math
 import numpy as np
 import torch.nn as nn
 from torch.autograd import Variable
-from SolarForecasting.ModulesLearning.ModuleLSTM.attention import *
+from ModulesLearning.ModuleLSTM.attention import *
 from torch.nn.modules.activation import MultiheadAttention
 
 

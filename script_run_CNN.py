@@ -7,11 +7,11 @@ from collections import Counter
 from sklearn.model_selection import train_test_split
 from datetime import timedelta
 
-from SolarForecasting.ModulesProcessing import collect_data, clean_data
-from SolarForecasting.ModulesLearning import preprocessing as preprocess
-from SolarForecasting.ModulesLearning import postprocessing as postprocess
-from SolarForecasting.ModulesLearning.ModulesCNN import train as cnn
-# from SolarForecasting.ModulesLearning.ModuleLSTM import train as tranformers
+from ModulesProcessing import collect_data, clean_data
+from ModulesLearning import preprocessing as preprocess
+from ModulesLearning import postprocessing as postprocess
+from ModulesLearning.ModulesCNN import train as cnn
+from ModulesLearning.ModuleLSTM import train as tranformers
 
 
 pd.set_option('display.max_rows', 500)
@@ -24,7 +24,7 @@ pd.set_option('display.width', 1000)
 city = 'Sioux_Falls_SD'
 
 # lead time
-lead_times = [1,4,8,12,16,20,24,28,32,12*4,24*4]
+lead_times = [16,20,24,28,32,12*4,24*4,12,8,4,1]
 
 # season
 seasons =['year','fall', 'winter', 'spring', 'summer']
@@ -35,7 +35,7 @@ res = '15min' #15min
 # path_desktop = "C:\\Users\Shivendra\Desktop\SolarProject\solar_forecasting/"
 path_local = "/Users/saumya/Desktop/SolarProject/"
 path_cluster = "/pl/active/machinelearning/Solar_forecasting_project/"
-path_project = path_local
+path_project = path_cluster
 path = path_project+"Data/"
 folder_saving = path_project + city+"/Models/"
 folder_plots = path_project + city+"/Plots/"
@@ -237,9 +237,11 @@ def main():
     
     df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
 
-    # reg = "transformers"
 
-    reg = "dcnn_with_lag96_tcn_with_correct_convattention_multi_horizon_ditto_hyp_from_paper"
+    reg = "dcnn_with_lag169_tcn_with_correct_convattention_multi_horizon_ditto_hyp_from_paper"
+
+    # reg = "dcnn_with_lag169_tcn_with_correct_convattention_multihead_avoid_overfiting_ditto_hyp_from_paper"
+
 
 
 
