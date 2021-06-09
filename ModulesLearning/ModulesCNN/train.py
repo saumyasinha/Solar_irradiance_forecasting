@@ -156,10 +156,10 @@ def train_DCNN_with_attention(quantile, X_train, y_train, X_valid, y_valid, n_ti
         # point_forecaster = point_forecaster.cuda()
 
     print(quantile_forecaster)
-    learning_rate = 1e-5#changed from 1e-6
+    learning_rate = 1e-6#changed from 1e-5
 
     epochs = 300 #200 for orig
-    batch_size = 32 #32
+    batch_size = 16 #32
 
     train_loss, valid_loss = quantile_forecaster.trainBatchwise(X_train, y_train, epochs, batch_size,learning_rate, X_valid, y_valid, patience=1000)
     loss_plots(train_loss,valid_loss,folder_saving,model_saved)

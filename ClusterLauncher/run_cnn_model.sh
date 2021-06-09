@@ -7,7 +7,6 @@
 #SBATCH --qos=preemptable
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --time=23:00:00
 #SBATCH --output=/pl/active/machinelearning/Solar_forecasting_project/job_outputs/test-job.%j.out
 
 # === 3. Purge and load needed modules ===

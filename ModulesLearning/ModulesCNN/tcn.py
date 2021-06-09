@@ -62,8 +62,8 @@ class TemporalConvNet(nn.Module):
             layers += [TemporalBlock(in_channels, out_channels, kernel_size, stride=1, dilation=dilation_size,
                                      padding=(kernel_size-1) * dilation_size, dropout=dropout)]
 
-        # if attention == True:
-        #     layers += [ConvAttentionBlock(num_channels[-1])]
+            #if (attention == True) and (i%2 == 0):
+             #   layers += [ConvAttentionBlock(num_channels[i])]
 
         if attention == True:
             layers += [MultiAttnHeadSimple(d_model = num_channels[-1])]
@@ -177,8 +177,8 @@ class MultiAttnHeadSimple(torch.nn.Module):
     def __init__(
             self,
             d_model=128,
-            num_heads=3,
-            dropout=0.1):
+            num_heads=2,
+            dropout=0.5):
         super().__init__()
         self.pe = SimplePositionalEncoding(d_model)
         self.multi_attn = MultiheadAttention(
@@ -190,11 +190,11 @@ class MultiAttnHeadSimple(torch.nn.Module):
         # x = self.dense_shape(x)
 
         # Permute to (L, B, M)
-        print("input shape:", x.shape)
+        #print("input shape:", x.shape)
         x = x.permute(2,0,1)
 
         x = self.pe(x)
-        print("After positional encoding shape:", x.shape)
+        #print("After positional encoding shape:", x.shape)
 
         self.mask = mask
 
@@ -207,10 +207,10 @@ class MultiAttnHeadSimple(torch.nn.Module):
         # else:
         x = self.multi_attn(x, x, x, attn_mask=self.mask)[0]
 
-        print("Attention output shape:", x.shape)
+        #print("Attention output shape:", x.shape)
         x = x.permute(1, 2, 0)
 
-        print("final return shape",x.shape)
+        #print("final return shape",x.shape)
         return x
 
     def _generate_square_subsequent_mask(self, sz):

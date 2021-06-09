@@ -24,7 +24,7 @@ pd.set_option('display.width', 1000)
 city = 'Sioux_Falls_SD'
 
 # lead time
-lead_times = [1,4,8,12,16,20,24,28,32,12*4,24*4]
+lead_times = [16,20,24,28,32,12*4,24*4,12,8,4,1]
 
 # season
 seasons =['year','fall', 'winter', 'spring', 'summer']
@@ -35,7 +35,7 @@ res = '15min' #15min
 # path_desktop = "C:\\Users\Shivendra\Desktop\SolarProject\solar_forecasting/"
 path_local = "/Users/saumya/Desktop/SolarProject/"
 path_cluster = "/pl/active/machinelearning/Solar_forecasting_project/"
-path_project = path_local
+path_project = path_cluster
 path = path_project+"Data/"
 folder_saving = path_project + city+"/Models/"
 folder_plots = path_project + city+"/Plots/"
@@ -236,7 +236,7 @@ def main():
 
     # reg = "transformers"
 
-    reg = "dcnn_with_lag96_tcn_with_correct_multiheadedconvattention_ditto_hyp_from_paper"
+    reg = "dcnn_with_lag169_tcn_with_correct_convattention_multihead_avoid_overfiting_ditto_hyp_from_paper"
 
 
 

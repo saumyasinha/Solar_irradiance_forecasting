@@ -6,6 +6,7 @@
 #SBATCH --qos=blanca-kann
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
+#SBATCH --time=3-00:00:00
 #SBATCH --output=/pl/active/machinelearning/Solar_forecasting_project/job_outputs/test-job.%j.out
 # === 3. Purge and load needed modules ===
 module purge
