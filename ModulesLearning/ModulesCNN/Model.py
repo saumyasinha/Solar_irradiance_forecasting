@@ -8,7 +8,7 @@ from sklearn.metrics import mean_squared_error
 from torch.autograd import Variable
 # import torch.optim.lr_scheduler.StepLR
 from torch.nn.utils import weight_norm
-from ModulesLearning.ModulesCNN.tcn import TemporalConvNet
+from SolarForecasting.ModulesLearning.ModulesCNN.tcn import TemporalConvNet
 
 
 class EarlyStopping:
@@ -152,7 +152,7 @@ class ConvForecasterDilationLowRes(nn.Module):
 
 
 
-    def forward(self, xx):
+    def forward(self, xx, n_output_length=1):
         # # print(xx.shape)
         # output = self.conv1(xx)
         # # print(output.shape)
@@ -209,9 +209,17 @@ class ConvForecasterDilationLowRes(nn.Module):
         # #     output = self.dropout(output)
         # output = self.fc3(output)
         #
-        #
-        output = self.tcn(xx)
-        output = self.linear(output[:,:,-1])
+
+        if n_output_length>1:
+            # print(xx.shape)
+            output = self.tcn(xx).transpose(1,2)
+            # print(output.shape)
+            output = self.linear(output).transpose(1,2)[:,:,:n_output_length] #unsure here if it should be [:,:,-n_output_length:]
+            # print(output.shape)
+        else:
+            output = self.tcn(xx)
+            output = self.linear(output[:,:,-1])
+
 
         return output
 
@@ -269,7 +277,7 @@ class ConvForecasterDilationLowRes(nn.Module):
     #     return output
 
     def trainBatchwise(self, trainX, trainY, epochs, batch_size, lr=0.0001, validX=None,
-                       validY=None, patience=None, verbose=None, reg_lamdba = 0.0001):
+                       validY=None, n_output_length = 1, patience=None, verbose=None, reg_lamdba = 0.0001):
         optimizer = torch.optim.Adam(self.parameters(), lr=lr)
         # scheduler = StepLR(optimizer, step_size=25, gamma=0.1)
         criterion = torch.nn.MSELoss()
@@ -296,22 +304,25 @@ class ConvForecasterDilationLowRes(nn.Module):
                 if torch.cuda.is_available():
                     xx, yy = xx.cuda(), yy.cuda()
 
-                outputs = self.forward(xx)
+                outputs = self.forward(xx, n_output_length)
                 optimizer.zero_grad()
                 if self.quantile:
-                    loss = self.quantile_loss(outputs, yy)
+                    if n_output_length==1:
+                        loss = self.quantile_loss(outputs, yy)
+                    else:
+                        # train loss for multiple outputs or multi-task learning
+                        total_loss = []
+                        for n in range(n_output_length):
+                            y_pred = outputs[:,:, n]
+                            # calculate the batch loss
+                            loss = self.quantile_loss(y_pred, yy[:, n])
+                            total_loss.append(loss)
+
+                        loss = sum(total_loss)
+
                 else:
                     loss = criterion(outputs, yy)
 
-                    ## train loss for multiple outputs or multi-task learning
-                    # total_loss = []
-                    # for n in range(self.outputs):
-                    #     y_pred = outputs[:, n]
-                    #     # calculate the batch loss
-                    #     loss = criterion(y_pred, yy[:, n])
-                    #     total_loss.append(loss)
-                    #
-                    # loss = sum(total_loss)
 
                 reg_loss = np.sum([weights.norm(2) for weights in self.parameters()])
                 total_loss = loss + reg_lamdba/ 2 * reg_loss
@@ -336,15 +347,29 @@ class ConvForecasterDilationLowRes(nn.Module):
 
 
                 if self.quantile:
-                    validYPred = self.forward(validX)
+                    validYPred = self.forward(validX,n_output_length)
                     # validYPred = validYPred.cpu().detach().numpy()
                     # validYTrue = validY.cpu().detach().numpy()
-                    valid_loss_this_epoch = self.quantile_loss(validYPred,validY).item()
+                    # valid_loss_this_epoch = self.quantile_loss(validYPred,validY).item()
+
+                    if n_output_length == 1:
+                        valid_loss_this_epoch =  self.quantile_loss(validYPred,validY).item()
+                    else:
+                        # train loss for multiple outputs or multi-task learning
+                        total_loss = []
+                        for n in range(n_output_length):
+                            y_pred = validYPred[:, :, n]
+                            # calculate the batch loss
+                            loss = self.quantile_loss(y_pred, validY[:, n])
+                            total_loss.append(loss)
+
+                        valid_loss_this_epoch = sum(total_loss).item()
+
                     # valid_loss = elf.crps_score(validYPred, validYTrue, np.arange(0.05, 1.0, 0.05))s
                     valid_losses.append(valid_loss_this_epoch)
                     print("Epoch: %d, loss: %1.5f and valid_loss : %1.5f" % (epoch, train_loss_this_epoch, valid_loss_this_epoch))
                 else:
-                    validYPred = self.forward(validX)
+                    validYPred = self.forward(validX,n_output_length)
 
                     # # valid loss for multiple outputs or multi-task learning
                     # total_loss = []

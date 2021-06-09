@@ -62,11 +62,11 @@ class TemporalConvNet(nn.Module):
             layers += [TemporalBlock(in_channels, out_channels, kernel_size, stride=1, dilation=dilation_size,
                                      padding=(kernel_size-1) * dilation_size, dropout=dropout)]
 
-        # if attention == True:
-        #     layers += [ConvAttentionBlock(num_channels[-1])]
+            if (attention == True) and (i % 2 == 0):
+                layers += [ConvAttentionBlock(num_channels[i])]
 
-        if attention == True:
-            layers += [MultiAttnHeadSimple(d_model = num_channels[-1])]
+        # if attention == True:
+        #     layers += [MultiAttnHeadSimple(d_model = num_channels[-1])]
 
         self.network = nn.Sequential(*layers)
 
@@ -75,6 +75,8 @@ class TemporalConvNet(nn.Module):
 
 
 class AttentionBlock(nn.Module):
+
+#Should this be followed by a positional embedding??
   """An attention mechanism similar to Vaswani et al (2017)
   The input of the AttentionBlock is `BxTxD` where `B` is the input
   minibatch size, `T` is the length of the sequence `D` is the dimensions of
@@ -99,6 +101,7 @@ class AttentionBlock(nn.Module):
     self.sqrt_k = math.sqrt(k_size)
 
   def forward(self, minibatch):
+
     minibatch = minibatch.permute(0,2,1)
     keys = self.key_layer(minibatch)
     queries = self.query_layer(minibatch)
@@ -124,7 +127,7 @@ class ConvAttentionBlock(nn.Module):
   """
     Similar to the SAGAN paper: https://discuss.pytorch.org/t/attention-in-image-classification/80147/3
   """
-
+# I haven't used any positional encoding here, not sure if needs to be there
   def __init__(self, dims):
     super(ConvAttentionBlock, self).__init__()
     self.query_layer = nn.Conv1d(in_channels=dims, out_channels=dims//8, kernel_size=1)
@@ -177,8 +180,8 @@ class MultiAttnHeadSimple(torch.nn.Module):
     def __init__(
             self,
             d_model=128,
-            num_heads=3,
-            dropout=0.1):
+            num_heads=2,
+            dropout=0.5):
         super().__init__()
         self.pe = SimplePositionalEncoding(d_model)
         self.multi_attn = MultiheadAttention(

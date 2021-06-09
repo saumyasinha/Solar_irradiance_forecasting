@@ -1,7 +1,7 @@
 import os
 # from SolarForecasting.ModulesLearning.ModulesCNN.Model import basic_CNN, DC_CNN_Model
 import torch
-from ModulesLearning.ModulesCNN.Model import ConvForecasterDilationLowRes
+from SolarForecasting.ModulesLearning.ModulesCNN.Model import ConvForecasterDilationLowRes
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
@@ -158,10 +158,10 @@ def train_DCNN_with_attention(quantile, X_train, y_train, X_valid, y_valid, n_ti
     print(quantile_forecaster)
     learning_rate = 1e-5#changed from 1e-6
 
-    epochs = 300 #200 for orig
+    epochs = 1 #200 for orig
     batch_size = 32 #32
 
-    train_loss, valid_loss = quantile_forecaster.trainBatchwise(X_train, y_train, epochs, batch_size,learning_rate, X_valid, y_valid, patience=1000)
+    train_loss, valid_loss = quantile_forecaster.trainBatchwise(X_train, y_train, epochs, batch_size,learning_rate, X_valid, y_valid, n_outputs, patience=1000)
     loss_plots(train_loss,valid_loss,folder_saving,model_saved)
 
 
@@ -201,12 +201,31 @@ def test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_times
 
     valid_crps, test_crps = 0.0, 0.0
     if quantile:
-        test_crps = quantile_forecaster.crps_score(y_pred, y_test, np.arange(0.05, 1.0, 0.05))
-        y_pred = y_pred[:,9]
+        if n_outputs>1:
+            test_crps=[]
+            for n in range(n_outputs):
+                y_pred_n = y_pred[:, :, n]
+                test_crps.append(quantile_forecaster.crps_score(y_pred_n, y_test[:,n], np.arange(0.05, 1.0, 0.05)))
+
+            y_pred = y_pred[:,9,:]
+
+        else:
+            test_crps=quantile_forecaster.crps_score(y_pred, y_test, np.arange(0.05, 1.0, 0.05))
+            y_pred = y_pred[:,9]
 
         if X_valid is not None:
-            valid_crps = quantile_forecaster.crps_score(y_valid_pred, y_valid, np.arange(0.05, 1.0, 0.05))
-            y_valid_pred = y_valid_pred[:,9]
+
+            if n_outputs > 1:
+                valid_crps = []
+                for n in range(n_outputs):
+                    y_valid_pred_n = y_valid_pred[:, :, n]
+                    valid_crps.append(quantile_forecaster.crps_score(y_valid_pred_n, y_valid[:, n], np.arange(0.05, 1.0, 0.05)))
+
+                y_valid_pred = y_valid_pred[:, 9, :]
+
+            else:
+                valid_crps = quantile_forecaster.crps_score(y_valid_pred, y_valid, np.arange(0.05, 1.0, 0.05))
+                y_valid_pred = y_valid_pred[:, 9]
 
     return y_pred, y_valid_pred, valid_crps, test_crps
 

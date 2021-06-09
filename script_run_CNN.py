@@ -7,11 +7,11 @@ from collections import Counter
 from sklearn.model_selection import train_test_split
 from datetime import timedelta
 
-from ModulesProcessing import collect_data, clean_data
-from ModulesLearning import preprocessing as preprocess
-from ModulesLearning import postprocessing as postprocess
-from ModulesLearning.ModulesCNN import train as cnn
-from ModulesLearning.ModuleLSTM import train as tranformers
+from SolarForecasting.ModulesProcessing import collect_data, clean_data
+from SolarForecasting.ModulesLearning import preprocessing as preprocess
+from SolarForecasting.ModulesLearning import postprocessing as postprocess
+from SolarForecasting.ModulesLearning.ModulesCNN import train as cnn
+# from SolarForecasting.ModulesLearning.ModuleLSTM import train as tranformers
 
 
 pd.set_option('display.max_rows', 500)
@@ -67,6 +67,7 @@ testyear = 2017
 
 # hyperparameters
 n_timesteps = 24*7 #tcn: 96 #orig:72
+n_output_steps = 24
 n_features = 12 #15 for everything (taking 12(even) features for mulit-head and transformers)
 quantile = True #True
 
@@ -110,27 +111,29 @@ def include_previous_features(X, index_ghi):
     return X
 
 
-# def create_mulitple_lead_dataset(dataframe, final_set_of_features, target):
-#     dataframe_lead = dataframe[final_set_of_features]
-#     target = np.asarray(dataframe[target])
-#
-#     y_list = []
-#     for lead in lead_times:
-#         print("rolling by: ",lead)
-#         target = np.roll(target, -lead)
-#         y_list.append(target)
-#
-#     dataframe_lead['clearness_index'] = np.column_stack(y_list).tolist()
-#     dataframe_lead['clearness_index'] = dataframe_lead['clearness_index'].apply(tuple)
-#     max_lead = np.max(lead_times)
-#     dataframe_lead['clearness_index'].values[-max_lead:] = np.nan
-#     print(dataframe_lead['clearness_index'])
-#
-#     # remove rows which have any value as NaN
-#     dataframe_lead = dataframe_lead.dropna()
-#     print("*****************")
-#     print("dataframe with lead size: ", len(dataframe_lead))
-#     return dataframe_lead
+def create_mulitple_lead_dataset(dataframe, final_set_of_features, target):
+    dataframe_lead = dataframe[final_set_of_features]
+    target = np.asarray(dataframe[target])
+
+    y_list = []
+    # for lead in lead_times:
+    for lead in range(1,n_output_steps+1):
+        print("rolling by: ",lead)
+        target = np.roll(target, -lead)
+        y_list.append(target)
+
+    dataframe_lead['clearness_index'] = np.column_stack(y_list).tolist()
+    dataframe_lead['clearness_index'] = dataframe_lead['clearness_index'].apply(tuple)
+    dataframe_lead = dataframe_lead[:len(dataframe_lead) - n_output_steps]
+    # max_lead = np.max(lead_times)
+    # dataframe_lead['clearness_index'].values[-max_lead:] = np.nan
+    print(dataframe_lead['clearness_index'])
+
+    # remove rows which have any value as NaN
+    # dataframe_lead = dataframe_lead.dropna()
+    print("*****************")
+    print("dataframe with lead size: ", len(dataframe_lead))
+    return dataframe_lead
 
 # def create_labels_for_wavenet(dataframe, lead, final_set_of_features, target):
 #
@@ -232,11 +235,11 @@ def main():
     df_final.reset_index(drop=True, inplace=True)
     print("after removing data points with 0 clear_ghi and selecting daytimes",len(df_final))
     
-    # df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
+    df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
 
     # reg = "transformers"
 
-    reg = "dcnn_with_lag96_tcn_with_correct_multiheadedconvattention_ditto_hyp_from_paper"
+    reg = "dcnn_with_lag96_tcn_with_correct_convattention_multi_horizon_ditto_hyp_from_paper"
 
 
 
@@ -248,119 +251,122 @@ def main():
             exist_ok=True)
         f = open(folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/results.txt", 'a')
 
-        for lead in lead_times:
+        # for lead in lead_times:
             # create dataset with lead
-            df_lead = preprocess.create_lead_dataset(df_final, lead, final_features, target_feature)
-            # df_lead = create_labels_for_wavenet(df_final, lead, final_features, target_feature)
-            df_lead = df_lead[:len(df_lead)-lead]
+            # df_lead = preprocess.create_lead_dataset(df_final, lead, final_features, target_feature)
+            # # df_lead = create_labels_for_wavenet(df_final, lead, final_features, target_feature)
+            # df_lead = df_lead[:len(df_lead)-lead]
 
                 # get the seasonal data you want
-            df, test_startdate, test_enddate = preprocess.get_yearly_or_season_data(df_lead, season_flag, testyear)
-            print("\n\n after getting seasonal data (test_startdate; test_enddate)", test_startdate, test_enddate)
-            print(df.tail)
+        df, test_startdate, test_enddate = preprocess.get_yearly_or_season_data(df_lead, season_flag, testyear)
+        print("\n\n after getting seasonal data (test_startdate; test_enddate)", test_startdate, test_enddate)
+        print(df.tail)
 
-            # dividing into training and test set
-            df_train, df_heldout = preprocess.train_test_spilt(df, season_flag, testyear)
-            print("\n\n after dividing_training_test")
-            print("train_set\n", len(df_train))
-            print("test_set\n", len(df_heldout))
+        # dividing into training and test set
+        df_train, df_heldout = preprocess.train_test_spilt(df, season_flag, testyear)
+        print("\n\n after dividing_training_test")
+        print("train_set\n", len(df_train))
+        print("test_set\n", len(df_heldout))
 
-            if len(df_train) > 0 and len(df_heldout) > 0:
-                # extract the X_train, y_train, X_test, y_test
-                X_train, y_train, X_heldout, y_heldout, index_clearghi, index_ghi, index_zen, col_to_indices_mapping = preprocess.get_train_test_data(
-                    df_train, df_heldout, final_features, target_feature)#, lead)
-                print("\n\n train and test df shapes ")
-                print(X_train.shape, y_train.shape, X_heldout.shape, y_heldout.shape)
-
-
-                # including features from prev imestamps
-                X_train = include_previous_features(X_train, index_ghi)
-                X_heldout = include_previous_features(X_heldout, index_ghi)
-
-                X_train = X_train[n_timesteps:,:]
-                X_heldout = X_heldout[n_timesteps:, :]
-                y_train = y_train[n_timesteps:, :]
-                y_heldout = y_heldout[n_timesteps:, :]
-
-                print("Final train size: ", X_train.shape, y_train.shape)
-                print("Final heldout size: ", X_heldout.shape, y_heldout.shape)
-
-                ## dividing the X_train data into train(70%)/valid(20%)/test(10%), the heldout data is kept hidden
-
-                X_train, X_test, y_train, y_test = train_test_split(
-                    X_train, y_train, test_size=0.3, random_state=42)
-                X_valid, X_test, y_valid, y_test = train_test_split(
-                    X_test, y_test, test_size=0.3, random_state=42)
+        if len(df_train) > 0 and len(df_heldout) > 0:
+            # extract the X_train, y_train, X_test, y_test
+            X_train, y_train, X_heldout, y_heldout, index_clearghi, index_ghi, index_zen, col_to_indices_mapping = preprocess.get_train_test_data(
+                df_train, df_heldout, final_features, target_feature)#, lead)
+            print("\n\n train and test df shapes ")
+            print(X_train.shape, y_train.shape, X_heldout.shape, y_heldout.shape)
 
 
-                print("train/valid/test sizes: ", len(X_train), " ", len(X_valid), " ", len(X_test))
+            # including features from prev imestamps
+            X_train = include_previous_features(X_train, index_ghi)
+            X_heldout = include_previous_features(X_heldout, index_ghi)
+
+            X_train = X_train[n_timesteps:,:]
+            X_heldout = X_heldout[n_timesteps:, :]
+            y_train = y_train[n_timesteps:, :]
+            y_heldout = y_heldout[n_timesteps:, :]
+
+            print("Final train size: ", X_train.shape, y_train.shape)
+            print("Final heldout size: ", X_heldout.shape, y_heldout.shape)
+
+            ## dividing the X_train data into train(70%)/valid(20%)/test(10%), the heldout data is kept hidden
+
+            X_train, X_test, y_train, y_test = train_test_split(
+                X_train, y_train, test_size=0.3, random_state=42)
+            X_valid, X_test, y_valid, y_test = train_test_split(
+                X_test, y_test, test_size=0.3, random_state=42)
 
 
-                # normalizing the Xtrain, Xvalid and Xtest data and saving the mean,std of train to normalize the heldout data later
-                X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, X_test,index_ghi,index_clearghi, len(col_to_indices_mapping),
-                                                                             folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/", lead = lead)
+            print("train/valid/test sizes: ", len(X_train), " ", len(X_valid), " ", len(X_test))
 
 
-                cnn.train_DCNN_with_attention(quantile, X_train, y_train, X_valid, y_valid, n_timesteps+1, n_features,
-                                          folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved = "dcnn_lag_for_lead_" + str(lead)) #, n_outputs=n_timesteps)
+            # normalizing the Xtrain, Xvalid and Xtest data and saving the mean,std of train to normalize the heldout data later
+            X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, X_test,index_ghi,index_clearghi, len(col_to_indices_mapping),
+                                                                         folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/")#, lead = lead)
 
-                y_pred, y_valid_pred, valid_crps, test_crps  = cnn.test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_timesteps+1, n_features,
-                                              folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved = "dcnn_lag_for_lead_" + str(lead))  #, n_outputs=n_timesteps)
 
-                # lstm.train_LSTM(quantile, X_train, y_train, X_valid, y_valid, n_timesteps + 1, n_features,
-                #                               folder_saving + season_flag + "/ML_models_" + str(
-                #                                   testyear) + "/cnn/" + str(res) + "/" + reg + "/",
-                #                               model_saved="lstm_lag_for_lead_" + str(lead))  # , n_outputs=n_timesteps)
-                #
-                # y_pred, y_valid_pred, valid_crps, test_crps = lstm.test_LSTM(quantile, X_valid, y_valid,
-                #                                                                            X_test, y_test,
-                #                                                                            n_timesteps + 1, n_features,
-                #                                                                            folder_saving + season_flag + "/ML_models_" + str(
-                #                                                                                testyear) + "/cnn/" + str(
-                #                                                                                res) + "/" + reg + "/",
-                #                                                                            model_saved="lstm_lag_for_lead_" + str(
-                #                                                                                lead))  # , n_outputs=n_timesteps)
+            cnn.train_DCNN_with_attention(quantile, X_train, y_train, X_valid, y_valid, n_timesteps+1, n_features,
+                                      folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved = "multi_horizon_dcnn", n_outputs=n_output_steps)#"dcnn_lag_for_lead_" + str(lead)) #, n_outputs=n_timesteps)
 
-                # y_pred = model.predict(X_test.reshape(X_test.shape[0],n_timesteps, n_features))
-                # y_valid_pred = model.predict(X_valid.reshape(X_valid.shape[0], n_timesteps, n_features))
-                # print(y_pred.shape)
-                # y_pred = np.reshape(y_pred, -1)
-                # y_valid_pred = np.reshape(y_valid_pred, -1)
+            y_pred, y_valid_pred, valid_crps, test_crps  = cnn.test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_timesteps+1, n_features,
+                                          folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved = "multi_horizon_dcnn", n_outputs=n_output_steps)#"dcnn_lag_for_lead_" + str(lead))  #, n_outputs=n_timesteps)
 
-            # for i in range(len(lead_times)):
+            # lstm.train_LSTM(quantile, X_train, y_train, X_valid, y_valid, n_timesteps + 1, n_features,
+            #                               folder_saving + season_flag + "/ML_models_" + str(
+            #                                   testyear) + "/cnn/" + str(res) + "/" + reg + "/",
+            #                               model_saved="lstm_lag_for_lead_" + str(lead))  # , n_outputs=n_timesteps)
             #
-            #     lead = lead_times[i]
-            #     y_test_for_this_lead = y_test[:,i]
-            #     y_valid_for_this_lead = y_valid[:,i]
-            #     y_pred_for_this_lead = y_pred[:,i]
-            #     y_valid_pred_for_this_lead = y_valid_pred[:,i]
+            # y_pred, y_valid_pred, valid_crps, test_crps = lstm.test_LSTM(quantile, X_valid, y_valid,
+            #                                                                            X_test, y_test,
+            #                                                                            n_timesteps + 1, n_features,
+            #                                                                            folder_saving + season_flag + "/ML_models_" + str(
+            #                                                                                testyear) + "/cnn/" + str(
+            #                                                                                res) + "/" + reg + "/",
+            #                                                                            model_saved="lstm_lag_for_lead_" + str(
+            #                                                                                lead))  # , n_outputs=n_timesteps)
+
+            # y_pred = model.predict(X_test.reshape(X_test.shape[0],n_timesteps, n_features))
+            # y_valid_pred = model.predict(X_valid.reshape(X_valid.shape[0], n_timesteps, n_features))
+            # print(y_pred.shape)
+            # y_pred = np.reshape(y_pred, -1)
+            # y_valid_pred = np.reshape(y_valid_pred, -1)
+
+            for i in range(len(lead_times)):
+
+                lead = lead_times[i]
+                y_test_for_this_lead = y_test[:,i]
+                y_valid_for_this_lead = y_valid[:,i]
+                y_pred_for_this_lead = y_pred[:,i]
+                y_valid_pred_for_this_lead = y_valid_pred[:,i]
+                valid_crps_for_this_lead = valid_crps[i]
+                test_crps_for_this_lead = test_crps[i]
 
 
             #
 
-                f.write("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
-                print("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
+                # f.write("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
+                # print("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
+
 
                 print("##########VALID##########")
-                rmse_our, mae_our, mean_our,std_our,r2_our = postprocess.evaluation_metrics(y_valid, y_valid_pred)
+                rmse_our, mae_our, mean_our,std_our,r2_our = postprocess.evaluation_metrics(y_valid_for_this_lead, y_valid_pred_for_this_lead)
                 print("Performance of our model (rmse, mae, mb, sd, r2, crps): \n\n", round(rmse_our, 2), round(mae_our, 2),
-                      round(mean_our, 2), round(std_our, 2), round(r2_our, 2), round(valid_crps, 2))
+                      round(mean_our, 2), round(std_our, 2), round(r2_our, 2), round(valid_crps_for_this_lead, 2))
                 f.write('\n evaluation metrics (rmse, mae, mb, sd, r2, crps) on valid data for ' + reg + '=' + str(
                     round(rmse_our, 2)) + "," + str(round(mae_our, 2)) + "," +
-                        str(round(mean_our, 2)) + "," + str(round(std_our, 2)) + "," + str(round(r2_our, 2)) + "," + str(round(valid_crps, 2)) +'\n')
+                        str(round(mean_our, 2)) + "," + str(round(std_our, 2)) + "," + str(round(r2_our, 2)) + "," + str(round(valid_crps_for_this_lead, 2)) +'\n')
 
                 print("##########Test##########")
-                rmse_our, mae_our, mean_our, std_our, r2_our = postprocess.evaluation_metrics(y_test, y_pred)
+                rmse_our, mae_our, mean_our, std_our, r2_our = postprocess.evaluation_metrics(y_test_for_this_lead, y_pred_for_this_lead)
                 print("Performance of our model (rmse, mae, mb, sd, r2, crps): \n\n", round(rmse_our, 2), round(mae_our, 2),
-                      round(mean_our, 2), round(std_our, 2), round(r2_our, 2), round(test_crps, 2))
+                      round(mean_our, 2), round(std_our, 2), round(r2_our, 2), round(test_crps_for_this_lead, 2))
                 f.write('\n evaluation metrics (rmse, mae, mb, sd, r2, crps) on test data for ' + reg + '=' + str(
                     round(rmse_our, 2)) + "," + str(round(mae_our, 2)) + "," +
                         str(round(mean_our, 2)) + "," + str(round(std_our, 2)) + "," + str(
-                    round(r2_our, 2)) + "," + str(round(test_crps, 2)) + '\n')
+                    round(r2_our, 2)) + "," + str(round(test_crps_for_this_lead, 2)) + '\n')
 
 
-            else:
-                    print("not enough data for the season: ", season_flag, "and lead: ", lead)
+        else:
+                print("not enough data for the season: ", season_flag, "and lead: ", lead)
 
         f.close()
 
