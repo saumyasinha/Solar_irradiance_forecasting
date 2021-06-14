@@ -27,7 +27,7 @@ city = 'Sioux_Falls_SD'
 lead_times = [16,20,24,28,32,12*4,24*4,12,8,4,1]
 
 # season
-seasons =['year','fall', 'winter', 'spring', 'summer']
+seasons =['year'] #,'fall', 'winter', 'spring', 'summer']
 res = '15min' #15min
 
 # file locations
@@ -66,8 +66,8 @@ endmonth = 8
 testyear = 2017
 
 # hyperparameters
-n_timesteps = 24*7 #tcn: 96 #orig:72
-n_output_steps = 24
+n_timesteps = 169 #tcn: 96 #orig:72
+n_output_steps = 16
 n_features = 12 #15 for everything (taking 12(even) features for mulit-head and transformers)
 quantile = True #True
 
@@ -345,8 +345,8 @@ def main():
 
             #
 
-                # f.write("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
-                # print("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
+                f.write("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
+                print("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
 
 
                 print("##########VALID##########")
