@@ -105,14 +105,14 @@ def train_transformer(quantile, X_train, y_train, X_valid, y_valid, n_timesteps,
 
     # Size: [batch_size, seq_len, input_size]
     X_train, y_train = X_train.astype(np.float32), y_train.astype(np.float32)
-    # X_train = torch.from_numpy(X_train).reshape(n_timesteps, -1, n_features)
-    X_train = torch.from_numpy(X_train).reshape(-1, n_features, n_timesteps)
+    # X_train = torch.from_numpy(X_train).reshape(-1, n_features, n_timesteps)
+    X_train = torch.from_numpy(X_train).reshape(-1, n_timesteps, n_features)
     y_train = torch.from_numpy(y_train).reshape(-1,n_outputs)
 
     if valid:
         X_valid, y_valid = X_valid.astype(np.float32), y_valid.astype(np.float32)
-        # X_valid = torch.from_numpy(X_valid).reshape(n_timesteps, -1, n_features)
-        X_valid = torch.from_numpy(X_valid).reshape(-1, n_features, n_timesteps)
+        # X_valid = torch.from_numpy(X_valid).reshape(-1, n_features, n_timesteps)
+        X_valid = torch.from_numpy(X_valid).reshape(-1, n_timesteps, n_features)
         y_valid = torch.from_numpy(y_valid).reshape(-1,n_outputs)
 
     print(X_train.shape, y_train.shape)
@@ -139,13 +139,13 @@ def test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_
 
 
     X_test, y_test = X_test.astype(np.float32), y_test.astype(np.float32)
-    # X_test = torch.from_numpy(X_test).reshape(n_timesteps, -1, n_features)
-    X_test = torch.from_numpy(X_test).reshape(-1, n_features, n_timesteps)
+    # X_test = torch.from_numpy(X_test).reshape(-1, n_features, n_timesteps)
+    X_test = torch.from_numpy(X_test).reshape(-1, n_timesteps, n_features)
 
     if X_valid is not None:
         X_valid, y_valid = X_valid.astype(np.float32), y_valid.astype(np.float32)
-        # X_valid = torch.from_numpy(X_valid).reshape(n_timesteps, -1, n_features)
-        X_valid = torch.from_numpy(X_valid).reshape(-1, n_features, n_timesteps)
+        # X_valid = torch.from_numpy(X_valid).reshape(-1, n_features, n_timesteps)
+        X_valid = torch.from_numpy(X_valid).reshape(-1, n_timesteps, n_features)
 
     # point_foreaster = MultiAttnHeadSimple(n_features, n_timesteps, folder_saving, model_saved, quantile, outputs=n_outputs,
     #                           valid=True)

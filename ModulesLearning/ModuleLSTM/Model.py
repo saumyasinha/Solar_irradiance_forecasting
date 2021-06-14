@@ -3,7 +3,7 @@ import math
 import numpy as np
 import torch.nn as nn
 from torch.autograd import Variable
-from ModulesLearning.ModuleLSTM.attention import *
+from ModulesLearning.ModuleLSTM.functions import *
 from torch.nn.modules.activation import MultiheadAttention
 
 
@@ -96,23 +96,23 @@ class quantileLSTM(nn.Module):
 
         return out
 
-
-class SimplePositionalEncoding(torch.nn.Module):
-    def __init__(self, d_model, dropout=0.1, max_len=5000):
-        super(SimplePositionalEncoding, self).__init__()
-        self.dropout = torch.nn.Dropout(p=dropout)
-        pe = torch.zeros(max_len, d_model)
-        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
-        pe = pe.unsqueeze(0).transpose(0, 1)
-        self.register_buffer('pe', pe)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Creates a basic positional encoding"""
-        x = x + self.pe[:x.size(0), :]
-        return self.dropout(x)
+#
+# class SimplePositionalEncoding(torch.nn.Module):
+#     def __init__(self, d_model, dropout=0.1, max_len=5000):
+#         super(SimplePositionalEncoding, self).__init__()
+#         self.dropout = torch.nn.Dropout(p=dropout)
+#         pe = torch.zeros(max_len, d_model)
+#         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+#         div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+#         pe[:, 0::2] = torch.sin(position * div_term)
+#         pe[:, 1::2] = torch.cos(position * div_term)
+#         pe = pe.unsqueeze(0).transpose(0, 1)
+#         self.register_buffer('pe', pe)
+#
+#     def forward(self, x: torch.Tensor) -> torch.Tensor:
+#         """Creates a basic positional encoding"""
+#         x = x + self.pe[:x.size(0), :]
+#         return self.dropout(x)
 
 # class EncoderLayer(torch.nn.Module):
 #     def __init__(self, dim_val, dim_attn, n_heads=1):
@@ -263,16 +263,18 @@ class SimplePositionalEncoding(torch.nn.Module):
     #
 
 
+
+
 class MultiAttnHeadSimple(torch.nn.Module):
     """A simple multi-head attention model inspired by Vaswani et al."""
 
     def __init__(
-            self, d_model, seq_len, folder_saving, model, quantile, alphas=None, outputs=None, valid=False,
-            output_seq_len=1, num_heads=4, dropout=0.2):
+            self, input_dim, seq_len, folder_saving, model, quantile, n_layers=3, factor=32, alphas=None, outputs=None, valid=False,
+            output_seq_len=1, num_heads=8, d_model=128, dropout=0.2):
         super().__init__()
 
         self.outputs = outputs
-        self.d_model = d_model
+        self.input_dim = input_dim
         self.seq_len = seq_len
         self.alphas = alphas
         self.valid = valid
@@ -280,37 +282,51 @@ class MultiAttnHeadSimple(torch.nn.Module):
         self.saving_path = folder_saving + model
         self.quantile = quantile
         self.num_heads = num_heads
+        self.n_layers = n_layers
 
-        # self.dense_shape = torch.nn.Linear(number_time_series, d_model)
-        self.pe = SimplePositionalEncoding(self.d_model)
-        self.multi_attn = MultiheadAttention(
-            embed_dim=self.d_model, num_heads=self.num_heads, dropout=dropout)
-        self.final_layer = torch.nn.Linear(self.d_model, self.outputs)
-        self.length_data = seq_len
-        self.forecast_length = output_seq_len
-        self.last_layer = torch.nn.Linear(seq_len, output_seq_len)
+    #     # self.dense_shape = torch.nn.Linear(number_time_series, d_model)
+    #     self.pe = SimplePositionalEncoding(self.d_model)
+    #     self.multi_attn = MultiheadAttention(
+    #         embed_dim=self.d_model, num_heads=self.num_heads, dropout=dropout)
+    #     self.final_layer = torch.nn.Linear(self.d_model, self.outputs)
+    #     self.length_data = seq_len
+    #     self.forecast_length = output_seq_len
+    #     self.last_layer = torch.nn.Linear(seq_len, output_seq_len)
+    #
+    #
+    # def forward(self, x: torch.Tensor, mask=None) -> torch.Tensor:
+    #
+    #     # Permute to (L, B, M)
+    #     x = x.permute(2, 0, 1)
+    #     # x = self.dense_shape(x)
+    #     x = self.pe(x)
+    #     if mask is None:
+    #         x = self.multi_attn(x, x, x)[0]
+    #     else:
+    #         x = self.multi_attn(x, x, x, attn_mask=self.mask)[0]
+    #     x = self.final_layer(x)
+    #
+    #     # Switch to (B, M, L)
+    #     x = x.permute(1, 2, 0)
+    #     x = self.last_layer(x)
+    #
+    #     if self.forecast_length>1:
+    #         return x
+    #     else:
+    #         return x[:,:,-1]
+
+        super(MultiAttnHeadSimple, self).__init__()
+        self.encoder = EncoderLayer(self.input_dim, self.seq_len, self.num_heads, self.n_layers, self.d_model, self.dropout)
+        self.dense_interpolation = DenseInterpolation(self.seq_len, self.factor)
+        self.fc = nn.Linear(int(self.d_model * self.factor), self.outputs)
 
 
-    def forward(self, x: torch.Tensor, mask=None) -> torch.Tensor:
-
-        # Permute to (L, B, M)
-        x = x.permute(2, 0, 1)
-        # x = self.dense_shape(x)
-        x = self.pe(x)
-        if mask is None:
-            x = self.multi_attn(x, x, x)[0]
-        else:
-            x = self.multi_attn(x, x, x, attn_mask=self.mask)[0]
-        x = self.final_layer(x)
-
-        # Switch to (B, M, L)
-        x = x.permute(1, 2, 0)
-        x = self.last_layer(x)
-
-        if self.forecast_length>1:
-            return x
-        else:
-            return x[:,:,-1]
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.encoder(x)
+        x = self.dense_interpolation(x)
+        x = x.contiguous().view(-1, int(self.factor * self.d_model))
+        x = self.fc(x)
+        return x
 
 
 

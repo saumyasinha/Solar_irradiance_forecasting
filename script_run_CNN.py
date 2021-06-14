@@ -66,7 +66,7 @@ endmonth = 8
 testyear = 2017
 
 # hyperparameters
-n_timesteps = 169 #tcn: 96 #orig:72
+n_timesteps = 24*7 #tcn: 96 #orig:72
 n_output_steps = 16
 n_features = 12 #15 for everything (taking 12(even) features for mulit-head and transformers)
 quantile = True #True
@@ -240,7 +240,7 @@ def main():
 
     # reg = "dcnn_with_lag169_tcn_with_correct_convattention_multi_horizon_ditto_hyp_from_paper"
 
-    reg = "dcnn_with_lag169_only_multiheadattention_no_conv"
+    reg = "dcnn_with_lag169_only_multiheadattention_from_SAND"
 
 
 
