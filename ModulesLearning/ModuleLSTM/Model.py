@@ -269,7 +269,7 @@ class MultiAttnHeadSimple(torch.nn.Module):
     """A simple multi-head attention model inspired by Vaswani et al."""
 
     def __init__(
-            self, input_dim, seq_len, folder_saving, model, quantile, n_layers=3, factor=32, alphas=None, outputs=None, valid=False,
+            self, input_dim, seq_len, folder_saving, model, quantile, n_layers=2, factor=12, alphas=None, outputs=None, valid=False,
             output_seq_len=1, num_heads=8, d_model=128, dropout=0.2):
         super().__init__()
 
@@ -283,6 +283,11 @@ class MultiAttnHeadSimple(torch.nn.Module):
         self.quantile = quantile
         self.num_heads = num_heads
         self.n_layers = n_layers
+        self.d_model = d_model
+        self.factor = factor
+        self.dropout = dropout
+
+        #self.factor = self.seq_len #setting this when not using dense interpolation
 
     #     # self.dense_shape = torch.nn.Linear(number_time_series, d_model)
     #     self.pe = SimplePositionalEncoding(self.d_model)
@@ -319,7 +324,7 @@ class MultiAttnHeadSimple(torch.nn.Module):
         self.encoder = EncoderLayer(self.input_dim, self.seq_len, self.num_heads, self.n_layers, self.d_model, self.dropout)
         self.dense_interpolation = DenseInterpolation(self.seq_len, self.factor)
         self.fc = nn.Linear(int(self.d_model * self.factor), self.outputs)
-
+        
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.encoder(x)

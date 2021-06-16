@@ -168,6 +168,7 @@ class ResidualBlock(nn.Module):
         self.dropout = nn.Dropout(p=p)
         self.norm = nn.LayerNorm(embed_dim)
         self.attn_weights = None
+        self.sqrt_k = math.sqrt(embed_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -176,7 +177,10 @@ class ResidualBlock(nn.Module):
         """
         if isinstance(self.layer, nn.MultiheadAttention):
             src = x.transpose(0, 1)     # [seq_len, N, features]
-            output, self.attn_weights = self.layer(src, src, src)
+            device = src.device
+            mask = self._generate_square_subsequent_mask(len(src)).to(device)
+
+            output, self.attn_weights = self.layer(src, src, src, attn_mask=mask)
             output = output.transpose(0, 1)     # [N, seq_len, features]
 
         else:
@@ -185,6 +189,12 @@ class ResidualBlock(nn.Module):
         output = self.dropout(output)
         output = self.norm(x + output)
         return output
+    
+    def _generate_square_subsequent_mask(self, sz):
+        mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
+        mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
+        mask = F.softmax(mask,dim=0) / self.sqrt_k
+        return mask
 
 
 class PositionWiseFeedForward(nn.Module):
