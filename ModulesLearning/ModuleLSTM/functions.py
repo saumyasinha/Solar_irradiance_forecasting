@@ -168,6 +168,7 @@ class ResidualBlock(nn.Module):
         self.dropout = nn.Dropout(p=p)
         self.norm = nn.LayerNorm(embed_dim)
         self.attn_weights = None
+        self.sqrt_k = math.sqrt(embed_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -176,7 +177,11 @@ class ResidualBlock(nn.Module):
         """
         if isinstance(self.layer, nn.MultiheadAttention):
             src = x.transpose(0, 1)     # [seq_len, N, features]
-            output, self.attn_weights = self.layer(src, src, src)
+
+            device = src.device
+            mask = self._generate_square_subsequent_mask(len(src)).to(device)
+
+            output, self.attn_weights = self.layer(src, src, src)#, attn_mask=mask)
             output = output.transpose(0, 1)     # [N, seq_len, features]
 
         else:
@@ -185,6 +190,12 @@ class ResidualBlock(nn.Module):
         output = self.dropout(output)
         output = self.norm(x + output)
         return output
+
+    def _generate_square_subsequent_mask(self, sz):
+        mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
+        mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
+        mask = F.softmax(mask,dim=0) / self.sqrt_k
+        return mask
 
 
 class PositionWiseFeedForward(nn.Module):
@@ -209,6 +220,7 @@ class PositionWiseFeedForward(nn.Module):
 class EncoderBlock(nn.Module):
     def __init__(self, embed_dim: int, num_head: int, dropout_rate=0.1) -> None:
         super(EncoderBlock, self).__init__()
+
         self.attention = ResidualBlock(
             nn.MultiheadAttention(embed_dim, num_head), embed_dim, p=dropout_rate
         )
@@ -218,6 +230,7 @@ class EncoderBlock(nn.Module):
         x = self.attention(x)
         x = self.ffn(x)
         return x
+
 
 class EncoderLayer(nn.Module):
     def __init__(self, input_features, seq_len, n_heads, n_layers, d_model=128, dropout_rate=0.2) -> None:
@@ -266,3 +279,6 @@ class DenseInterpolation(nn.Module):
         w = self.W.repeat(x.shape[0], 1, 1).requires_grad_(False)
         u = torch.bmm(w, x)
         return u.transpose_(1, 2)
+
+
+

@@ -3,7 +3,7 @@ import math
 import numpy as np
 import torch.nn as nn
 from torch.autograd import Variable
-from ModulesLearning.ModuleLSTM.functions import *
+from SolarForecasting.ModulesLearning.ModuleLSTM.functions import *
 from torch.nn.modules.activation import MultiheadAttention
 
 
@@ -269,8 +269,8 @@ class MultiAttnHeadSimple(torch.nn.Module):
     """A simple multi-head attention model inspired by Vaswani et al."""
 
     def __init__(
-            self, input_dim, seq_len, folder_saving, model, quantile, n_layers=3, factor=32, alphas=None, outputs=None, valid=False,
-            output_seq_len=1, num_heads=8, d_model=128, dropout=0.2):
+            self, input_dim, seq_len, folder_saving, model, quantile, n_layers=2, factor=12, alphas=None, outputs=None, valid=False,
+            output_seq_len=1, num_heads=4, d_model=128, dropout=0.2):
         super().__init__()
 
         self.outputs = outputs
@@ -283,6 +283,14 @@ class MultiAttnHeadSimple(torch.nn.Module):
         self.quantile = quantile
         self.num_heads = num_heads
         self.n_layers = n_layers
+        self.output_seq_len = output_seq_len
+        self.factor = factor
+        self.d_model = d_model
+        self.dropout = dropout
+
+        #If solving multi horizon problem
+        if output_seq_len>1:
+            self.factor = self.output_seq_len
 
     #     # self.dense_shape = torch.nn.Linear(number_time_series, d_model)
     #     self.pe = SimplePositionalEncoding(self.d_model)
@@ -318,25 +326,30 @@ class MultiAttnHeadSimple(torch.nn.Module):
         super(MultiAttnHeadSimple, self).__init__()
         self.encoder = EncoderLayer(self.input_dim, self.seq_len, self.num_heads, self.n_layers, self.d_model, self.dropout)
         self.dense_interpolation = DenseInterpolation(self.seq_len, self.factor)
-        self.fc = nn.Linear(int(self.d_model * self.factor), self.outputs)
+        if self.output_seq_len>1:
+            self.fc = nn.Linear(self.d_model, self.outputs)
+        else:
+            self.fc = nn.Linear(int(self.d_model * self.factor), self.outputs)
 
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.encoder(x)
         x = self.dense_interpolation(x)
-        x = x.contiguous().view(-1, int(self.factor * self.d_model))
+        if self.output_seq_len==1:
+            x = x.contiguous().view(-1, int(self.factor * self.d_model))
         x = self.fc(x)
         return x
 
 
 
     def trainBatchwise(self, trainX, trainY, epochs, batch_size, lr=0.0001, validX=None,
-                       validY=None, patience=None, verbose=None, reg_lamdba = 0.0001):
+                       validY=None, n_output_length = 1, patience=None, verbose=None, reg_lamdba = 0): #0.0001):
+
         optimizer = torch.optim.Adam(self.parameters(), lr=lr)
         # scheduler = StepLR(optimizer, step_size=25, gamma=0.1)
         criterion = torch.nn.MSELoss()
         # criterion = nn.L1Loss()
-        samples = trainX.size()[0]#[1]
+        samples = trainX.size()[0]
         losses = []
         valid_losses = []
 
@@ -348,33 +361,35 @@ class MultiAttnHeadSimple(torch.nn.Module):
                 self.train_mode = True
 
             indices = torch.randperm(samples)
-            trainX, trainY = trainX[indices, :, :], trainY[indices] #trainX[:, indices, :], trainY[indices] #trainX[indices, :, :], trainY[indices]
+            trainX, trainY = trainX[indices, :, :], trainY[indices]
             per_epoch_loss = 0
             count_train = 0
             for i in range(0, samples, batch_size):
-                xx = trainX[i: i + batch_size, :, :] #trainX[:, i: i + batch_size, :]
-                yy = trainY[i: i + batch_size]#trainY[i: i + batch_size]
+                xx = trainX[i: i + batch_size, :, :]
+                yy = trainY[i: i + batch_size]
 
                 if torch.cuda.is_available():
                     xx, yy = xx.cuda(), yy.cuda()
 
                 outputs = self.forward(xx)
-                # print(outputs.shape)
                 optimizer.zero_grad()
                 if self.quantile:
-                    loss = self.quantile_loss(outputs, yy)
+                    if n_output_length==1:
+                        loss = self.quantile_loss(outputs, yy)
+                    else:
+                        # train loss for multiple outputs or multi-task learning
+                        total_loss = []
+                        for n in range(n_output_length):
+                            y_pred = outputs[:,n, :]
+                            # calculate the batch loss
+                            loss = self.quantile_loss(y_pred, yy[:, n])
+                            total_loss.append(loss)
+
+                        loss = sum(total_loss)
+
                 else:
                     loss = criterion(outputs, yy)
 
-                    ## train loss for multiple outputs or multi-task learning
-                    # total_loss = []
-                    # for n in range(self.outputs):
-                    #     y_pred = outputs[:, n]
-                    #     # calculate the batch loss
-                    #     loss = criterion(y_pred, yy[:, n])
-                    #     total_loss.append(loss)
-                    #
-                    # loss = sum(total_loss)
 
                 reg_loss = np.sum([weights.norm(2) for weights in self.parameters()])
                 total_loss = loss + reg_lamdba/ 2 * reg_loss
@@ -402,7 +417,21 @@ class MultiAttnHeadSimple(torch.nn.Module):
                     validYPred = self.forward(validX)
                     # validYPred = validYPred.cpu().detach().numpy()
                     # validYTrue = validY.cpu().detach().numpy()
-                    valid_loss_this_epoch = self.quantile_loss(validYPred,validY).item()
+                    # valid_loss_this_epoch = self.quantile_loss(validYPred,validY).item()
+
+                    if n_output_length == 1:
+                        valid_loss_this_epoch = self.quantile_loss(validYPred,validY).item()
+                    else:
+                        # train loss for multiple outputs or multi-task learning
+                        total_loss = []
+                        for n in range(n_output_length):
+                            y_pred = validYPred[:, n, :]
+                            # calculate the batch loss
+                            loss = self.quantile_loss(y_pred, validY[:, n])
+                            total_loss.append(loss)
+
+                        valid_loss_this_epoch = sum(total_loss).item()
+
                     # valid_loss = elf.crps_score(validYPred, validYTrue, np.arange(0.05, 1.0, 0.05))s
                     valid_losses.append(valid_loss_this_epoch)
                     print("Epoch: %d, loss: %1.5f and valid_loss : %1.5f" % (epoch, train_loss_this_epoch, valid_loss_this_epoch))
@@ -438,6 +467,7 @@ class MultiAttnHeadSimple(torch.nn.Module):
         # load the last checkpoint with the best model
         # self.load_state_dict(torch.load('checkpoint.pt'))
         return losses, valid_losses
+
 
     def crps_score(self, outputs, target, alphas):
         loss = []

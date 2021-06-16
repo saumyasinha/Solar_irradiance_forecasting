@@ -11,7 +11,7 @@ import scipy as sp
 from SolarForecasting.ModulesProcessing import collect_data, clean_data
 from SolarForecasting.ModulesLearning import preprocessing as preprocess
 from SolarForecasting.ModulesLearning import postprocessing as postprocess
-from SolarForecasting.ModulesLearning.ModulesCNN import train as probabilistic
+from SolarForecasting.ModulesLearning.ModuleLSTM import train as tranformers
 pd.set_option('display.max_rows', 500)
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.width', 1000)
@@ -22,17 +22,17 @@ pd.set_option('display.width', 1000)
 city = 'Sioux_Falls_SD'
 
 # lead time
-lead_times = [1,4,8,12,16,20,24,28,32,12*4,24*4]
+lead_times = [1,4,8,12,16,20,24,28,32,12*4]
 
 # season
-seasons =['fall', 'winter', 'spring', 'summer', 'year'] #from ['fall', 'winter', 'spring', 'summer', 'year']
+seasons =['year'] #from ['fall', 'winter', 'spring', 'summer']
 res = '15min' #15min
 
 # file locations
 # path_desktop = "C:\\Users\Shivendra\Desktop\SolarProject\solar_forecasting/"
 path_local = "/Users/saumya/Desktop/SolarProject/"
 path_cluster = "/pl/active/machinelearning/Solar_forecasting_project/"
-path_project = path_cluster
+path_project = path_local
 path = path_project+"Data/"
 folder_saving = path_project + city+"/Models/"
 folder_plots = path_project + city+"/Plots/"
@@ -43,10 +43,10 @@ clearsky_file_path = path+'clear-sky/'+city+'_15min_original.csv'
 features = ['year','month','day','hour','min','zen','dw_solar','uw_solar','direct_n','diffuse','dw_ir','dw_casetemp','dw_dometemp','uw_ir','uw_casetemp','uw_dometemp','uvb','par','netsolar','netir','totalnet','temp','rh','windspd','winddir','pressure']
 
 # selected features for the study
-# final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','dw_ir','temp','rh','windspd','winddir','pressure','clear_ghi']
+final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','dw_ir','temp','rh','windspd','winddir','pressure','clear_ghi']
 
 ## ## selected features for the study (exploring multiple combinations)
-final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
+# final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
 # final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','direct_n','dw_ir','temp','windspd','winddir','pressure', 'clear_ghi']
 
 # target or Y
@@ -63,9 +63,10 @@ endmonth = 8
 testyear = 2017
 
 # hyperparameters
-n_timesteps = 0 #72
-n_features = 15 #10 before
-quantile = True
+n_timesteps = 72 #tcn: 96 #orig:72
+n_output_steps = 16
+n_features = 12 #15 for everything (taking 12(even) features for mulit-head and transformers)
+quantile = True #True
 
 
 def get_data():
@@ -106,28 +107,30 @@ def include_previous_features(X, index_ghi):
     print("X shape after adding prev features: ", X.shape)
     return X
 
-# def create_mulitple_lead_dataset(dataframe, final_set_of_features, target):
-#     dataframe_lead = dataframe[final_set_of_features]
-#     target = np.asarray(dataframe[target])
-#
-#     y_list = []
-#     for lead in lead_times:
-#         print("rolling by: ", lead)
-#         target = np.roll(target, -lead)
-#         y_list.append(target)
-#
-#     dataframe_lead['clearness_index'] = np.column_stack(y_list).tolist()
-#     dataframe_lead['clearness_index'] = dataframe_lead['clearness_index'].apply(tuple)
-#     max_lead = np.max(lead_times)
-#     dataframe_lead['clearness_index'].values[-max_lead:] = np.nan
-#     print(dataframe_lead['clearness_index'])
-#
-#     # remove rows which have any value as NaN
-#     dataframe_lead = dataframe_lead.dropna()
-#     print("*****************")
-#     print("dataframe with lead size: ", len(dataframe_lead))
-#     return dataframe_lead
 
+def create_mulitple_lead_dataset(dataframe, final_set_of_features, target):
+    dataframe_lead = dataframe[final_set_of_features]
+    target = np.asarray(dataframe[target])
+
+    y_list = []
+    # for lead in lead_times:
+    for lead in range(1,n_output_steps+1):
+        print("rolling by: ",lead)
+        target = np.roll(target, -lead)
+        y_list.append(target)
+
+    dataframe_lead['clearness_index'] = np.column_stack(y_list).tolist()
+    dataframe_lead['clearness_index'] = dataframe_lead['clearness_index'].apply(tuple)
+    dataframe_lead = dataframe_lead[:len(dataframe_lead) - n_output_steps]
+    # max_lead = np.max(lead_times)
+    # dataframe_lead['clearness_index'].values[-max_lead:] = np.nan
+    print(dataframe_lead['clearness_index'])
+
+    # remove rows which have any value as NaN
+    # dataframe_lead = dataframe_lead.dropna()
+    print("*****************")
+    print("dataframe with lead size: ", len(dataframe_lead))
+    return dataframe_lead
 
 
 def get_crps_for_ngboost(model, X, y):
@@ -219,14 +222,14 @@ def main():
 
     # df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
 
-    reg = "ngboost_without_lag"
+    reg = "dcnn_with_lag169_only_multiheadattention_from_SAND"
     for season_flag in seasons:
         ## ML_models_2008 is the folder to save results on testyear 2008
         ## creating different folder for different methods: nn for fully connected networks, rf for random forest etc.
         os.makedirs(
-            folder_saving + season_flag + "/ML_models_" + str(testyear) + "/probabilistic/" + str(res) + "/" + reg + "/",
+            folder_saving + season_flag + "/ML_models_" + str(testyear) + "/cnn/" + str(res) + "/" + reg + "/",
             exist_ok=True)
-        f = open(folder_saving + season_flag + "/ML_models_" + str(testyear) + "/probabilistic/" + str(
+        f = open(folder_saving + season_flag + "/ML_models_" + str(testyear) + "/cnn/" + str(
             res) + "/" + reg + "/results.txt", 'a')
 
         for lead in lead_times:
@@ -254,8 +257,8 @@ def main():
                 print(X_train.shape, y_train.shape, X_heldout.shape, y_heldout.shape)
 
                 # including features from prev imestamps
-                # X_train = include_previous_features(X_train, index_ghi)
-                # X_heldout = include_previous_features(X_heldout, index_ghi)
+                X_train = include_previous_features(X_train, index_ghi)
+                X_heldout = include_previous_features(X_heldout, index_ghi)
 
                 X_train = X_train[n_timesteps:, :]
                 X_heldout = X_heldout[n_timesteps:, :]
@@ -270,35 +273,37 @@ def main():
                 ## normalizing the heldout with the X_train used for training
                 X_train, X_valid, X_test = preprocess.standardize_from_train(X_train=None, X_valid=None, X_test=X_heldout, index_ghi = index_ghi,
                                                                              index_clearghi = index_clearghi, total_features=len(col_to_indices_mapping),folder_saving = folder_saving + season_flag + "/ML_models_" + str(
-                                                                                 testyear) + "/probabilistic/" + str(
+                                                                                 testyear) + "/cnn/" + str(
                                                                                  res) + "/" + reg + "/", lead = lead)
                 print("heldout size:", X_test.shape, y_heldout.shape)
 
                 y_test=y_heldout
                 y_true = y_test
 
-                y_test = np.reshape(y_heldout, -1)
+                # y_test = np.reshape(y_heldout, -1)
 
                 f.write("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
 
-                with open(folder_saving + season_flag + "/ML_models_"+str(testyear)+"/probabilistic/"+str(res)+"/"+reg+"//model_at_lead_" + str(lead) + ".pkl", 'rb') as file:
-                    model = pickle.load(file)
-                y_true = y_test
+                # with open(folder_saving + season_flag + "/ML_models_"+str(testyear)+"/probabilistic/"+str(res)+"/"+reg+"//model_at_lead_" + str(lead) + ".pkl", 'rb') as file:
+                #     model = pickle.load(file)
 
-                y_pred = model.predict(X_test)
-
-                y_pred = np.reshape(y_pred, -1)
+                # y_true = y_test
+                #
+                # y_pred = model.predict(X_test)
+                #
+                # y_pred = np.reshape(y_pred, -1)
 
                 ## The CRPS scores would be calculated on the clearness index
-                test_crps = get_crps_for_ngboost(model, X_test, y_test)
+                # test_crps = get_crps_for_ngboost(model, X_test, y_test)
 
-
-                # y_pred, y_valid_pred, valid_crps, test_crps = cnn.test_dcnn_with_attention(quantile,None, None,
-                #                                                                            X_test, y_test, n_timesteps,
-                #                                                                            n_features,
-                #                                                                            folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",
-                #                                                                            model_saved="dcnn_lag_for_lead_" + str(
-                #                                                                                lead))  # , n_outputs=len(lead_times))
+                y_pred, y_valid_pred, valid_crps, test_crps = tranformers.test_transformer(quantile, None, None,
+                                                                                           X_test, y_test,
+                                                                                           n_timesteps + 1, n_features,
+                                                                                           folder_saving + season_flag + "/ML_models_" + str(
+                                                                                               testyear) + "/cnn/" + str(
+                                                                                               res) + "/" + reg + "/",
+                                                                                           model_saved="dcnn_lag_for_lead_" + str(
+                                                                                               lead))  # "multi_horizon_dcnn", n_outputs=n_output_steps)
 
                 print(y_pred.shape, y_true.shape)
 

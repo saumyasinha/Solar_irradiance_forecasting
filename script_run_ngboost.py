@@ -64,7 +64,7 @@ testyear = 2017
 
 # hyperparameters
 n_timesteps = 24
-n_features = 15 #(after including montth and hour)
+n_features = 15 #(after including month and hour)
 
 
 def get_data():
