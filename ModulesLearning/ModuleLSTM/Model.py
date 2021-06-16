@@ -270,8 +270,8 @@ class MultiAttnHeadSimple(torch.nn.Module):
 
     def __init__(
             self, input_dim, seq_len, folder_saving, model, quantile, n_layers=2, factor=12, alphas=None, outputs=None, valid=False,
-            output_seq_len=1, num_heads=4, d_model=128, dropout=0.2):
-        super().__init__()
+         output_seq_len=1, num_heads=8, d_model=128, dropout=0.2):
+        super(MultiAttnHeadSimple, self).__init__()
 
         self.outputs = outputs
         self.input_dim = input_dim
@@ -283,6 +283,7 @@ class MultiAttnHeadSimple(torch.nn.Module):
         self.quantile = quantile
         self.num_heads = num_heads
         self.n_layers = n_layers
+
         self.output_seq_len = output_seq_len
         self.factor = factor
         self.d_model = d_model
@@ -291,6 +292,10 @@ class MultiAttnHeadSimple(torch.nn.Module):
         #If solving multi horizon problem
         if output_seq_len>1:
             self.factor = self.output_seq_len
+
+
+        #self.factor = self.seq_len #setting this when not using dense interpolation
+
 
     #     # self.dense_shape = torch.nn.Linear(number_time_series, d_model)
     #     self.pe = SimplePositionalEncoding(self.d_model)
@@ -323,13 +328,14 @@ class MultiAttnHeadSimple(torch.nn.Module):
     #     else:
     #         return x[:,:,-1]
 
-        super(MultiAttnHeadSimple, self).__init__()
         self.encoder = EncoderLayer(self.input_dim, self.seq_len, self.num_heads, self.n_layers, self.d_model, self.dropout)
         self.dense_interpolation = DenseInterpolation(self.seq_len, self.factor)
+
         if self.output_seq_len>1:
             self.fc = nn.Linear(self.d_model, self.outputs)
         else:
             self.fc = nn.Linear(int(self.d_model * self.factor), self.outputs)
+
 
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:

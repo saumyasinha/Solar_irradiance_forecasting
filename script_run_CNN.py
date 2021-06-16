@@ -46,8 +46,8 @@ clearsky_file_path = path+'clear-sky/'+city+'_15min_original.csv'
 features = ['year','month','day','hour','min','zen','dw_solar','uw_solar','direct_n','diffuse','dw_ir','dw_casetemp','dw_dometemp','uw_ir','uw_casetemp','uw_dometemp','uvb','par','netsolar','netir','totalnet','temp','rh','windspd','winddir','pressure']
 
 # selected features for the study
-final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','dw_ir','temp','rh','windspd','winddir','pressure','clear_ghi']
-
+#final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','dw_ir','temp','rh','windspd','winddir','pressure','clear_ghi']
+final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','diffuse','dw_ir','dw_casetemp','dw_dometemp','uw_ir','uw_casetemp','uw_dometemp','uvb','par','temp','rh','windspd','winddir','pressure', 'clear_ghi']
 ## ## selected features for the study (exploring multiple combinations)
 # final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
 # final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','direct_n','dw_ir','temp','windspd','winddir','pressure', 'clear_ghi']
@@ -66,9 +66,10 @@ endmonth = 8
 testyear = 2017
 
 # hyperparameters
+
 n_timesteps = 72 #tcn: 96 #orig:72
 n_output_steps = 16
-n_features = 12 #15 for everything (taking 12(even) features for mulit-head and transformers)
+n_features = 22 #12 #15 for everything (taking 12(even) features for mulit-head and transformers)
 quantile = True #True
 
 
@@ -237,10 +238,10 @@ def main():
     
     df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
 
-
-    # reg = "dcnn_with_lag169_tcn_with_correct_convattention_multi_horizon_ditto_hyp_from_paper"
-
     reg = "dcnn_with_lag169_only_multiheadattention_multi_horizon_from_SAND"
+
+    # reg = "dcnn_with_lag169_only_multiheadattention_more_heads_and_features_from_SAND"
+
 
 
 
@@ -367,8 +368,8 @@ def main():
                     round(r2_our, 2)) + "," + str(round(test_crps_for_this_lead, 2)) + '\n')
 
 
-            else:
-                    print("not enough data for the season: ", season_flag, "and lead: ", lead)
+        else:
+                print("not enough data for the season: ", season_flag, "and lead: ", lead)
 
         f.close()
 
