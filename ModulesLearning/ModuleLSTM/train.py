@@ -1,5 +1,5 @@
 import torch
-from SolarForecasting.ModulesLearning.ModuleLSTM.Model import MultiAttnHeadSimple
+from ModulesLearning.ModuleLSTM.Model import MultiAttnHeadSimple
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -134,7 +134,7 @@ def train_transformer(quantile, X_train, y_train, X_valid, y_valid, n_timesteps,
     learning_rate = 1e-5 #0.0001
 
     epochs = 250 #100
-    batch_size = 32
+    batch_size = 8 #16 #32
     train_loss, valid_loss = quantile_forecaster.trainBatchwise(X_train, y_train, epochs, batch_size,learning_rate, X_valid, y_valid, n_outputs, patience=1000)
 
     loss_plots(train_loss,valid_loss,folder_saving,model_saved)

@@ -46,8 +46,8 @@ clearsky_file_path = path+'clear-sky/'+city+'_15min_original.csv'
 features = ['year','month','day','hour','min','zen','dw_solar','uw_solar','direct_n','diffuse','dw_ir','dw_casetemp','dw_dometemp','uw_ir','uw_casetemp','uw_dometemp','uvb','par','netsolar','netir','totalnet','temp','rh','windspd','winddir','pressure']
 
 # selected features for the study
-#final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','dw_ir','temp','rh','windspd','winddir','pressure','clear_ghi']
-final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','diffuse','dw_ir','dw_casetemp','dw_dometemp','uw_ir','uw_casetemp','uw_dometemp','uvb','par','temp','rh','windspd','winddir','pressure', 'clear_ghi']
+final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','dw_ir','temp','rh','windspd','winddir','pressure','clear_ghi']
+#final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','diffuse','dw_ir','dw_casetemp','dw_dometemp','uw_ir','uw_casetemp','uw_dometemp','uvb','par','temp','rh','windspd','winddir','pressure', 'clear_ghi']
 ## ## selected features for the study (exploring multiple combinations)
 # final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
 # final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','direct_n','dw_ir','temp','windspd','winddir','pressure', 'clear_ghi']
@@ -67,9 +67,9 @@ testyear = 2017
 
 # hyperparameters
 
-n_timesteps = 72 #tcn: 96 #orig:72
-n_output_steps = 16
-n_features = 22 #12 #15 for everything (taking 12(even) features for mulit-head and transformers)
+n_timesteps = 48#tcn: 96 #orig:72
+n_output_steps = 12
+n_features = 12#22 #12 #15 for everything (taking 12(even) features for mulit-head and transformers)
 quantile = True #True
 
 
