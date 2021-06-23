@@ -339,11 +339,16 @@ class MultiAttnHeadSimple(torch.nn.Module):
 
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        print("input x shape", x.shape)
         x = self.encoder(x)
+        print("after encoding", x.shape)
         x = self.dense_interpolation(x)
+        x = x.transpose(1,2)
+        print("after interpolation", x.shape)
         if self.output_seq_len==1:
             x = x.contiguous().view(-1, int(self.factor * self.d_model))
         x = self.fc(x)
+        print("final output", x.shape)
         return x
 
 

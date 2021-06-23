@@ -7,11 +7,11 @@ from collections import Counter
 from sklearn.model_selection import train_test_split
 from datetime import timedelta
 
-from ModulesProcessing import collect_data, clean_data
-from ModulesLearning import preprocessing as preprocess
-from ModulesLearning import postprocessing as postprocess
-from ModulesLearning.ModulesCNN import train as cnn
-from ModulesLearning.ModuleLSTM import train as tranformers
+from SolarForecasting.ModulesProcessing import collect_data, clean_data
+from SolarForecasting.ModulesLearning import preprocessing as preprocess
+from SolarForecasting.ModulesLearning import postprocessing as postprocess
+from SolarForecasting.ModulesLearning.ModulesCNN import train as cnn
+from SolarForecasting.ModulesLearning.ModuleLSTM import train as tranformers
 
 
 pd.set_option('display.max_rows', 500)
@@ -35,7 +35,7 @@ res = '15min' #15min
 # path_desktop = "C:\\Users\Shivendra\Desktop\SolarProject\solar_forecasting/"
 path_local = "/Users/saumya/Desktop/SolarProject/"
 path_cluster = "/pl/active/machinelearning/Solar_forecasting_project/"
-path_project = path_cluster
+path_project = path_local
 path = path_project+"Data/"
 folder_saving = path_project + city+"/Models/"
 folder_plots = path_project + city+"/Plots/"
