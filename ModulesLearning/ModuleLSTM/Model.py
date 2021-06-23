@@ -3,7 +3,7 @@ import math
 import numpy as np
 import torch.nn as nn
 from torch.autograd import Variable
-from SolarForecasting.ModulesLearning.ModuleLSTM.functions import *
+from ModulesLearning.ModuleLSTM.functions import *
 from torch.nn.modules.activation import MultiheadAttention
 
 
@@ -270,7 +270,7 @@ class MultiAttnHeadSimple(torch.nn.Module):
 
     def __init__(
             self, input_dim, seq_len, folder_saving, model, quantile, n_layers=2, factor=12, alphas=None, outputs=None, valid=False,
-         output_seq_len=1, num_heads=8, d_model=128, dropout=0.2):
+         output_seq_len=1, num_heads=4, d_model=128, dropout=0.2):
         super(MultiAttnHeadSimple, self).__init__()
 
         self.outputs = outputs
@@ -339,16 +339,15 @@ class MultiAttnHeadSimple(torch.nn.Module):
 
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        print("input x shape", x.shape)
+        # print("input x shape", x.shape)
         x = self.encoder(x)
-        print("after encoding", x.shape)
+        # print("after encoding", x.shape)
         x = self.dense_interpolation(x)
         x = x.transpose(1,2)
-        print("after interpolation", x.shape)
         if self.output_seq_len==1:
             x = x.contiguous().view(-1, int(self.factor * self.d_model))
         x = self.fc(x)
-        print("final output", x.shape)
+        # print("final output", x.shape)
         return x
 
 

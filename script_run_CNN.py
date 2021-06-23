@@ -24,8 +24,8 @@ pd.set_option('display.width', 1000)
 city = 'Sioux_Falls_SD'
 
 # lead time
-lead_times = [16,20,24,28,32,12*4,24*4,12,8,4,1]
-
+# lead_times = [16,20,24,28,32,12*4,24*4,12,8,4,1]
+lead_times = [4,8,12,16,20]
 # season
 seasons =['year'] #,'fall', 'winter', 'spring', 'summer']
 res = '15min' #15min
@@ -46,8 +46,8 @@ clearsky_file_path = path+'clear-sky/'+city+'_15min_original.csv'
 features = ['year','month','day','hour','min','zen','dw_solar','uw_solar','direct_n','diffuse','dw_ir','dw_casetemp','dw_dometemp','uw_ir','uw_casetemp','uw_dometemp','uvb','par','netsolar','netir','totalnet','temp','rh','windspd','winddir','pressure']
 
 # selected features for the study
-#final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','dw_ir','temp','rh','windspd','winddir','pressure','clear_ghi']
-final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','diffuse','dw_ir','dw_casetemp','dw_dometemp','uw_ir','uw_casetemp','uw_dometemp','uvb','par','temp','rh','windspd','winddir','pressure', 'clear_ghi']
+final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','dw_ir','temp','rh','windspd','winddir','pressure','clear_ghi']
+#final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','diffuse','dw_ir','dw_casetemp','dw_dometemp','uw_ir','uw_casetemp','uw_dometemp','uvb','par','temp','rh','windspd','winddir','pressure', 'clear_ghi']
 ## ## selected features for the study (exploring multiple combinations)
 # final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
 # final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','direct_n','dw_ir','temp','windspd','winddir','pressure', 'clear_ghi']
@@ -67,9 +67,9 @@ testyear = 2017
 
 # hyperparameters
 
-n_timesteps = 72 #tcn: 96 #orig:72
-n_output_steps = 16
-n_features = 22 #12 #15 for everything (taking 12(even) features for mulit-head and transformers)
+n_timesteps = 72#169 for tcn #72 for SAND
+n_output_steps = len(lead_times)
+n_features = 12#22 #12 #15 for everything (taking 12(even) features for mulit-head and transformers)
 quantile = True #True
 
 
@@ -117,16 +117,17 @@ def create_mulitple_lead_dataset(dataframe, final_set_of_features, target):
     target = np.asarray(dataframe[target])
 
     y_list = []
-    # for lead in lead_times:
-    for lead in range(1,n_output_steps+1):
+    for lead in lead_times:
+    # for lead in range(1,n_output_steps+1):
         print("rolling by: ",lead)
         target = np.roll(target, -lead)
         y_list.append(target)
 
     dataframe_lead['clearness_index'] = np.column_stack(y_list).tolist()
     dataframe_lead['clearness_index'] = dataframe_lead['clearness_index'].apply(tuple)
-    dataframe_lead = dataframe_lead[:len(dataframe_lead) - n_output_steps]
-    # max_lead = np.max(lead_times)
+    max_lead = np.max(lead_times)
+    dataframe_lead = dataframe_lead[:len(dataframe_lead) - max_lead]
+
     # dataframe_lead['clearness_index'].values[-max_lead:] = np.nan
     print(dataframe_lead['clearness_index'])
 
@@ -238,7 +239,7 @@ def main():
     
     df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
 
-    reg = "dcnn_with_lag169_only_multiheadattention_multi_horizon_from_SAND"
+    reg = "dcnn_with_lag72_only_multiheadattention_multi_horizon_upd_from_SAND"
 
     # reg = "dcnn_with_lag169_only_multiheadattention_more_heads_and_features_from_SAND"
 
@@ -335,7 +336,7 @@ def main():
 
             for i in range(n_output_steps):
 
-                lead = i+1
+                lead = lead_times[i]
                 y_test_for_this_lead = y_test[:,i]
                 y_valid_for_this_lead = y_valid[:,i]
                 y_pred_for_this_lead = y_pred[:,i]
