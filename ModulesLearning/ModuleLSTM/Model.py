@@ -270,7 +270,7 @@ class MultiAttnHeadSimple(torch.nn.Module):
 
     def __init__(
             self, input_dim, seq_len, folder_saving, model, quantile, n_layers=2, factor=12, alphas=None, outputs=None, valid=False,
-         output_seq_len=1, num_heads=4, d_model=128, dropout=0.2):
+         output_seq_len=1, num_heads=4, d_model=96, dropout=0.2):
         super(MultiAttnHeadSimple, self).__init__()
 
         self.outputs = outputs

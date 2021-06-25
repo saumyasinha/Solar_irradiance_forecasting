@@ -7,11 +7,11 @@ from collections import Counter
 from sklearn.model_selection import train_test_split
 from datetime import timedelta
 
-from SolarForecasting.ModulesProcessing import collect_data, clean_data
-from SolarForecasting.ModulesLearning import preprocessing as preprocess
-from SolarForecasting.ModulesLearning import postprocessing as postprocess
-from SolarForecasting.ModulesLearning.ModulesCNN import train as cnn
-from SolarForecasting.ModulesLearning.ModuleLSTM import train as tranformers
+from ModulesProcessing import collect_data, clean_data
+from ModulesLearning import preprocessing as preprocess
+from ModulesLearning import postprocessing as postprocess
+from ModulesLearning.ModulesCNN import train as cnn
+from ModulesLearning.ModuleLSTM import train as tranformers
 
 
 pd.set_option('display.max_rows', 500)
@@ -25,7 +25,7 @@ city = 'Sioux_Falls_SD'
 
 # lead time
 # lead_times = [16,20,24,28,32,12*4,24*4,12,8,4,1]
-lead_times = [4,8,12,16,20]
+lead_times = [4,8,12,16]
 # season
 seasons =['year'] #,'fall', 'winter', 'spring', 'summer']
 res = '15min' #15min
@@ -35,7 +35,7 @@ res = '15min' #15min
 # path_desktop = "C:\\Users\Shivendra\Desktop\SolarProject\solar_forecasting/"
 path_local = "/Users/saumya/Desktop/SolarProject/"
 path_cluster = "/pl/active/machinelearning/Solar_forecasting_project/"
-path_project = path_local
+path_project = path_cluster
 path = path_project+"Data/"
 folder_saving = path_project + city+"/Models/"
 folder_plots = path_project + city+"/Plots/"
@@ -67,7 +67,7 @@ testyear = 2017
 
 # hyperparameters
 
-n_timesteps = 72#169 for tcn #72 for SAND
+n_timesteps = 48#169 for tcn #72 for SAND
 n_output_steps = len(lead_times)
 n_features = 12#22 #12 #15 for everything (taking 12(even) features for mulit-head and transformers)
 quantile = True #True
