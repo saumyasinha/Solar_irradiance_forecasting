@@ -289,12 +289,25 @@ class MultiAttnHeadSimple(torch.nn.Module):
         self.d_model = d_model
         self.dropout = dropout
 
-        #If solving multi horizon problem
-        if output_seq_len>1:
-            self.factor = self.output_seq_len
+        # #If solving multi horizon problem
+        # if output_seq_len>1:
+        #     self.factor = self.output_seq_len
+        #
+        #
+        # #self.factor = self.seq_len #setting this when not using dense interpolation
+        #
+        self.encoder = EncoderLayer(self.input_dim, self.seq_len, self.num_heads, self.n_layers, self.d_model, self.dropout)
+        self.dense_interpolation = DenseInterpolation(self.seq_len, self.factor)
+        #
+        # if self.output_seq_len>1:
+        #     self.fc = nn.Linear(self.d_model, self.outputs)
+        # else:
+        #     self.fc = nn.Linear(int(self.d_model * self.factor), self.outputs)
+        for i in range(self.output_seq_len):
+            setattr(self, "fc%d" % i, nn.Linear(int(self.d_model * self.factor), self.outputs))
 
 
-        #self.factor = self.seq_len #setting this when not using dense interpolation
+
 
 
     #     # self.dense_shape = torch.nn.Linear(number_time_series, d_model)
@@ -328,28 +341,23 @@ class MultiAttnHeadSimple(torch.nn.Module):
     #     else:
     #         return x[:,:,-1]
 
-        self.encoder = EncoderLayer(self.input_dim, self.seq_len, self.num_heads, self.n_layers, self.d_model, self.dropout)
-        self.dense_interpolation = DenseInterpolation(self.seq_len, self.factor)
-
-        if self.output_seq_len>1:
-            self.fc = nn.Linear(self.d_model, self.outputs)
-        else:
-            self.fc = nn.Linear(int(self.d_model * self.factor), self.outputs)
-
-
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # print("input x shape", x.shape)
         x = self.encoder(x)
         # print("after encoding", x.shape)
         x = self.dense_interpolation(x)
-        x = x.transpose(1,2)
-        if self.output_seq_len==1:
-            x = x.contiguous().view(-1, int(self.factor * self.d_model))
-        x = self.fc(x)
+        # x = x.transpose(1,2)
+        # if self.output_seq_len==1:
+        #     x = x.contiguous().view(-1, int(self.factor * self.d_model))
+        # x = self.fc(x)
+        x = x.contiguous().view(-1, int(self.factor * self.d_model))
+        pred_outputs = {}
+        for i in range(self.output_seq_len):
+            pred_outputs[i] = getattr(self, "fc%d" % i)(x)
         # print("final output", x.shape)
-        return x
-
+        # return x
+        return pred_outputs
 
 
     def trainBatchwise(self, trainX, trainY, epochs, batch_size, lr=0.0001, validX=None,
@@ -390,7 +398,8 @@ class MultiAttnHeadSimple(torch.nn.Module):
                         # train loss for multiple outputs or multi-task learning
                         total_loss = []
                         for n in range(n_output_length):
-                            y_pred = outputs[:,n, :]
+                            # y_pred = outputs[:,n, :]
+                            y_pred = outputs[n]
                             # calculate the batch loss
                             loss = self.quantile_loss(y_pred, yy[:, n])
                             total_loss.append(loss)
@@ -435,7 +444,8 @@ class MultiAttnHeadSimple(torch.nn.Module):
                         # train loss for multiple outputs or multi-task learning
                         total_loss = []
                         for n in range(n_output_length):
-                            y_pred = validYPred[:, n, :]
+                            # y_pred = validYPred[:, n, :]
+                            y_pred = validYPred[n]
                             # calculate the batch loss
                             loss = self.quantile_loss(y_pred, validY[:, n])
                             total_loss.append(loss)

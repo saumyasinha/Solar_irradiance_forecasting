@@ -134,6 +134,7 @@ def train_transformer(quantile, X_train, y_train, X_valid, y_valid, n_timesteps,
     learning_rate = 1e-5 #0.0001
 
     epochs = 250 #100
+
     batch_size = 16#16 #32
     train_loss, valid_loss = quantile_forecaster.trainBatchwise(X_train, y_train, epochs, batch_size,learning_rate, X_valid, y_valid, n_outputs, patience=1000)
 
@@ -168,12 +169,12 @@ def test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_
     quantile_forecaster.eval()
 
     y_pred = quantile_forecaster.forward(X_test)
-    y_pred = y_pred.cpu().detach().numpy()
+    # y_pred = y_pred.cpu().detach().numpy()
     y_valid_pred = None
 
     if X_valid is not None:
         y_valid_pred = quantile_forecaster.forward(X_valid)
-        y_valid_pred = y_valid_pred.cpu().detach().numpy()
+        # y_valid_pred = y_valid_pred.cpu().detach().numpy()
 
     valid_crps, test_crps = 0.0, 0.0
 
@@ -181,12 +182,15 @@ def test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_
     if quantile:
         if n_outputs>1:
             test_crps=[]
+
             for n in range(n_outputs):
-                print(y_pred.shape)
-                y_pred_n = y_pred[:, n, :]
+                # print(y_pred.shape)
+                # y_pred_n = y_pred[:, n, :]
+                y_pred_n = y_pred[n].cpu().detach().numpy()
                 test_crps.append(quantile_forecaster.crps_score(y_pred_n, y_test[:,n], alphas))
 
-            y_pred = y_pred[:,:,q50]
+
+            # y_pred = y_pred[:,:,q50]
 
         else:
             test_crps=quantile_forecaster.crps_score(y_pred, y_test, alphas)
@@ -197,10 +201,11 @@ def test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_
             if n_outputs > 1:
                 valid_crps = []
                 for n in range(n_outputs):
-                    y_valid_pred_n = y_valid_pred[:, n, :]
+                    # y_valid_pred_n = y_valid_pred[:, n, :]
+                    y_valid_pred_n = y_valid_pred[n].cpu().detach().numpy()
                     valid_crps.append(quantile_forecaster.crps_score(y_valid_pred_n, y_valid[:, n], alphas))
 
-                y_valid_pred = y_valid_pred[:, :, q50]
+                # y_valid_pred = y_valid_pred[:, :, q50]
 
             else:
                 valid_crps = quantile_forecaster.crps_score(y_valid_pred, y_valid, alphas)
