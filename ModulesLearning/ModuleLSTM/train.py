@@ -120,8 +120,9 @@ def train_transformer(quantile, X_train, y_train, X_valid, y_valid, n_timesteps,
     train_on_gpu = torch.cuda.is_available()
     print(train_on_gpu)
 
-    # alphas = np.arange(0.05, 1.0, 0.05)
-    alphas =  np.arange(0.05,1,0.225)
+    #alphas = np.arange(0.05, 1.0, 0.05)
+    alphas = np.arange(0.05,1,0.1)
+    #alphas =  np.arange(0.05,1,0.225)
     outputs = len(alphas)
 
     # point_foreaster = TransAm(n_features, n_timesteps, folder_saving, model_saved, quantile, outputs=n_outputs, valid=valid)
@@ -133,9 +134,9 @@ def train_transformer(quantile, X_train, y_train, X_valid, y_valid, n_timesteps,
     print(quantile_forecaster)
     learning_rate = 1e-5 #0.0001
 
-    epochs = 250 #100
+    epochs = 300 #250 #100
 
-    batch_size = 16#16 #32
+    batch_size = 16 #16#16 #32
     train_loss, valid_loss = quantile_forecaster.trainBatchwise(X_train, y_train, epochs, batch_size,learning_rate, X_valid, y_valid, n_outputs, patience=1000)
 
     loss_plots(train_loss,valid_loss,folder_saving,model_saved)
@@ -156,10 +157,11 @@ def test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_
     # point_foreaster = MultiAttnHeadSimple(n_features, n_timesteps, folder_saving, model_saved, quantile, outputs=n_outputs,
     #                           valid=True)
 
-    # alphas = np.arange(0.05, 1.0, 0.05)
-    alphas = np.arange(0.05, 1, 0.225)
+    #alphas = np.arange(0.05, 1.0, 0.05)
+    alphas = np.arange(0.05,1,0.1)
+    #alphas = np.arange(0.05, 1, 0.225)
     outputs = len(alphas)
-    q50 = 2 #9
+    q50 = 5#9 #2
 
     quantile_forecaster = MultiAttnHeadSimple(n_features, n_timesteps, folder_saving, model_saved, quantile,
                                              alphas=alphas, outputs=outputs, valid=True, output_seq_len = n_outputs)

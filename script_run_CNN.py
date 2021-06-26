@@ -239,7 +239,7 @@ def main():
     
     df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
 
-    reg = "dcnn_with_lag_only_multiheadattention_multi_horizon_parallel_fc_from_SAND"
+    reg = "dcnn_with_lag_only_multiheadattention_multi_horizon_parallel_fc_more_quantiles_from_SAND"
 
     # reg = "dcnn_with_lag169_only_multiheadattention_more_heads_and_features_from_SAND"
 
@@ -333,7 +333,7 @@ def main():
         # print(y_pred.shape)
         # y_pred = np.reshape(y_pred, -1)
         # y_valid_pred = np.reshape(y_valid_pred, -1)
-            q50=2
+            q50=5
             for i in range(n_output_steps):
 
                 lead = lead_times[i]
