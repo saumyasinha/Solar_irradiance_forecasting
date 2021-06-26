@@ -25,7 +25,7 @@ city = 'Sioux_Falls_SD'
 
 # lead time
 # lead_times = [16,20,24,28,32,12*4,24*4,12,8,4,1]
-lead_times = [4,8,12,16,20]
+lead_times = [4,8,12,16]
 # season
 seasons =['year'] #,'fall', 'winter', 'spring', 'summer']
 res = '15min' #15min
@@ -252,7 +252,7 @@ def main():
     
     df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
 
-    reg = "dcnn_with_lag_only_multiheadattention_multi_horizon_parallel_fc_from_SAND"
+    reg = "dcnn_with_lag_only_multiheadattention_multi_horizon_parallel_fc_more_quantiles_from_SAND"
 
     # reg = "dcnn_with_lag169_only_multiheadattention_more_heads_and_features_from_SAND"
 
