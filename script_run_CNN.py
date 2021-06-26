@@ -72,6 +72,19 @@ n_output_steps = len(lead_times)
 n_features = 12#22 #12 #15 for everything (taking 12(even) features for mulit-head and transformers)
 quantile = True #True
 
+#hyperparameters for the multi-attention model
+n_layers = 2
+factor = 12
+num_heads = 4 #8
+d_model = 96 #128
+batch_size = 16 #32
+epochs = 250
+lr = 1e-5 #1e-4
+
+# alphas = np.arange(0.05, 1.0, 0.05)
+alphas = np.arange(0.05, 1, 0.225)
+q50 = 2  # 9
+
 
 def get_data():
 
@@ -307,11 +320,21 @@ def main():
             X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, X_test,index_ghi,index_clearghi, len(col_to_indices_mapping),
                                                                          folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/")#, lead = lead)
 
+            f.write("epochs = " + str(epochs) + '\n')
+            f.write("batch_size = " + str(batch_size) + '\n')
+            f.write("learning rate = " + str(lr) + '\n')
+            f.write("n_layers = " + str(n_layers) + '\n')
+            f.write("factor = " + str(factor) + '\n')
+            f.write("num_heads = " + str(num_heads) + '\n')
+            f.write("d_model = " + str(d_model) + '\n')
+            f.write("seq_len = " + str(n_timesteps) + '\n')
+            f.write("total features = " + str(n_features)+ '\n')
+            f.write("alphas = " + ' '.join(list(alphas)) + '\n')
 
-            tranformers.train_transformer(quantile, X_train, y_train, X_valid, y_valid, n_timesteps+1, n_features,
+            tranformers.train_transformer(quantile, X_train, y_train, X_valid, y_valid, n_timesteps+1, n_features, n_layers, factor, num_heads, d_model, batch_size, epochs, lr,alphas, q50,
                                        folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved ="multi_horizon_dcnn", n_outputs=n_output_steps) #"dcnn_lag_for_lead_" + str(lead)) #"multi_horizon_dcnn", n_outputs=n_output_steps)
 
-            y_pred, y_valid_pred, valid_crps, test_crps  = tranformers.test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps+1, n_features,
+            y_pred, y_valid_pred, valid_crps, test_crps  = tranformers.test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps+1, n_features,n_layers, factor, num_heads, d_model,alphas, q50,
                                           folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved = "multi_horizon_dcnn", n_outputs=n_output_steps)#"dcnn_lag_for_lead_" + str(lead))#"multi_horizon_dcnn", n_outputs=n_output_steps)
 
         # lstm.train_LSTM(quantile, X_train, y_train, X_valid, y_valid, n_timesteps + 1, n_features,
@@ -333,7 +356,7 @@ def main():
         # print(y_pred.shape)
         # y_pred = np.reshape(y_pred, -1)
         # y_valid_pred = np.reshape(y_valid_pred, -1)
-            q50=2
+
             for i in range(n_output_steps):
 
                 lead = lead_times[i]

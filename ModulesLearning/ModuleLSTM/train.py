@@ -95,7 +95,7 @@ def test_LSTM(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_feature
     return y_pred, y_valid_pred, valid_crps, test_crps
 
 
-def train_transformer(quantile, X_train, y_train, X_valid, y_valid, n_timesteps, n_features, folder_saving, model_saved, n_outputs = 1):
+def train_transformer(quantile, X_train, y_train, X_valid, y_valid, n_timesteps, n_features, n_layers, factor, num_heads, d_model, batch_size, epochs, lr, alphas, q50, folder_saving, model_saved, n_outputs = 1):
 
     valid = True
 
@@ -120,27 +120,25 @@ def train_transformer(quantile, X_train, y_train, X_valid, y_valid, n_timesteps,
     train_on_gpu = torch.cuda.is_available()
     print(train_on_gpu)
 
-    # alphas = np.arange(0.05, 1.0, 0.05)
-    alphas =  np.arange(0.05,1,0.225)
     outputs = len(alphas)
 
     # point_foreaster = TransAm(n_features, n_timesteps, folder_saving, model_saved, quantile, outputs=n_outputs, valid=valid)
-    quantile_forecaster = MultiAttnHeadSimple(n_features, n_timesteps, folder_saving, model_saved, quantile, alphas = alphas, outputs = outputs, valid=valid, output_seq_len = n_outputs)
+    quantile_forecaster = MultiAttnHeadSimple(n_features, n_timesteps, folder_saving, model_saved, quantile, n_layers, factor, alphas = alphas, outputs = outputs, valid=valid, output_seq_len = n_outputs, num_heads=num_heads, d_model=d_model)
     if train_on_gpu:
         quantile_forecaster = quantile_forecaster.cuda()
         # point_foreaster = point_foreaster.cuda()
 
     print(quantile_forecaster)
-    learning_rate = 1e-5 #0.0001
+    learning_rate = lr
 
-    epochs = 250 #250 #100
-    batch_size = 16#16 #32
+    epochs = epochs
+    batch_size = batch_size
     train_loss, valid_loss = quantile_forecaster.trainBatchwise(X_train, y_train, epochs, batch_size,learning_rate, X_valid, y_valid, n_outputs, patience=1000)
 
     loss_plots(train_loss,valid_loss,folder_saving,model_saved)
 
 
-def test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_features, folder_saving, model_saved, n_outputs = 1):
+def test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_features, n_layers, factor, num_heads, d_model, alphas, q50, folder_saving, model_saved, n_outputs = 1):
 
 
     X_test, y_test = X_test.astype(np.float32), y_test.astype(np.float32)
@@ -155,13 +153,11 @@ def test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_
     # point_foreaster = MultiAttnHeadSimple(n_features, n_timesteps, folder_saving, model_saved, quantile, outputs=n_outputs,
     #                           valid=True)
 
-    # alphas = np.arange(0.05, 1.0, 0.05)
-    alphas = np.arange(0.05, 1, 0.225)
     outputs = len(alphas)
-    q50 = 2 #9
 
-    quantile_forecaster = MultiAttnHeadSimple(n_features, n_timesteps, folder_saving, model_saved, quantile,
-                                             alphas=alphas, outputs=outputs, valid=True, output_seq_len = n_outputs)
+
+    quantile_forecaster = MultiAttnHeadSimple(n_features, n_timesteps, folder_saving, model_saved, quantile,n_layers,factor,
+                                             alphas=alphas, outputs=outputs, valid=True, output_seq_len = n_outputs, num_heads=num_heads, d_model=d_model)
 
     quantile_forecaster.load_state_dict(torch.load(folder_saving + model_saved,map_location=torch.device('cpu')))
 
