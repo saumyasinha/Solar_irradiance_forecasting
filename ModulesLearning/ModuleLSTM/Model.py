@@ -270,7 +270,7 @@ class MultiAttnHeadSimple(torch.nn.Module):
 
     def __init__(
             self, input_dim, seq_len, folder_saving, model, quantile, n_layers=2, factor=12, alphas=None, outputs=None, valid=False,
-         output_seq_len=1, num_heads=4, d_model=96, dropout=0.2):
+         output_seq_len=1, num_heads=8, d_model=128, dropout=0.2):
         super(MultiAttnHeadSimple, self).__init__()
 
         self.outputs = outputs
@@ -355,16 +355,16 @@ class MultiAttnHeadSimple(torch.nn.Module):
         # x = x.contiguous().view(-1, int(self.factor * self.d_model))
         pred_outputs = {}
         for i in range(self.output_seq_len):
-            x = getattr(self, "dense%d" % i)(x)
-            x = x.contiguous().view(-1, int(self.factor * self.d_model))
-            pred_outputs[i] = getattr(self, "fc%d" % i)(x)
+            y = getattr(self, "dense%d" % i)(x)
+            y = y.contiguous().view(-1, int(self.factor * self.d_model))
+            pred_outputs[i] = getattr(self, "fc%d" % i)(y)
         # print("final output", x.shape)
         # return x
         return pred_outputs
 
 
     def trainBatchwise(self, trainX, trainY, epochs, batch_size, lr=0.0001, validX=None,
-                       validY=None, n_output_length = 1, patience=None, verbose=None, reg_lamdba = 0): #0.0001):
+                       validY=None, n_output_length = 1, patience=None, weight_list = [1,0.75,0.5],verbose=None, reg_lamdba = 0): #0.0001):
 
         optimizer = torch.optim.Adam(self.parameters(), lr=lr)
         # scheduler = StepLR(optimizer, step_size=25, gamma=0.1)
@@ -373,7 +373,7 @@ class MultiAttnHeadSimple(torch.nn.Module):
         samples = trainX.size()[0]
         losses = []
         valid_losses = []
-
+        
         early_stopping = EarlyStopping(self.saving_path, patience=patience, verbose=True)
 
         for epoch in range(epochs):
@@ -405,7 +405,7 @@ class MultiAttnHeadSimple(torch.nn.Module):
                             y_pred = outputs[n]
                             # calculate the batch loss
                             loss = self.quantile_loss(y_pred, yy[:, n])
-                            total_loss.append(loss)
+                            total_loss.append(weight_list[n]*loss)
 
                         loss = sum(total_loss)
 
@@ -451,7 +451,7 @@ class MultiAttnHeadSimple(torch.nn.Module):
                             y_pred = validYPred[n]
                             # calculate the batch loss
                             loss = self.quantile_loss(y_pred, validY[:, n])
-                            total_loss.append(loss)
+                            total_loss.append(weight_list[n]*loss)
 
                         valid_loss_this_epoch = sum(total_loss).item()
 

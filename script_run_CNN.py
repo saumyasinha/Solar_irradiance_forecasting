@@ -25,7 +25,7 @@ city = 'Sioux_Falls_SD'
 
 # lead time
 # lead_times = [16,20,24,28,32,12*4,24*4,12,8,4,1]
-lead_times = [4,8,12,16]
+lead_times = [4,8,12]
 # season
 seasons =['year'] #,'fall', 'winter', 'spring', 'summer']
 res = '15min' #15min
@@ -73,11 +73,11 @@ n_features = 12#22 #12 #15 for everything (taking 12(even) features for mulit-he
 quantile = True #True
 
 #hyperparameters for the multi-attention model
-n_layers = 2
+n_layers = 3
 factor = 12
 num_heads = 4 #8
-d_model = 96 #128
-batch_size = 16 #32
+d_model = 64 #96
+batch_size = 8 #32
 epochs = 250
 lr = 1e-5 #1e-4
 
@@ -252,7 +252,7 @@ def main():
     
     df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
 
-    reg = "dcnn_with_lag_only_multiheadattention_multi_horizon_parallel_fc_more_quantiles_from_SAND"
+    reg = "dcnn_with_lag_only_multiheadattention_multi_horizon_parallel_fc_and_denseinterpolation_weightedlossfrom_SAND"
 
     # reg = "dcnn_with_lag169_only_multiheadattention_more_heads_and_features_from_SAND"
 
@@ -329,7 +329,7 @@ def main():
             f.write("d_model = " + str(d_model) + '\n')
             f.write("seq_len = " + str(n_timesteps) + '\n')
             f.write("total features = " + str(n_features)+ '\n')
-            f.write("alphas = " + ' '.join(list(alphas)) + '\n')
+            f.write("alphas = " + str(len(alphas)) + '\n')
 
             tranformers.train_transformer(quantile, X_train, y_train, X_valid, y_valid, n_timesteps+1, n_features, n_layers, factor, num_heads, d_model, batch_size, epochs, lr,alphas, q50,
                                        folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved ="multi_horizon_dcnn", n_outputs=n_output_steps) #"dcnn_lag_for_lead_" + str(lead)) #"multi_horizon_dcnn", n_outputs=n_output_steps)

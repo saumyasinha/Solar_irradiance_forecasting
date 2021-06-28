@@ -134,7 +134,7 @@ def train_transformer(quantile, X_train, y_train, X_valid, y_valid, n_timesteps,
     epochs = epochs
     batch_size = batch_size
 
-    train_loss, valid_loss = quantile_forecaster.trainBatchwise(X_train, y_train, epochs, batch_size,learning_rate, X_valid, y_valid, n_outputs, patience=1000)
+    train_loss, valid_loss = quantile_forecaster.trainBatchwise(X_train, y_train, epochs, batch_size,learning_rate, X_valid, y_valid, n_outputs,patience=1000)
 
     loss_plots(train_loss,valid_loss,folder_saving,model_saved)
 

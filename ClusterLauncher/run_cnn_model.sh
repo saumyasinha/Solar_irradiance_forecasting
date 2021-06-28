@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # === 2. List of SBATCH arguements ===
-#SBATCH --job-name=test-job
-#SBATCH --nodelist=bgpu-mktg1
+#SBATCH --job-name=multi_horizon_parallel_fc_and_Dense_interpolation_weightedloss
+#SBATCH --nodelist=bgpu-dhl1
 #SBATCH --account=blanca-kann
 #SBATCH --qos=preemptable
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --output=/pl/active/machinelearning/Solar_forecasting_project/job_outputs/test-job.%j.out
+#SBATCH --output=/pl/active/machinelearning/Solar_forecasting_project/job_outputs/multi_horizon_parallel_fc_and_Dense_interpolation_weightedloss.%j.out
 
 # === 3. Purge and load needed modules ===
 module purge
