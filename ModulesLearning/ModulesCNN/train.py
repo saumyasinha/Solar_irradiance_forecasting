@@ -1,7 +1,7 @@
 import os
 # from SolarForecasting.ModulesLearning.ModulesCNN.Model import basic_CNN, DC_CNN_Model
 import torch
-from ModulesLearning.ModulesCNN.Model import ConvForecasterDilationLowRes
+from SolarForecasting.ModulesLearning.ModulesCNN.Model import ConvForecasterDilationLowRes
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
@@ -184,7 +184,7 @@ def test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_times
     quantile_forecaster = ConvForecasterDilationLowRes(n_features, n_timesteps, folder_saving, model_saved, quantile,
                                                       alphas=np.arange(0.05, 1.0, 0.05), outputs=19, valid=True)
 
-    quantile_forecaster.load_state_dict(torch.load(folder_saving + model_saved))
+    quantile_forecaster.load_state_dict(torch.load(folder_saving + model_saved,map_location=torch.device('cpu')))
 
     quantile_forecaster.eval()
 

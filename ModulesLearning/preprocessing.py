@@ -344,11 +344,16 @@ def standardize_from_train(X_train, X_valid, X_test, index_ghi, index_clearghi, 
             ##normalize or standarize ?
             mean = standarize_dict[i][0]
             std = standarize_dict[i][1]
+            # print(mean,std)
+            # print("test before",np.mean(X_test[:,i]))
             X_test[:,i] = (X_test[:,i] - mean)/std
+            # print("test after",np.mean(X_test[:, i]))
             # max = standarize_dict[i][0]
             # min = standarize_dict[i][1]
-            # X_test[:,i] = (X_test[:,i] - min)/(max-min)
-
+            if X_valid is not None:
+                # print("valid before", np.mean(X_valid[:, i]))
+                X_valid[:,i] = (X_valid[:,i] - mean)/std
+                # print("valid after", np.mean(X_valid[:, i]))
 
     return X_train, X_valid, X_test
 

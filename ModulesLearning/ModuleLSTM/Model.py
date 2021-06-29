@@ -270,7 +270,7 @@ class MultiAttnHeadSimple(torch.nn.Module):
 
     def __init__(
             self, input_dim, seq_len, folder_saving, model, quantile, n_layers=2, factor=12, alphas=None, outputs=None, valid=False,
-         output_seq_len=1, num_heads=4, d_model=96, dropout=0.2):
+         output_seq_len=1, num_heads=4, d_model=96, dropout=0.5):
         super(MultiAttnHeadSimple, self).__init__()
 
         self.outputs = outputs
@@ -297,17 +297,19 @@ class MultiAttnHeadSimple(torch.nn.Module):
         # #self.factor = self.seq_len #setting this when not using dense interpolation
         #
         self.encoder = EncoderLayer(self.input_dim, self.seq_len, self.num_heads, self.n_layers, self.d_model, self.dropout)
-        # self.dense_interpolation = DenseInterpolation(self.seq_len, self.factor)
+        self.dense_interpolation = DenseInterpolation(self.seq_len, self.factor)
         #
         # if self.output_seq_len>1:
         #     self.fc = nn.Linear(self.d_model, self.outputs)
         # else:
-        #     self.fc = nn.Linear(int(self.d_model * self.factor), self.outputs)
-        for i in range(self.output_seq_len):
-            setattr(self, "dense%d" % i, DenseInterpolation(self.seq_len, self.factor))
-            setattr(self, "fc%d" % i, nn.Linear(int(self.d_model * self.factor), self.outputs))
+        self.fc = nn.Linear(int(self.d_model * self.factor), self.outputs)
 
-
+        # if self.output_seq_len >1:
+            # for i in range(self.output_seq_len):
+            #     setattr(self, "dense%d" % i, DenseInterpolation(self.seq_len, self.factor))
+            #     setattr(self, "fc%d" % i, nn.Linear(int(self.d_model * self.factor), self.outputs))
+        #
+        #
 
 
 
@@ -347,24 +349,24 @@ class MultiAttnHeadSimple(torch.nn.Module):
         # print("input x shape", x.shape)
         x = self.encoder(x)
         # print("after encoding", x.shape)
-        # x = self.dense_interpolation(x)
+        x = self.dense_interpolation(x)
         # x = x.transpose(1,2)
-        # if self.output_seq_len==1:
-        #     x = x.contiguous().view(-1, int(self.factor * self.d_model))
-        # x = self.fc(x)
+        if self.output_seq_len==1:
+            x = x.contiguous().view(-1, int(self.factor * self.d_model))
+        x = self.fc(x)
         # x = x.contiguous().view(-1, int(self.factor * self.d_model))
         pred_outputs = {}
-        for i in range(self.output_seq_len):
-            x = getattr(self, "dense%d" % i)(x)
-            x = x.contiguous().view(-1, int(self.factor * self.d_model))
-            pred_outputs[i] = getattr(self, "fc%d" % i)(x)
+        # for i in range(self.output_seq_len):
+        #     y = getattr(self, "dense%d" % i)(x)
+        #     y = y.contiguous().view(-1, int(self.factor * self.d_model))
+        #     pred_outputs[i] = getattr(self, "fc%d" % i)(y)
         # print("final output", x.shape)
-        # return x
-        return pred_outputs
+        return x
+        # return pred_outputs
 
 
     def trainBatchwise(self, trainX, trainY, epochs, batch_size, lr=0.0001, validX=None,
-                       validY=None, n_output_length = 1, patience=None, verbose=None, reg_lamdba = 0): #0.0001):
+                       validY=None, n_output_length = 1, patience=None, verbose=None, reg_lamdba = 0.0001):
 
         optimizer = torch.optim.Adam(self.parameters(), lr=lr)
         # scheduler = StepLR(optimizer, step_size=25, gamma=0.1)

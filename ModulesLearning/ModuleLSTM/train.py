@@ -189,6 +189,7 @@ def test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_
             # y_pred = y_pred[:,:,q50]
 
         else:
+            y_pred = y_pred.cpu().detach().numpy()
             test_crps=quantile_forecaster.crps_score(y_pred, y_test, alphas)
             y_pred = y_pred[:,q50]#changed from 9
 
@@ -204,6 +205,7 @@ def test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_
                 # y_valid_pred = y_valid_pred[:, :, q50]
 
             else:
+                y_valid_pred = y_valid_pred.cpu().detach().numpy()
                 valid_crps = quantile_forecaster.crps_score(y_valid_pred, y_valid, alphas)
                 y_valid_pred = y_valid_pred[:, q50]
 

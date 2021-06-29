@@ -69,10 +69,10 @@ def final_true_pred_sp_np(true, pred, np, sp, lead, X, index_zen, index_clearghi
 
     #
     # ## remove negative predictions
-    true_day_final = true[(pred>=0)]
-    pred_day_final = pred[(pred>=0)]
-    np_day_final = np[(pred>=0) ]
-    sp_day_final = sp[(pred>=0)]
+    true_day_final = true #[(pred>=0)]
+    pred_day_final = pred #[(pred>=0)]
+    np_day_final = np #[(pred>=0) ]
+    sp_day_final = sp #[(pred>=0)]
 
 
     print(true_day_final.shape, pred_day_final.shape, np_day_final.shape, sp_day_final.shape)

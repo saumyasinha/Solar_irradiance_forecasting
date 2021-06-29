@@ -12,6 +12,8 @@ from SolarForecasting.ModulesProcessing import collect_data, clean_data
 from SolarForecasting.ModulesLearning import preprocessing as preprocess
 from SolarForecasting.ModulesLearning import postprocessing as postprocess
 from SolarForecasting.ModulesLearning.ModuleLSTM import train as tranformers
+from SolarForecasting.ModulesLearning.ModulesCNN import train as cnn
+
 pd.set_option('display.max_rows', 500)
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.width', 1000)
@@ -22,7 +24,7 @@ pd.set_option('display.width', 1000)
 city = 'Sioux_Falls_SD'
 
 # lead time
-lead_times = [1,4,8,12,16,20,24,28,32,12*4]
+lead_times = [1,4,8,12,16,20,24,28,32,12*4,24*4]
 
 # season
 seasons =['year'] #from ['fall', 'winter', 'spring', 'summer']
@@ -43,10 +45,10 @@ clearsky_file_path = path+'clear-sky/'+city+'_15min_original.csv'
 features = ['year','month','day','hour','min','zen','dw_solar','uw_solar','direct_n','diffuse','dw_ir','dw_casetemp','dw_dometemp','uw_ir','uw_casetemp','uw_dometemp','uvb','par','netsolar','netir','totalnet','temp','rh','windspd','winddir','pressure']
 
 # selected features for the study
-final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','dw_ir','temp','rh','windspd','winddir','pressure','clear_ghi']
+# final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','dw_ir','temp','rh','windspd','winddir','pressure','clear_ghi']
 
 ## ## selected features for the study (exploring multiple combinations)
-# final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
+final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
 # final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','direct_n','dw_ir','temp','windspd','winddir','pressure', 'clear_ghi']
 
 # target or Y
@@ -63,10 +65,22 @@ endmonth = 8
 testyear = 2017
 
 # hyperparameters
-n_timesteps = 72 #tcn: 96 #orig:72
-n_output_steps = 16
-n_features = 12 #15 for everything (taking 12(even) features for mulit-head and transformers)
+n_timesteps = 24*7 #72 #tcn: 96 #orig:72
+# n_output_steps = 16
+n_features = 15#12 #15 for everything (taking 12(even) features for mulit-head and transformers)
 quantile = True #True
+
+n_layers = 2
+factor = 12
+num_heads = 4 #8
+d_model = 128 #128
+batch_size = 16 #32
+epochs = 200
+lr = 1e-5 #1e-4
+
+alphas = np.arange(0.05, 1.0, 0.05)
+# alphas = np.arange(0.05, 1, 0.225)
+q50 = 9 # 9
 
 
 def get_data():
@@ -221,8 +235,9 @@ def main():
     print("after removing data points with 0 clear_ghi and selecting daytimes", len(df_final))
 
     # df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
-
-    reg = "dcnn_with_lag169_only_multiheadattention_from_SAND"
+    # reg = "final_dcnn_with_lag169_tcn_with_correct_convattention_ditto_hyp_from_paper"
+    # reg = "final_dcnn_with_lag169_only_multiheadattention_mod_architecture_from_SAND"
+    reg = "final_dcnn_with_lag96_tcn_without_attention_ditto_hyp_from_paper"
     for season_flag in seasons:
         ## ML_models_2008 is the folder to save results on testyear 2008
         ## creating different folder for different methods: nn for fully connected networks, rf for random forest etc.
@@ -267,11 +282,16 @@ def main():
 
                 print("Final train size: ", X_train.shape, y_train.shape)
 
+                X_train, X_test, y_train, y_test = train_test_split(
+                    X_train, y_train, test_size=0.3, random_state=42)
+                X_valid, X_test, y_valid, y_test = train_test_split(
+                    X_test, y_test, test_size=0.3, random_state=42)
+
                 X_test_before_normalized = X_heldout.copy()
 
-                print("sanity check: ",n_features,len(col_to_indices_mapping))
+                # print("sanity check: ",n_features,len(col_to_indices_mapping))
                 ## normalizing the heldout with the X_train used for training
-                X_train, X_valid, X_test = preprocess.standardize_from_train(X_train=None, X_valid=None, X_test=X_heldout, index_ghi = index_ghi,
+                X_train, X_valid, X_test = preprocess.standardize_from_train(X_train=X_train, X_valid=X_valid, X_test=X_heldout, index_ghi = index_ghi,
                                                                              index_clearghi = index_clearghi, total_features=len(col_to_indices_mapping),folder_saving = folder_saving + season_flag + "/ML_models_" + str(
                                                                                  testyear) + "/cnn/" + str(
                                                                                  res) + "/" + reg + "/", lead = lead)
@@ -282,7 +302,7 @@ def main():
 
                 # y_test = np.reshape(y_heldout, -1)
 
-                f.write("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
+                # f.write("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
 
                 # with open(folder_saving + season_flag + "/ML_models_"+str(testyear)+"/probabilistic/"+str(res)+"/"+reg+"//model_at_lead_" + str(lead) + ".pkl", 'rb') as file:
                 #     model = pickle.load(file)
@@ -296,7 +316,15 @@ def main():
                 ## The CRPS scores would be calculated on the clearness index
                 # test_crps = get_crps_for_ngboost(model, X_test, y_test)
 
-                y_pred, y_valid_pred, valid_crps, test_crps = tranformers.test_transformer(quantile, None, None,
+                # y_pred, y_valid_pred, valid_crps, test_crps = tranformers.test_transformer(quantile, X_valid, y_valid,
+                #                                                                            X_test, y_test,
+                #                                                                            n_timesteps + 1, n_features,n_layers, factor, num_heads, d_model,alphas, q50,
+                #                                                                            folder_saving + season_flag + "/ML_models_" + str(
+                #                                                                                testyear) + "/cnn/" + str(
+                #                                                                                res) + "/" + reg + "/",
+                #                                                                            model_saved="dcnn_lag_for_lead_" + str(
+                #                                                                                lead))  # "multi_horizon_dcnn", n_outputs=n_output_steps)
+                y_pred, y_valid_pred, valid_crps, test_crps = cnn.test_DCNN_with_attention(quantile, X_valid, y_valid,
                                                                                            X_test, y_test,
                                                                                            n_timesteps + 1, n_features,
                                                                                            folder_saving + season_flag + "/ML_models_" + str(
@@ -307,48 +335,49 @@ def main():
 
                 print(y_pred.shape, y_true.shape)
 
-                print("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
-
-                print("#####TEST#################")
-
-                index_ghi = -n_features+index_ghi
-                index_clearghi = -n_features+index_clearghi
-                # ## postprocessing on test
-                y_true, y_pred = postprocess.postprocessing_target(y_pred, y_true, X_test_before_normalized, index_ghi, index_clearghi, lead)
-                # normal and smart persistence model
-                y_np = postprocess.normal_persistence_model(X_test_before_normalized, index_ghi, lead)
-                y_sp = postprocess.smart_persistence_model(X_test_before_normalized, y_test, index_clearghi, lead)
-                true_day_test, pred_day_test, np_day_test, sp_day_test = postprocess.final_true_pred_sp_np(y_true, y_pred, y_np, y_sp, lead, X_test_before_normalized, index_zen, index_clearghi)
-
-                rmse_our, mae_our, mb_our, sd_our, r2_our = postprocess.evaluation_metrics(true_day_test, pred_day_test)
-
-                print("Performance of our model (rmse, mae, mb, sd, r2): \n\n", round(rmse_our, 2), round(mae_our, 2),
-                      round(mb_our, 2), round(sd_our, 2), round(r2_our, 2))
-
-
-                rmse_sp, mae_sp, mb_sp, sd_sp, r2_sp = postprocess.evaluation_metrics(true_day_test, sp_day_test)
-                print("Performance of smart persistence model (rmse, mae, mb, sd, r2): \n\n", round(rmse_sp, 2),
-                      round(mae_sp, 2),
-                      round(mb_sp, 2), round(sd_sp, 2), round(r2_sp, 2))
-
-                rmse_np, mae_np, mb_np, sd_np, r2_np = postprocess.evaluation_metrics(true_day_test, np_day_test)
-                print("Performance of normal persistence model (rmse, mae, mb, sd, r2): \n\n", round(rmse_np, 1),
-                      round(mae_np, 1),
-                      round(mb_np, 1), round(sd_np, 1), round(r2_np, 1))
-
-                # calculate the skill score of our model over persistence model
-                skill_sp = postprocess.skill_score(rmse_our, rmse_sp)
-
-
-
-                print("\nSkill of our model over smart persistence: ", round(skill_sp, 2))
-
-                skill_np = postprocess.skill_score(rmse_our, rmse_np)
-                print("\nSkill of our model over normal persistence: ", round(skill_np, 2))
-
-                f.write('skill score on heldout data for year 2017 for lead' + str(lead) + '=' + str(round(skill_sp, 2)) + '\n')
-
-
+                # print("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
+                #
+                # print("#####TEST#################")
+                #
+                # index_ghi = -n_features+index_ghi
+                # index_clearghi = -n_features+index_clearghi
+                # # ## postprocessing on test
+                # y_true, y_pred = postprocess.postprocessing_target(y_pred, y_true, X_test_before_normalized, index_ghi, index_clearghi, lead)
+                # # normal and smart persistence model
+                # y_np = postprocess.normal_persistence_model(X_test_before_normalized, index_ghi, lead)
+                # y_sp = postprocess.smart_persistence_model(X_test_before_normalized, y_test, index_clearghi, lead)
+                # true_day_test, pred_day_test, np_day_test, sp_day_test = postprocess.final_true_pred_sp_np(y_true, y_pred, y_np, y_sp, lead, X_test_before_normalized, index_zen, index_clearghi)
+                #
+                # rmse_our, mae_our, mb_our, sd_our, r2_our = postprocess.evaluation_metrics(true_day_test, pred_day_test)
+                #
+                # print("Performance of our model (rmse, mae, mb, sd, r2): \n\n", round(rmse_our, 2), round(mae_our, 2),
+                #       round(mb_our, 2), round(sd_our, 2), round(r2_our, 2))
+                #
+                #
+                # rmse_sp, mae_sp, mb_sp, sd_sp, r2_sp = postprocess.evaluation_metrics(true_day_test, sp_day_test)
+                # print("Performance of smart persistence model (rmse, mae, mb, sd, r2): \n\n", round(rmse_sp, 2),
+                #       round(mae_sp, 2),
+                #       round(mb_sp, 2), round(sd_sp, 2), round(r2_sp, 2))
+                #
+                # rmse_np, mae_np, mb_np, sd_np, r2_np = postprocess.evaluation_metrics(true_day_test, np_day_test)
+                # print("Performance of normal persistence model (rmse, mae, mb, sd, r2): \n\n", round(rmse_np, 1),
+                #       round(mae_np, 1),
+                #       round(mb_np, 1), round(sd_np, 1), round(r2_np, 1))
+                #
+                # # calculate the skill score of our model over persistence model
+                # skill_sp = postprocess.skill_score(rmse_our, rmse_sp)
+                #
+                #
+                #
+                # print("\nSkill of our model over smart persistence: ", round(skill_sp, 2))
+                #
+                # skill_np = postprocess.skill_score(rmse_our, rmse_np)
+                # print("\nSkill of our model over normal persistence: ", round(skill_np, 2))
+                #
+                # # f.write('skill score on heldout data for year 2017 for lead' + str(lead) + '=' + str(round(skill_sp, 2)) + '\n')
+                print('CRPS score on valid data for lead' + str(lead) + '=' + str(
+                    round(valid_crps, 2)) + '\n')
+                print('CRPS score on heldout data for year 2017 for lead' + str(lead) + '=' + str(round(test_crps, 2)) + '\n')
                 f.write('CRPS score on heldout data for year 2017 for lead' + str(lead) + '=' + str(round(test_crps, 2)) + '\n')
 
 
