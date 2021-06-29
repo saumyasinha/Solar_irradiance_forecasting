@@ -73,11 +73,13 @@ n_features = 12#22 #12 #15 for everything (taking 12(even) features for mulit-he
 quantile = True #True
 
 #hyperparameters for the multi-attention model
+
 n_layers = 1 #2
 factor = 12
 num_heads = 4 #8
 d_model = 128 #128
 batch_size = 16 #32
+
 epochs = 250
 lr = 1e-5 #1e-4
 
@@ -252,7 +254,7 @@ def main():
     
     # df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
 
-    # reg = "dcnn_with_lag_only_multiheadattention_multi_horizon_parallel_fc_more_quantiles_from_SAND"
+
 
     reg = "dcnn_with_lag169_only_multiheadattention_regularized_and_less_layers_from_SAND"
 
@@ -275,6 +277,7 @@ def main():
             df_lead = df_lead[:len(df_lead)-lead]
 
                 # get the seasonal data you want
+
             df, test_startdate, test_enddate = preprocess.get_yearly_or_season_data(df_lead, season_flag, testyear)
             print("\n\n after getting seasonal data (test_startdate; test_enddate)", test_startdate, test_enddate)
             print(df.tail)
@@ -365,8 +368,7 @@ def main():
             #     y_pred_for_this_lead = y_pred[i][:,q50].cpu().detach().numpy()
             #     y_valid_pred_for_this_lead = y_valid_pred[i][:,q50].cpu().detach().numpy()
             #     valid_crps_for_this_lead = valid_crps[i]
-            #     test_crps_for_this_lead = test_crps[i]
-
+            #     test_crps_for_this_lead = test_crps[i
 
             #
 

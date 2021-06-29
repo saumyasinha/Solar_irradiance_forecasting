@@ -270,7 +270,9 @@ class MultiAttnHeadSimple(torch.nn.Module):
 
     def __init__(
             self, input_dim, seq_len, folder_saving, model, quantile, n_layers=2, factor=12, alphas=None, outputs=None, valid=False,
+
          output_seq_len=1, num_heads=4, d_model=96, dropout=0.5):
+
         super(MultiAttnHeadSimple, self).__init__()
 
         self.outputs = outputs
@@ -356,10 +358,12 @@ class MultiAttnHeadSimple(torch.nn.Module):
         x = self.fc(x)
         # x = x.contiguous().view(-1, int(self.factor * self.d_model))
         pred_outputs = {}
+
         # for i in range(self.output_seq_len):
         #     y = getattr(self, "dense%d" % i)(x)
         #     y = y.contiguous().view(-1, int(self.factor * self.d_model))
         #     pred_outputs[i] = getattr(self, "fc%d" % i)(y)
+
         # print("final output", x.shape)
         return x
         # return pred_outputs
@@ -368,6 +372,7 @@ class MultiAttnHeadSimple(torch.nn.Module):
     def trainBatchwise(self, trainX, trainY, epochs, batch_size, lr=0.0001, validX=None,
                        validY=None, n_output_length = 1, patience=None, verbose=None, reg_lamdba = 0.0001):
 
+
         optimizer = torch.optim.Adam(self.parameters(), lr=lr)
         # scheduler = StepLR(optimizer, step_size=25, gamma=0.1)
         criterion = torch.nn.MSELoss()
@@ -375,7 +380,7 @@ class MultiAttnHeadSimple(torch.nn.Module):
         samples = trainX.size()[0]
         losses = []
         valid_losses = []
-
+        
         early_stopping = EarlyStopping(self.saving_path, patience=patience, verbose=True)
 
         for epoch in range(epochs):
