@@ -125,13 +125,13 @@ class AttentionBlock(nn.Module):
 
 
 
-class ConvAttentionBlock(nn.Module):
+class ConvspatialAttentionBlock(nn.Module):
   """
     Similar to the SAGAN paper: https://discuss.pytorch.org/t/attention-in-image-classification/80147/3
   """
 # I haven't used any positional encoding here, not sure if needs to be there
   def __init__(self, dims):
-    super(ConvAttentionBlock, self).__init__()
+    super(ConvspatialAttentionBlock, self).__init__()
     self.query_layer = nn.Conv1d(in_channels=dims, out_channels=dims//8, kernel_size=1)
     self.key_layer = nn.Conv1d(in_channels=dims, out_channels=dims//8, kernel_size=1)
     self.value_layer = nn.Conv1d(in_channels=dims, out_channels=dims, kernel_size=1)
@@ -155,6 +155,57 @@ class ConvAttentionBlock(nn.Module):
     probs = self.softmax(logits)
     read = torch.bmm(values, probs.permute(0,2,1))
     return (self.gamma*read)+minibatch
+
+
+class ConvchannelAttentionBlock(nn.Module):
+  """
+    Similar to the SAGAN paper: https://discuss.pytorch.org/t/attention-in-image-classification/80147/3
+  """
+# I haven't used any positional encoding here, not sure if needs to be there
+  def __init__(self, dims):
+    super(ConvchannelAttentionBlock, self).__init__()
+    # self.query_layer = nn.Conv1d(in_channels=dims, out_channels=dims//8, kernel_size=1)
+    # self.key_layer = nn.Conv1d(in_channels=dims, out_channels=dims//8, kernel_size=1)
+    # self.value_layer = nn.Conv1d(in_channels=dims, out_channels=dims, kernel_size=1)
+
+    self.softmax = nn.Softmax(dim=-1)
+    self.eta = nn.Parameter(torch.zeros(1))
+
+  def forward(self, minibatch):
+    keys = minibatch.permute(0,2,1)
+    queries = minibatch
+    values = minibatch
+    logits = torch.bmm(queries, keys)
+    mask = np.triu(np.ones(logits.size()), k=1).astype('bool')
+    mask = torch.from_numpy(mask)
+    if torch.cuda.is_available():
+        mask = mask.cuda()
+    # do masked_fill_ on data rather than Variable because PyTorch doesn't
+    # support masked_fill_ w/-inf directly on Variables for some reason.
+    logits.data.masked_fill_(mask, float('-inf'))
+
+    probs = self.softmax(logits)
+    read = torch.bmm(probs,values)
+    return (self.eta*read)+minibatch
+
+
+class ConvAttentionBlock(nn.Module):
+  """
+    Similar to the SAGAN paper: https://discuss.pytorch.org/t/attention-in-image-classification/80147/3
+  """
+# I haven't used any positional encoding here, not sure if needs to be there
+  def __init__(self, dims):
+    super(ConvAttentionBlock, self).__init__()
+    self.spatial_attention = ConvspatialAttentionBlock(dims)
+    self.channel_attention = ConvchannelAttentionBlock(dims)
+
+  def forward(self, minibatch):
+
+    s = self.spatial_attention(minibatch)
+    c = self.channel_attention(minibatch)
+
+    return s+c
+
 
 
 class SimplePositionalEncoding(torch.nn.Module):

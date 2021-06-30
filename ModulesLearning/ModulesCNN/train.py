@@ -4,6 +4,7 @@ import torch
 from SolarForecasting.ModulesLearning.ModulesCNN.Model import ConvForecasterDilationLowRes
 import numpy as np
 import matplotlib.pyplot as plt
+import torch.nn as nn
 from sklearn.model_selection import train_test_split
 
 
@@ -152,13 +153,17 @@ def train_DCNN_with_attention(quantile, X_train, y_train, X_valid, y_valid, n_ti
     # point_forecaster = ConvForecasterDilationLowRes(n_features, n_timesteps, folder_saving, model_saved, quantile, outputs=n_outputs, valid=valid)
     quantile_forecaster = ConvForecasterDilationLowRes(n_features, n_timesteps, folder_saving, model_saved, quantile, alphas = np.arange(0.05, 1.0, 0.05), outputs=19, valid=valid)#changed np.arange step size from 0.05 to 0.1
     if train_on_gpu:
+        if torch.cuda.device_count() > 1:
+            print("Let's use", torch.cuda.device_count(), "GPUs!")
+            quantile_forecaster = nn.DataParallel(quantile_forecaster)
+
         quantile_forecaster = quantile_forecaster.cuda()
         # point_forecaster = point_forecaster.cuda()
 
     print(quantile_forecaster)
     learning_rate = 1e-6#changed from 1e-5
 
-    epochs = 300 #200 for orig
+    epochs = 1 #200 for orig
     batch_size = 16 #16 #32
 
 
@@ -229,7 +234,7 @@ def test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_times
                 valid_crps = quantile_forecaster.crps_score(y_valid_pred, y_valid, np.arange(0.05, 1.0, 0.05))
                 y_valid_pred = y_valid_pred[:, 9]
 
-    print(valid_crps)
+    # print(valid_crps)
     return y_pred, y_valid_pred, valid_crps, test_crps
 
 

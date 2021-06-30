@@ -7,11 +7,11 @@ from collections import Counter
 from sklearn.model_selection import train_test_split
 from datetime import timedelta
 
-from ModulesProcessing import collect_data, clean_data
-from ModulesLearning import preprocessing as preprocess
-from ModulesLearning import postprocessing as postprocess
-from ModulesLearning.ModulesCNN import train as cnn
-from ModulesLearning.ModuleLSTM import train as tranformers
+from SolarForecasting.ModulesProcessing import collect_data, clean_data
+from SolarForecasting.ModulesLearning import preprocessing as preprocess
+from SolarForecasting.ModulesLearning import postprocessing as postprocess
+from SolarForecasting.ModulesLearning.ModulesCNN import train as cnn
+from SolarForecasting.ModulesLearning.ModuleLSTM import train as tranformers
 
 
 pd.set_option('display.max_rows', 500)
@@ -35,7 +35,7 @@ res = '15min' #15min
 # path_desktop = "C:\\Users\Shivendra\Desktop\SolarProject\solar_forecasting/"
 path_local = "/Users/saumya/Desktop/SolarProject/"
 path_cluster = "/pl/active/machinelearning/Solar_forecasting_project/"
-path_project = path_cluster
+path_project = path_local
 path = path_project+"Data/"
 folder_saving = path_project + city+"/Models/"
 folder_plots = path_project + city+"/Plots/"
@@ -46,10 +46,10 @@ clearsky_file_path = path+'clear-sky/'+city+'_15min_original.csv'
 features = ['year','month','day','hour','min','zen','dw_solar','uw_solar','direct_n','diffuse','dw_ir','dw_casetemp','dw_dometemp','uw_ir','uw_casetemp','uw_dometemp','uvb','par','netsolar','netir','totalnet','temp','rh','windspd','winddir','pressure']
 
 # selected features for the study
-final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','dw_ir','temp','rh','windspd','winddir','pressure','clear_ghi']
-#final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','diffuse','dw_ir','dw_casetemp','dw_dometemp','uw_ir','uw_casetemp','uw_dometemp','uvb','par','temp','rh','windspd','winddir','pressure', 'clear_ghi']
+# final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','dw_ir','temp','rh','windspd','winddir','pressure','clear_ghi']
+# final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','diffuse','dw_ir','dw_casetemp','dw_dometemp','uw_ir','uw_casetemp','uw_dometemp','uvb','par','temp','rh','windspd','winddir','pressure', 'clear_ghi']
 ## ## selected features for the study (exploring multiple combinations)
-# final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
+final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
 # final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','direct_n','dw_ir','temp','windspd','winddir','pressure', 'clear_ghi']
 
 # target or Y
@@ -67,9 +67,9 @@ testyear = 2017
 
 # hyperparameters
 
-n_timesteps = 72#169 for tcn #72 for SAND
+n_timesteps = 24*7#72#169 for tcn #72 for SAND
 # n_output_steps = len(lead_times)
-n_features = 12#22 #12 #15 for everything (taking 12(even) features for mulit-head and transformers)
+n_features = 15#22 #12 #15 for everything (taking 12(even) features for mulit-head and transformers)
 quantile = True #True
 
 #hyperparameters for the multi-attention model
@@ -256,8 +256,8 @@ def main():
 
 
 
-    reg = "dcnn_with_lag169_only_multiheadattention_regularized_and_less_layers_from_SAND"
-
+    # reg = "dcnn_with_lag169_only_multiheadattention_regularized_and_less_layers_from_SAND"
+    reg = "dcnn_with_lag_convattention_dual"
 
 
 
@@ -321,7 +321,7 @@ def main():
 
                 # normalizing the Xtrain, Xvalid and Xtest data and saving the mean,std of train to normalize the heldout data later
                 X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, X_test,index_ghi,index_clearghi, len(col_to_indices_mapping),
-                                                                             folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/")#, lead = lead)
+                                                                             folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/", lead = lead)
 
                 f.write("epochs = " + str(epochs) + '\n')
                 f.write("batch_size = " + str(batch_size) + '\n')
@@ -334,31 +334,30 @@ def main():
                 f.write("total features = " + str(n_features)+ '\n')
                 f.write("alphas = " + str(len((alphas))) + '\n')
 
-                tranformers.train_transformer(quantile, X_train, y_train, X_valid, y_valid, n_timesteps+1, n_features, n_layers, factor, num_heads, d_model, batch_size, epochs, lr,alphas, q50,
-                                           folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved ="multi_horizon_dcnn", n_outputs=n_output_steps) #"dcnn_lag_for_lead_" + str(lead)) #"multi_horizon_dcnn", n_outputs=n_output_steps)
+                # tranformers.train_transformer(quantile, X_train, y_train, X_valid, y_valid, n_timesteps+1, n_features, n_layers, factor, num_heads, d_model, batch_size, epochs, lr,alphas, q50,
+                #                            folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved ="multi_horizon_dcnn", n_outputs="dcnn_lag_for_lead_" + str(lead)) #"multi_horizon_dcnn", n_outputs=n_output_steps)
+                #
+                # y_pred, y_valid_pred, valid_crps, test_crps  = tranformers.test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps+1, n_features,n_layers, factor, num_heads, d_model,alphas, q50,
+                #                               folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved = "multi_horizon_dcnn", n_outputs="dcnn_lag_for_lead_" + str(lead))#"multi_horizon_dcnn", n_outputs=n_output_steps)
+                #
+                #
 
-                y_pred, y_valid_pred, valid_crps, test_crps  = tranformers.test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps+1, n_features,n_layers, factor, num_heads, d_model,alphas, q50,
-                                              folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved = "multi_horizon_dcnn", n_outputs=n_output_steps)#"dcnn_lag_for_lead_" + str(lead))#"multi_horizon_dcnn", n_outputs=n_output_steps)
 
-            # lstm.train_LSTM(quantile, X_train, y_train, X_valid, y_valid, n_timesteps + 1, n_features,
-            #                               folder_saving + season_flag + "/ML_models_" + str(
-            #                                   testyear) + "/cnn/" + str(res) + "/" + reg + "/",
-            #                               model_saved="lstm_lag_for_lead_" + str(lead))  # , n_outputs=n_timesteps)
-            #
-            # y_pred, y_valid_pred, valid_crps, test_crps = lstm.test_LSTM(quantile, X_valid, y_valid,
-            #                                                                            X_test, y_test,
-            #                                                                            n_timesteps + 1, n_features,
-            #                                                                            folder_saving + season_flag + "/ML_models_" + str(
-            #                                                                                testyear) + "/cnn/" + str(
-            #                                                                                res) + "/" + reg + "/",
-            #                                                                            model_saved="lstm_lag_for_lead_" + str(
-            #                                                                                lead))  # , n_outputs=n_timesteps)
+                cnn.train_DCNN_with_attention(quantile,X_train, y_train, X_valid, y_valid, n_timesteps+1, n_features,
+                                                                                           folder_saving + season_flag + "/ML_models_" + str(
+                                                                                               testyear) + "/cnn/" + str(
+                                                                                               res) + "/" + reg + "/",
+                                                                                           model_saved="dcnn_lag_for_lead_" + str(
+                                                                                               lead))
+                y_pred, y_valid_pred, valid_crps, test_crps = cnn.test_DCNN_with_attention(quantile, X_valid, y_valid,
+                                                                                           X_test, y_test,
+                                                                                           n_timesteps + 1, n_features,
+                                                                                           folder_saving + season_flag + "/ML_models_" + str(
+                                                                                               testyear) + "/cnn/" + str(
+                                                                                               res) + "/" + reg + "/",
+                                                                                           model_saved="dcnn_lag_for_lead_" + str(
+                                                                                               lead))  # "multi_horizon_dcnn", n_outputs=n_output_steps)
 
-            # y_pred = model.predict(X_test.reshape(X_test.shape[0],n_timesteps, n_features))
-            # y_valid_pred = model.predict(X_valid.reshape(X_valid.shape[0], n_timesteps, n_features))
-            # print(y_pred.shape)
-            # y_pred = np.reshape(y_pred, -1)
-            # y_valid_pred = np.reshape(y_valid_pred, -1)
 
             # for i in range(n_output_steps):
             #
