@@ -8,7 +8,7 @@ from sklearn.metrics import mean_squared_error
 from torch.autograd import Variable
 # import torch.optim.lr_scheduler.StepLR
 from torch.nn.utils import weight_norm
-from SolarForecasting.ModulesLearning.ModulesCNN.tcn import TemporalConvNet
+from ModulesLearning.ModulesCNN.tcn import TemporalConvNet
 
 
 class EarlyStopping:
@@ -276,158 +276,177 @@ class ConvForecasterDilationLowRes(nn.Module):
     #
     #     return output
 
-    def trainBatchwise(self, trainX, trainY, epochs, batch_size, lr=0.0001, validX=None,
-                       validY=None, n_output_length = 1, patience=None, verbose=None, reg_lamdba = 0): #0.0001):
+def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
+                   validY, n_output_length, n_features, n_timesteps, folder_saving, model_saved, quantile, alphas, outputs, valid, patience=None, verbose=None, reg_lamdba = 0): #0.0001):
 
-        optimizer = torch.optim.Adam(self.parameters(), lr=lr)
-        # scheduler = StepLR(optimizer, step_size=25, gamma=0.1)
-        criterion = torch.nn.MSELoss()
-        # criterion = nn.L1Loss()
-        samples = trainX.size()[0]
-        losses = []
-        valid_losses = []
+    quantile_forecaster = ConvForecasterDilationLowRes(n_features, n_timesteps, folder_saving, model_saved, quantile,
+                                                       alphas=alphas, outputs=outputs,
+                                                       valid=valid)  # changed np.arange step size from 0.05 to 0.1
+    train_on_gpu = torch.cuda.is_available()
+    print(train_on_gpu)
 
-        early_stopping = EarlyStopping(self.saving_path, patience=patience, verbose=True)
+    if train_on_gpu:
+        if torch.cuda.device_count() > 1:
+            print("Let's use", torch.cuda.device_count(), "GPUs!")
+            quantile_forecaster = nn.DataParallel(quantile_forecaster)
 
-        for epoch in range(epochs):
-            if self.train_mode is not True:
-                self.train()
-                self.train_mode = True
+        quantile_forecaster = quantile_forecaster.cuda()
+        # point_forecaster = point_forecaster.cuda()
 
-            indices = torch.randperm(samples)
-            trainX, trainY = trainX[indices, :, :], trainY[indices]
-            per_epoch_loss = 0
-            count_train = 0
-            for i in range(0, samples, batch_size):
-                xx = trainX[i: i + batch_size, :, :]
-                yy = trainY[i: i + batch_size]
+    print(quantile_forecaster)
 
-                if torch.cuda.is_available():
-                    xx, yy = xx.cuda(), yy.cuda()
+    optimizer = torch.optim.Adam(quantile_forecaster.parameters(), lr=lr)
+    # scheduler = StepLR(optimizer, step_size=25, gamma=0.1)
+    criterion = torch.nn.MSELoss()
+    # criterion = nn.L1Loss()
+    samples = trainX.size()[0]
+    losses = []
+    valid_losses = []
 
-                outputs = self.forward(xx, n_output_length)
-                optimizer.zero_grad()
-                if self.quantile:
-                    if n_output_length==1:
-                        loss = self.quantile_loss(outputs, yy)
-                    else:
-                        # train loss for multiple outputs or multi-task learning
-                        total_loss = []
-                        for n in range(n_output_length):
-                            y_pred = outputs[:,:, n]
-                            # calculate the batch loss
-                            loss = self.quantile_loss(y_pred, yy[:, n])
-                            total_loss.append(loss)
+    saving_path = folder_saving+model_saved
+    early_stopping = EarlyStopping(saving_path, patience=patience, verbose=True)
+    train_mode = False
 
-                        loss = sum(total_loss)
+    for epoch in range(epochs):
+        if train_mode is not True:
+            quantile_forecaster.train()
+            train_mode = True
 
+        indices = torch.randperm(samples)
+        trainX, trainY = trainX[indices, :, :], trainY[indices]
+        per_epoch_loss = 0
+        count_train = 0
+        for i in range(0, samples, batch_size):
+            xx = trainX[i: i + batch_size, :, :]
+            yy = trainY[i: i + batch_size]
+
+            if train_on_gpu:
+                xx, yy = xx.cuda(), yy.cuda()
+
+            outputs = quantile_forecaster.forward(xx, n_output_length)
+            optimizer.zero_grad()
+            if quantile:
+                if n_output_length==1:
+                    loss = quantile_loss(outputs, yy,alphas)
                 else:
-                    loss = criterion(outputs, yy)
+                    # train loss for multiple outputs or multi-task learning
+                    total_loss = []
+                    for n in range(n_output_length):
+                        y_pred = outputs[:,:, n]
+                        # calculate the batch loss
+                        loss = quantile_loss(y_pred, yy[:, n],alphas)
+                        total_loss.append(loss)
+
+                    loss = sum(total_loss)
+
+            else:
+                loss = criterion(outputs, yy)
 
 
-                reg_loss = np.sum([weights.norm(2) for weights in self.parameters()])
-                total_loss = loss + reg_lamdba/ 2 * reg_loss
-                # backward pass: compute gradient of the loss with respect to model parameters
-                total_loss.backward()
-                # perform a single optimization step (parameter update)
-                optimizer.step()
-                # scheduler.step()
-                per_epoch_loss+=loss.item()
-                count_train+=1
+            reg_loss = np.sum([weights.norm(2) for weights in quantile_forecaster.parameters()])
+            total_loss = loss + reg_lamdba/ 2 * reg_loss
+            # backward pass: compute gradient of the loss with respect to model parameters
+            total_loss.backward()
+            # perform a single optimization step (parameter update)
+            optimizer.step()
+            # scheduler.step()
+            per_epoch_loss+=loss.item()
+            count_train+=1
 
 
-            train_loss_this_epoch = per_epoch_loss/count_train
-            losses.append(train_loss_this_epoch)
+        train_loss_this_epoch = per_epoch_loss/count_train
+        losses.append(train_loss_this_epoch)
 
-            if self.valid:
-                self.train_mode = False
-                self.eval()
-                if torch.cuda.is_available():
+        if valid:
+            train_mode = False
+            quantile_forecaster.eval()
+            if train_on_gpu:
 
-                    validX,validY = validX.cuda(), validY.cuda()
+                validX,validY = validX.cuda(), validY.cuda()
 
 
-                if self.quantile:
-                    validYPred = self.forward(validX,n_output_length)
-                    # validYPred = validYPred.cpu().detach().numpy()
-                    # validYTrue = validY.cpu().detach().numpy()
-                    # valid_loss_this_epoch = self.quantile_loss(validYPred,validY).item()
+            if quantile:
+                validYPred = quantile_forecaster.forward(validX,n_output_length)
+                # validYPred = validYPred.cpu().detach().numpy()
+                # validYTrue = validY.cpu().detach().numpy()
+                # valid_loss_this_epoch = self.quantile_loss(validYPred,validY).item()
 
-                    if n_output_length == 1:
-                        valid_loss_this_epoch =  self.quantile_loss(validYPred,validY).item()
-                    else:
-                        # train loss for multiple outputs or multi-task learning
-                        total_loss = []
-                        for n in range(n_output_length):
-                            y_pred = validYPred[:, :, n]
-                            # calculate the batch loss
-                            loss = self.quantile_loss(y_pred, validY[:, n])
-                            total_loss.append(loss)
-
-                        valid_loss_this_epoch = sum(total_loss).item()
-
-                    # valid_loss = elf.crps_score(validYPred, validYTrue, np.arange(0.05, 1.0, 0.05))s
-                    valid_losses.append(valid_loss_this_epoch)
-                    print("Epoch: %d, loss: %1.5f and valid_loss : %1.5f" % (epoch, train_loss_this_epoch, valid_loss_this_epoch))
+                if n_output_length == 1:
+                    valid_loss_this_epoch = quantile_loss(validYPred,validY,alphas).item()
                 else:
-                    validYPred = self.forward(validX,n_output_length)
+                    # train loss for multiple outputs or multi-task learning
+                    total_loss = []
+                    for n in range(n_output_length):
+                        y_pred = validYPred[:, :, n]
+                        # calculate the batch loss
+                        loss = quantile_loss(y_pred, validY[:, n],alphas)
+                        total_loss.append(loss)
 
-                    # # valid loss for multiple outputs or multi-task learning
-                    # total_loss = []
-                    # for n in range(self.outputs):
-                    #     y_pred = validYPred[:, n]
-                    #     # calculate the batch lossnb6h
-                    #     validloss = criterion(y_pred, validY[:, n])
-                    #     total_loss.append(validloss)
+                    valid_loss_this_epoch = sum(total_loss).item()
 
-                    # validloss = sum(total_loss)
-                    # valid_loss_this_epoch = validloss.item()
-                    valid_loss_this_epoch = criterion(validYPred, validY).item()
-                    # validYPred = validYPred.cpu().detach().numpy()
-                    # validYTrue = validY.cpu().detach().numpy()
-                    # valid_loss = np.sqrt(mean_squared_error(validYPred, validYTrue))
-                    valid_losses.append(valid_loss_this_epoch)
-                    print("Epoch: %d, train loss: %1.5f and valid loss : %1.5f" % (epoch, train_loss_this_epoch, valid_loss_this_epoch))
-
-                # early_stopping(valid_loss, self)
-                early_stopping(valid_loss_this_epoch, self, epoch)
-
-                if early_stopping.early_stop:
-                    print("Early stopping")
-                    break
+                # valid_loss = elf.crps_score(validYPred, validYTrue, np.arange(0.05, 1.0, 0.05))s
+                valid_losses.append(valid_loss_this_epoch)
+                print("Epoch: %d, loss: %1.5f and valid_loss : %1.5f" % (epoch, train_loss_this_epoch, valid_loss_this_epoch))
             else:
-                print("Epoch: %d, loss: %1.5f" % (epoch, train_loss_this_epoch))
-                torch.save(self.state_dict(), self.saving_path)
-        # load the last checkpoint with the best model
-        # self.load_state_dict(torch.load('checkpoint.pt'))
-        return losses, valid_losses
+                validYPred = quantile_forecaster.forward(validX,n_output_length)
 
-    def crps_score(self, outputs, target, alphas):
-        loss = []
-        for i, alpha in enumerate(alphas):
-            output = outputs[:, i].reshape((-1, 1))
-            covered_flag = (output <= target).astype(np.float32)
-            uncovered_flag = (output > target).astype(np.float32)
-            if i == 0:
-                loss.append(np.mean(
-                    ((target - output) * alpha * covered_flag + (output - target) * (1 - alpha) * uncovered_flag)))
-            else:
-                loss.append(np.mean(
-                    ((target - output) * alpha * covered_flag + (output - target) * (1 - alpha) * uncovered_flag)))
+                # # valid loss for multiple outputs or multi-task learning
+                # total_loss = []
+                # for n in range(self.outputs):
+                #     y_pred = validYPred[:, n]
+                #     # calculate the batch lossnb6h
+                #     validloss = criterion(y_pred, validY[:, n])
+                #     total_loss.append(validloss)
 
-        return 2*np.mean(np.array(loss))
+                # validloss = sum(total_loss)
+                # valid_loss_this_epoch = validloss.item()
+                valid_loss_this_epoch = criterion(validYPred, validY).item()
+                # validYPred = validYPred.cpu().detach().numpy()
+                # validYTrue = validY.cpu().detach().numpy()
+                # valid_loss = np.sqrt(mean_squared_error(validYPred, validYTrue))
+                valid_losses.append(valid_loss_this_epoch)
+                print("Epoch: %d, train loss: %1.5f and valid loss : %1.5f" % (epoch, train_loss_this_epoch, valid_loss_this_epoch))
 
-    def quantile_loss(self, outputs, target):
-        for i, alpha in zip(range(self.outputs), self.alphas):
-            output = outputs[:, i].reshape((-1, 1))
-            covered_flag = (output <= target).float()
-            uncovered_flag = (output > target).float()
-            if i == 0:
-                loss = ((target - output) * alpha * covered_flag + (output - target) * (1 - alpha) * uncovered_flag)
-            else:
-                loss += ((target - output) * alpha * covered_flag + (output - target) * (1 - alpha) * uncovered_flag)
+            # early_stopping(valid_loss, self)
+            early_stopping(valid_loss_this_epoch, quantile_forecaster, epoch)
 
-        return torch.mean(loss)
+            if early_stopping.early_stop:
+                print("Early stopping")
+                break
+        else:
+            print("Epoch: %d, loss: %1.5f" % (epoch, train_loss_this_epoch))
+            torch.save(quantile_forecaster.state_dict(), saving_path)
+    # load the last checkpoint with the best model
+    # self.load_state_dict(torch.load('checkpoint.pt'))
+    return losses, valid_losses
+
+def crps_score(outputs, target, alphas):
+    loss = []
+    for i, alpha in enumerate(alphas):
+        output = outputs[:, i].reshape((-1, 1))
+        covered_flag = (output <= target).astype(np.float32)
+        uncovered_flag = (output > target).astype(np.float32)
+        if i == 0:
+            loss.append(np.mean(
+                ((target - output) * alpha * covered_flag + (output - target) * (1 - alpha) * uncovered_flag)))
+        else:
+            loss.append(np.mean(
+                ((target - output) * alpha * covered_flag + (output - target) * (1 - alpha) * uncovered_flag)))
+
+    return 2*np.mean(np.array(loss))
+
+def quantile_loss(outputs, target, alphas):
+
+    for i, alpha in zip(range(len(alphas)),alphas):
+        output = outputs[:, i].reshape((-1, 1))
+        covered_flag = (output <= target).float()
+        uncovered_flag = (output > target).float()
+        if i == 0:
+            loss = ((target - output) * alpha * covered_flag + (output - target) * (1 - alpha) * uncovered_flag)
+        else:
+            loss += ((target - output) * alpha * covered_flag + (output - target) * (1 - alpha) * uncovered_flag)
+
+    return torch.mean(loss)
 
 
 

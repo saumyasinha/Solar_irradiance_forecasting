@@ -7,11 +7,13 @@ from collections import Counter
 from sklearn.model_selection import train_test_split
 from datetime import timedelta
 
-from SolarForecasting.ModulesProcessing import collect_data, clean_data
-from SolarForecasting.ModulesLearning import preprocessing as preprocess
-from SolarForecasting.ModulesLearning import postprocessing as postprocess
-from SolarForecasting.ModulesLearning.ModulesCNN import train as cnn
-from SolarForecasting.ModulesLearning.ModuleLSTM import train as tranformers
+
+from ModulesProcessing import collect_data, clean_data
+from ModulesLearning import preprocessing as preprocess
+from ModulesLearning import postprocessing as postprocess
+from ModulesLearning.ModulesCNN import train as cnn
+from ModulesLearning.ModuleLSTM import train as tranformers
+
 
 
 pd.set_option('display.max_rows', 500)
@@ -67,21 +69,22 @@ testyear = 2017
 
 # hyperparameters
 
-n_timesteps = 24*7#72#169 for tcn #72 for SAND
+
+n_timesteps = 24*7#72#169 for tcn
 # n_output_steps = len(lead_times)
-n_features = 15#22 #12 #15 for everything (taking 12(even) features for mulit-head and transformers)
+n_features = 15#12 for SAND #15 for tcn(taking 12(even) features for mulit-head and transformers)
 quantile = True #True
 
 #hyperparameters for the multi-attention model
 
-n_layers = 1 #2
-factor = 12
+n_layers = 2 #2
+factor = 20 #12
 num_heads = 4 #8
 d_model = 128 #128
-batch_size = 16 #32
+batch_size = 32 #16 #16 
 
-epochs = 250
-lr = 1e-5 #1e-4
+epochs = 300 #250
+lr = 1e-6 #1e-5 #1e-4
 
 alphas = np.arange(0.05, 1.0, 0.05)
 # alphas = np.arange(0.05, 1, 0.225)
@@ -254,10 +257,8 @@ def main():
     
     # df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
 
-
-
-    # reg = "dcnn_with_lag169_only_multiheadattention_regularized_and_less_layers_from_SAND"
     reg = "dcnn_with_lag_convattention_dual"
+    # reg = "dcnn_with_lag_only_multiheadattention_regularized_redoing_best_version_with_mask_scaling_low_lr_high_bs_high_factor_from_SAND"
 
 
 
@@ -334,14 +335,6 @@ def main():
                 f.write("total features = " + str(n_features)+ '\n')
                 f.write("alphas = " + str(len((alphas))) + '\n')
 
-                # tranformers.train_transformer(quantile, X_train, y_train, X_valid, y_valid, n_timesteps+1, n_features, n_layers, factor, num_heads, d_model, batch_size, epochs, lr,alphas, q50,
-                #                            folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved ="multi_horizon_dcnn", n_outputs="dcnn_lag_for_lead_" + str(lead)) #"multi_horizon_dcnn", n_outputs=n_output_steps)
-                #
-                # y_pred, y_valid_pred, valid_crps, test_crps  = tranformers.test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps+1, n_features,n_layers, factor, num_heads, d_model,alphas, q50,
-                #                               folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved = "multi_horizon_dcnn", n_outputs="dcnn_lag_for_lead_" + str(lead))#"multi_horizon_dcnn", n_outputs=n_output_steps)
-                #
-                #
-
 
                 cnn.train_DCNN_with_attention(quantile,X_train, y_train, X_valid, y_valid, n_timesteps+1, n_features,
                                                                                            folder_saving + season_flag + "/ML_models_" + str(
@@ -357,6 +350,13 @@ def main():
                                                                                                res) + "/" + reg + "/",
                                                                                            model_saved="dcnn_lag_for_lead_" + str(
                                                                                                lead))  # "multi_horizon_dcnn", n_outputs=n_output_steps)
+
+                # tranformers.train_transformer(quantile, X_train, y_train, X_valid, y_valid, n_timesteps+1, n_features, n_layers, factor, num_heads, d_model, batch_size, epochs, lr,alphas, q50,
+                #                            folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved ="dcnn_lag_for_lead_" + str(lead)) #"multi_horizon_dcnn", n_outputs=n_output_steps)
+                #
+                # y_pred, y_valid_pred, valid_crps, test_crps  = tranformers.test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps+1, n_features,n_layers, factor, num_heads, d_model,alphas, q50,
+                #                               folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved = "dcnn_lag_for_lead_" + str(lead))#"multi_horizon_dcnn", n_outputs=n_output_steps)
+                #
 
 
             # for i in range(n_output_steps):

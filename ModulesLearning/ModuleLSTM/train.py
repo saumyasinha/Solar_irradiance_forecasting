@@ -1,5 +1,5 @@
 import torch
-from ModulesLearning.ModuleLSTM.Model import MultiAttnHeadSimple
+from ModulesLearning.ModuleLSTM.Model import MultiAttnHeadSimple, trainBatchwise,crps_score
 import numpy as np
 import torch.nn as nn
 import matplotlib.pyplot as plt
@@ -118,29 +118,30 @@ def train_transformer(quantile, X_train, y_train, X_valid, y_valid, n_timesteps,
 
     print(X_train.shape, y_train.shape)
 
-    train_on_gpu = torch.cuda.is_available()
-    print(train_on_gpu)
-
+    # train_on_gpu = torch.cuda.is_available()
+    # print(train_on_gpu)
+    # # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    #
     outputs = len(alphas)
-
-    # point_foreaster = TransAm(n_features, n_timesteps, folder_saving, model_saved, quantile, outputs=n_outputs, valid=valid)
-    quantile_forecaster = MultiAttnHeadSimple(n_features, n_timesteps, folder_saving, model_saved, quantile, n_layers, factor, alphas = alphas, outputs = outputs, valid=valid, output_seq_len = n_outputs, num_heads=num_heads, d_model=d_model)
-    if train_on_gpu:
-        if train_on_gpu:
-            if torch.cuda.device_count() > 1:
-                print("Let's use", torch.cuda.device_count(), "GPUs!")
-                quantile_forecaster = nn.DataParallel(quantile_forecaster)
-
-        quantile_forecaster = quantile_forecaster.cuda()
-        # point_foreaster = point_foreaster.cuda()
-
-    print(quantile_forecaster)
+    #
+    # # point_foreaster = TransAm(n_features, n_timesteps, folder_saving, model_saved, quantile, outputs=n_outputs, valid=valid)
+    # quantile_forecaster = MultiAttnHeadSimple(n_features, n_timesteps, folder_saving, model_saved, quantile, n_layers, factor, alphas = alphas, outputs = outputs, valid=valid, output_seq_len = n_outputs, num_heads=num_heads, d_model=d_model)
+    # if train_on_gpu:
+    #     if torch.cuda.device_count() > 1:
+    #         print("Let's use", torch.cuda.device_count(), "GPUs!")
+    #         quantile_forecaster = nn.DataParallel(quantile_forecaster)
+    #
+    #     quantile_forecaster = quantile_forecaster.cuda()
+    #
+    #     # point_foreaster = point_foreaster.cuda()
+    #
+    # print(quantile_forecaster)
     learning_rate = lr
 
     epochs = epochs
     batch_size = batch_size
 
-    train_loss, valid_loss = quantile_forecaster.trainBatchwise(X_train, y_train, epochs, batch_size,learning_rate, X_valid, y_valid, n_outputs,patience=1000)
+    train_loss, valid_loss = trainBatchwise(X_train, y_train, epochs, batch_size,learning_rate, X_valid, y_valid, n_outputs,n_features, n_timesteps, folder_saving, model_saved, quantile, n_layers, factor, alphas = alphas, outputs = outputs, valid=valid, output_seq_len = n_outputs, num_heads=num_heads, d_model=d_model, patience=1000)
 
     loss_plots(train_loss,valid_loss,folder_saving,model_saved)
 
@@ -189,14 +190,14 @@ def test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_
                 # print(y_pred.shape)
                 # y_pred_n = y_pred[:, n, :]
                 y_pred_n = y_pred[n].cpu().detach().numpy()
-                test_crps.append(quantile_forecaster.crps_score(y_pred_n, y_test[:,n], alphas))
+                test_crps.append(crps_score(y_pred_n, y_test[:,n], alphas))
 
 
             # y_pred = y_pred[:,:,q50]
 
         else:
             y_pred = y_pred.cpu().detach().numpy()
-            test_crps=quantile_forecaster.crps_score(y_pred, y_test, alphas)
+            test_crps=crps_score(y_pred, y_test, alphas)
             y_pred = y_pred[:,q50]#changed from 9
 
         if X_valid is not None:
@@ -206,13 +207,13 @@ def test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_
                 for n in range(n_outputs):
                     # y_valid_pred_n = y_valid_pred[:, n, :]
                     y_valid_pred_n = y_valid_pred[n].cpu().detach().numpy()
-                    valid_crps.append(quantile_forecaster.crps_score(y_valid_pred_n, y_valid[:, n], alphas))
+                    valid_crps.append(crps_score(y_valid_pred_n, y_valid[:, n], alphas))
 
                 # y_valid_pred = y_valid_pred[:, :, q50]
 
             else:
                 y_valid_pred = y_valid_pred.cpu().detach().numpy()
-                valid_crps = quantile_forecaster.crps_score(y_valid_pred, y_valid, alphas)
+                valid_crps = crps_score(y_valid_pred, y_valid, alphas)
                 y_valid_pred = y_valid_pred[:, q50]
 
     return y_pred, y_valid_pred, valid_crps, test_crps

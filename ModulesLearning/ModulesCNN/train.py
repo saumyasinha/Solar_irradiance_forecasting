@@ -1,7 +1,7 @@
 import os
 # from SolarForecasting.ModulesLearning.ModulesCNN.Model import basic_CNN, DC_CNN_Model
 import torch
-from SolarForecasting.ModulesLearning.ModulesCNN.Model import ConvForecasterDilationLowRes
+from ModulesLearning.ModulesCNN.Model import ConvForecasterDilationLowRes,trainBatchwise, crps_score
 import numpy as np
 import matplotlib.pyplot as plt
 import torch.nn as nn
@@ -147,27 +147,13 @@ def train_DCNN_with_attention(quantile, X_train, y_train, X_valid, y_valid, n_ti
 
     print(X_train.shape, y_train.shape)
 
-    train_on_gpu = torch.cuda.is_available()
-    print(train_on_gpu)
-
     # point_forecaster = ConvForecasterDilationLowRes(n_features, n_timesteps, folder_saving, model_saved, quantile, outputs=n_outputs, valid=valid)
-    quantile_forecaster = ConvForecasterDilationLowRes(n_features, n_timesteps, folder_saving, model_saved, quantile, alphas = np.arange(0.05, 1.0, 0.05), outputs=19, valid=valid)#changed np.arange step size from 0.05 to 0.1
-    if train_on_gpu:
-        if torch.cuda.device_count() > 1:
-            print("Let's use", torch.cuda.device_count(), "GPUs!")
-            quantile_forecaster = nn.DataParallel(quantile_forecaster)
+    learning_rate = 1e-5#changed from 1e-5
 
-        quantile_forecaster = quantile_forecaster.cuda()
-        # point_forecaster = point_forecaster.cuda()
-
-    print(quantile_forecaster)
-    learning_rate = 1e-6#changed from 1e-5
-
-    epochs = 1 #200 for orig
+    epochs = 200 #200 for orig
     batch_size = 16 #16 #32
 
-
-    train_loss, valid_loss = quantile_forecaster.trainBatchwise(X_train, y_train, epochs, batch_size,learning_rate, X_valid, y_valid, n_outputs, patience=1000)
+    train_loss, valid_loss = trainBatchwise(X_train, y_train, epochs, batch_size,learning_rate, X_valid, y_valid, n_outputs,n_features, n_timesteps, folder_saving, model_saved, quantile, alphas = np.arange(0.05, 1.0, 0.05), outputs=19, valid=valid, patience=1000)
     loss_plots(train_loss,valid_loss,folder_saving,model_saved)
 
 
@@ -212,12 +198,12 @@ def test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_times
             for n in range(n_outputs):
                 print(y_pred.shape)
                 y_pred_n = y_pred[:, :, n]
-                test_crps.append(quantile_forecaster.crps_score(y_pred_n, y_test[:,n], np.arange(0.05, 1.0, 0.05)))
+                test_crps.append(crps_score(y_pred_n, y_test[:,n], np.arange(0.05, 1.0, 0.05)))
 
             y_pred = y_pred[:,9,:]
 
         else:
-            test_crps=quantile_forecaster.crps_score(y_pred, y_test, np.arange(0.05, 1.0, 0.05))
+            test_crps=crps_score(y_pred, y_test, np.arange(0.05, 1.0, 0.05))
             y_pred = y_pred[:,9]#changed from 9
 
         if X_valid is not None:
@@ -226,12 +212,12 @@ def test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_times
                 valid_crps = []
                 for n in range(n_outputs):
                     y_valid_pred_n = y_valid_pred[:, :, n]
-                    valid_crps.append(quantile_forecaster.crps_score(y_valid_pred_n, y_valid[:, n], np.arange(0.05, 1.0, 0.05)))
+                    valid_crps.append(crps_score(y_valid_pred_n, y_valid[:, n], np.arange(0.05, 1.0, 0.05)))
 
                 y_valid_pred = y_valid_pred[:, 9, :]
 
             else:
-                valid_crps = quantile_forecaster.crps_score(y_valid_pred, y_valid, np.arange(0.05, 1.0, 0.05))
+                valid_crps = crps_score(y_valid_pred, y_valid, np.arange(0.05, 1.0, 0.05))
                 y_valid_pred = y_valid_pred[:, 9]
 
     # print(valid_crps)
