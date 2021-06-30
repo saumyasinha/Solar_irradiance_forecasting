@@ -1,6 +1,7 @@
 import torch
 from ModulesLearning.ModuleLSTM.Model import MultiAttnHeadSimple
 import numpy as np
+import torch.nn as nn
 import matplotlib.pyplot as plt
 
 def loss_plots(train_loss, valid_loss, folder_saving, loss_type=""):
@@ -119,13 +120,18 @@ def train_transformer(quantile, X_train, y_train, X_valid, y_valid, n_timesteps,
 
     train_on_gpu = torch.cuda.is_available()
     print(train_on_gpu)
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     outputs = len(alphas)
 
     # point_foreaster = TransAm(n_features, n_timesteps, folder_saving, model_saved, quantile, outputs=n_outputs, valid=valid)
     quantile_forecaster = MultiAttnHeadSimple(n_features, n_timesteps, folder_saving, model_saved, quantile, n_layers, factor, alphas = alphas, outputs = outputs, valid=valid, output_seq_len = n_outputs, num_heads=num_heads, d_model=d_model)
-    if train_on_gpu:
-        quantile_forecaster = quantile_forecaster.cuda()
+     
+    if torch.cuda.device_count() > 1:
+        print("Let's use", torch.cuda.device_count(), "GPUs!")
+       # quantile_forecaster = nn.DataParallel(quantile_forecaster)
+
+    quantile_forecaster.to(device)
         # point_foreaster = point_foreaster.cuda()
 
     print(quantile_forecaster)

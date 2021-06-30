@@ -10,7 +10,7 @@ from datetime import timedelta
 from ModulesProcessing import collect_data, clean_data
 from ModulesLearning import preprocessing as preprocess
 from ModulesLearning import postprocessing as postprocess
-from ModulesLearning.ModulesCNN import train as cnn
+#from ModulesLearning.ModulesCNN import train as cnn
 from ModulesLearning.ModuleLSTM import train as tranformers
 
 
@@ -67,21 +67,21 @@ testyear = 2017
 
 # hyperparameters
 
-n_timesteps = 72#169 for tcn #72 for SAND
+n_timesteps = 72 #72#169 for tcn #72 for SAND
 # n_output_steps = len(lead_times)
 n_features = 12#22 #12 #15 for everything (taking 12(even) features for mulit-head and transformers)
 quantile = True #True
 
 #hyperparameters for the multi-attention model
 
-n_layers = 1 #2
-factor = 12
+n_layers = 2 #2
+factor = 20 #12
 num_heads = 4 #8
 d_model = 128 #128
-batch_size = 16 #32
+batch_size = 32 #16 #16 
 
-epochs = 250
-lr = 1e-5 #1e-4
+epochs = 300 #250
+lr = 1e-6 #1e-5 #1e-4
 
 alphas = np.arange(0.05, 1.0, 0.05)
 # alphas = np.arange(0.05, 1, 0.225)
@@ -256,7 +256,7 @@ def main():
 
 
 
-    reg = "dcnn_with_lag169_only_multiheadattention_regularized_and_less_layers_from_SAND"
+    reg = "dcnn_with_lag_only_multiheadattention_regularized_redoing_best_version_with_mask_scaling_low_lr_high_bs_high_factor_from_SAND"
 
 
 
@@ -321,7 +321,7 @@ def main():
 
                 # normalizing the Xtrain, Xvalid and Xtest data and saving the mean,std of train to normalize the heldout data later
                 X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, X_test,index_ghi,index_clearghi, len(col_to_indices_mapping),
-                                                                             folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/")#, lead = lead)
+                                                                             folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/", lead = lead)
 
                 f.write("epochs = " + str(epochs) + '\n')
                 f.write("batch_size = " + str(batch_size) + '\n')
@@ -335,10 +335,10 @@ def main():
                 f.write("alphas = " + str(len((alphas))) + '\n')
 
                 tranformers.train_transformer(quantile, X_train, y_train, X_valid, y_valid, n_timesteps+1, n_features, n_layers, factor, num_heads, d_model, batch_size, epochs, lr,alphas, q50,
-                                           folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved ="multi_horizon_dcnn", n_outputs=n_output_steps) #"dcnn_lag_for_lead_" + str(lead)) #"multi_horizon_dcnn", n_outputs=n_output_steps)
+                                           folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved ="dcnn_lag_for_lead_" + str(lead)) #"multi_horizon_dcnn", n_outputs=n_output_steps)
 
                 y_pred, y_valid_pred, valid_crps, test_crps  = tranformers.test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps+1, n_features,n_layers, factor, num_heads, d_model,alphas, q50,
-                                              folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved = "multi_horizon_dcnn", n_outputs=n_output_steps)#"dcnn_lag_for_lead_" + str(lead))#"multi_horizon_dcnn", n_outputs=n_output_steps)
+                                              folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved = "dcnn_lag_for_lead_" + str(lead))#"multi_horizon_dcnn", n_outputs=n_output_steps)
 
             # lstm.train_LSTM(quantile, X_train, y_train, X_valid, y_valid, n_timesteps + 1, n_features,
             #                               folder_saving + season_flag + "/ML_models_" + str(

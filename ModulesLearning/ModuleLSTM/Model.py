@@ -271,7 +271,7 @@ class MultiAttnHeadSimple(torch.nn.Module):
     def __init__(
             self, input_dim, seq_len, folder_saving, model, quantile, n_layers=2, factor=12, alphas=None, outputs=None, valid=False,
 
-         output_seq_len=1, num_heads=4, d_model=96, dropout=0.5):
+         output_seq_len=1, num_heads=4, d_model=96, dropout=0.2): #0.5):
 
         super(MultiAttnHeadSimple, self).__init__()
 
@@ -370,10 +370,10 @@ class MultiAttnHeadSimple(torch.nn.Module):
 
 
     def trainBatchwise(self, trainX, trainY, epochs, batch_size, lr=0.0001, validX=None,
-                       validY=None, n_output_length = 1, patience=None, verbose=None, reg_lamdba = 0.0001):
+                       validY=None, n_output_length = 1, patience=None, verbose=None, reg_lamdba = 0):
 
 
-        optimizer = torch.optim.Adam(self.parameters(), lr=lr)
+        optimizer = torch.optim.Adam(self.parameters(), lr=lr, betas = (0.9,0.98))
         # scheduler = StepLR(optimizer, step_size=25, gamma=0.1)
         criterion = torch.nn.MSELoss()
         # criterion = nn.L1Loss()
