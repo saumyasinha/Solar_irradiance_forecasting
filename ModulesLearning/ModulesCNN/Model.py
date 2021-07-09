@@ -144,9 +144,9 @@ class ConvForecasterDilationLowRes(nn.Module):
         # # self.fc = nn.Linear(self.conv_output_size,self.outputs)
 
         ## play around with channel size and kernel size
-        num_channels =[25]*6 #24/25 before and 6 num of channels, reduced for multihead
+        num_channels =[25]*6 #6#24/25 before and 6 num of channels, reduced for multihead
 
-        self.tcn = TemporalConvNet(self.input_dim, num_channels, kernel_size=5, dropout=0.2, attention=False)
+        self.tcn = TemporalConvNet(self.input_dim, num_channels, kernel_size=5, dropout=0.2, attention=True)
 
         self.linear = nn.Linear(num_channels[-1], self.outputs)
 
@@ -288,6 +288,7 @@ def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
     if train_on_gpu:
         if torch.cuda.device_count() > 1:
             print("Let's use", torch.cuda.device_count(), "GPUs!")
+
             # quantile_forecaster = nn.DataParallel(quantile_forecaster)
 
         quantile_forecaster = quantile_forecaster.cuda()

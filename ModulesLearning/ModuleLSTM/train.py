@@ -167,6 +167,10 @@ def test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_
     quantile_forecaster = MultiAttnHeadSimple(n_features, n_timesteps, folder_saving, model_saved, quantile,n_layers,factor,
                                              alphas=alphas, outputs=outputs, valid=True, output_seq_len = n_outputs, num_heads=num_heads, d_model=d_model)
 
+                                                       # changed np.arange step size from 0.05 to 0.1
+
+   
+
     quantile_forecaster.load_state_dict(torch.load(folder_saving + model_saved,map_location=torch.device('cpu')))
 
     quantile_forecaster.eval()
