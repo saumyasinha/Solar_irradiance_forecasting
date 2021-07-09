@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 
 def loss_plots(train_loss, valid_loss, folder_saving, loss_type=""):
     epochs = range(1, len(train_loss)+1)
-    # train_loss = train_loss[1:]
-    # valid_loss = valid_loss[1:]
+    train_loss = train_loss[1:]
+    valid_loss = valid_loss[1:]
     plt.figure()
     plt.plot(epochs, train_loss)
     plt.plot(epochs, valid_loss)
@@ -217,3 +217,7 @@ def test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_
                 y_valid_pred = y_valid_pred[:, q50]
 
     return y_pred, y_valid_pred, valid_crps, test_crps
+
+
+
+
