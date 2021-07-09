@@ -146,11 +146,11 @@ class ConvspatialAttentionBlock(nn.Module):
     logits = torch.bmm(queries, keys)
     mask = np.triu(np.ones(logits.size()), k=1).astype('bool')
     mask = torch.from_numpy(mask)
-    if torch.cuda.is_available():
-        mask = mask.cuda()
+    #if torch.cuda.is_available():
+     #   mask = mask.cuda()
     # do masked_fill_ on data rather than Variable because PyTorch doesn't
     # support masked_fill_ w/-inf directly on Variables for some reason.
-    logits.data.masked_fill_(mask, float('-inf'))
+    #logits.data.masked_fill_(mask, float('-inf'))
 
     probs = self.softmax(logits)
     read = torch.bmm(values, probs.permute(0,2,1))
@@ -178,13 +178,13 @@ class ConvchannelAttentionBlock(nn.Module):
     logits = torch.bmm(queries, keys)
     mask = np.triu(np.ones(logits.size()), k=1).astype('bool')
     mask = torch.from_numpy(mask)
-    if torch.cuda.is_available():
-        mask = mask.cuda()
+    #if torch.cuda.is_available():
+     #   mask = mask.cuda()
     # do masked_fill_ on data rather than Variable because PyTorch doesn't
     # support masked_fill_ w/-inf directly on Variables for some reason.
-    logits.data.masked_fill_(mask, float('-inf'))
-
-    probs = self.softmax(logits)
+    #logits.data.masked_fill_(mask, float('-inf'))
+    logits_new = torch.max(logits, -1, keepdim=True)[0].expand_as(logits)-logits
+    probs = self.softmax(logits_new)
     read = torch.bmm(probs,values)
     return (self.eta*read)+minibatch
 
@@ -198,13 +198,15 @@ class ConvAttentionBlock(nn.Module):
     super(ConvAttentionBlock, self).__init__()
     self.spatial_attention = ConvspatialAttentionBlock(dims)
     self.channel_attention = ConvchannelAttentionBlock(dims)
-
+    #self.conv1 = nn.Sequential(nn.Dropout2d(0.1, False), nn.Conv1d(dims, dims, 1))
+    #self.conv2 = nn.Sequential(nn.Dropout2d(0.1, False), nn.Conv1d(dims, dims, 1))
+    self.conv3 = nn.Sequential(nn.Dropout1d(0.1, False), nn.Conv1d(dims, dims, 1))
   def forward(self, minibatch):
 
     s = self.spatial_attention(minibatch)
     c = self.channel_attention(minibatch)
-
-    return s+c
+    
+    return self.conv3(s+c)
 
 
 

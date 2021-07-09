@@ -179,8 +179,8 @@ class ResidualBlock(nn.Module):
             src = x.transpose(0, 1)     # [seq_len, N, features]
 
             device = src.device
-            mask = self._generate_square_subsequent_mask(len(src)).to(device)
-
+            #mask = self._generate_square_subsequent_mask(len(src)).to(device)
+            mask = None
             output, self.attn_weights = self.layer(src, src, src, attn_mask=mask)
 
             output = output.transpose(0, 1)     # [N, seq_len, features]
@@ -192,11 +192,11 @@ class ResidualBlock(nn.Module):
         output = self.norm(x + output)
         return output
     
-    def _generate_square_subsequent_mask(self, sz):
-        mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
-        mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
-        mask = F.softmax(mask,dim=0) / self.sqrt_k
-        return mask
+    #def _generate_square_subsequent_mask(self, sz):
+        #mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
+        #mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
+        #mask = F.softmax(mask,dim=0) / self.sqrt_k
+        #return mask
 
 
 
