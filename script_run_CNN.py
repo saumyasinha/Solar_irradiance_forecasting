@@ -70,18 +70,18 @@ testyear = 2017
 # hyperparameters
 
 
-n_timesteps = 48#72#24*7 for tcn
+n_timesteps = 47#72#24*7 for tcn
 # n_output_steps = len(lead_times)
 n_features = 12#12 for SAND #15 for tcn(taking 12(even) features for mulit-head and transformers)
 quantile = True #True
 
 #hyperparameters for the multi-attention model
 
-n_layers = 3 #2
+n_layers = 2 #2
 factor = 12 #12
 num_heads = 8 #4
 d_model = 64 #128
-batch_size = 32 #32 #16 #16 
+batch_size = 16 #32 #16 #16
 
 epochs = 300 #250
 lr = 1e-6 #1e-5 #1e-4

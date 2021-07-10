@@ -237,8 +237,8 @@ class EncoderBlock(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x_sm = self.attention_sm(x)
-        x = x.transpose(1, 2)
-        x_cm = self.attention_cm(x)
+        x_cm_input = x.transpose(1, 2)
+        x_cm = self.attention_cm(x_cm_input)
         x_cm = x_cm.transpose(1, 2)
         x_sum = x_sm+x_cm
         x_sum = self.dropout(x_sum)
