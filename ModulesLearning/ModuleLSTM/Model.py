@@ -307,7 +307,7 @@ class MultiAttnHeadSimple(torch.nn.Module):
         # if self.output_seq_len>1:
         #     self.fc = nn.Linear(self.d_model, self.outputs)
         # else:
-        self.fc = nn.Linear(int(self.d_model * self.factor), self.outputs)
+        self.fc = nn.Linear(int(self.d_model * self.seq_len), self.outputs)
 
         # if self.output_seq_len >1:
             # for i in range(self.output_seq_len):

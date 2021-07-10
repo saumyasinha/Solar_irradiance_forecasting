@@ -5,7 +5,7 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 
 def loss_plots(train_loss, valid_loss, folder_saving, loss_type=""):
-    epochs = range(1, len(train_loss)+1)
+    epochs = range(2, len(train_loss)+1)
     train_loss = train_loss[1:]
     valid_loss = valid_loss[1:]
     plt.figure()
