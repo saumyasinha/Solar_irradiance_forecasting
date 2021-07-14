@@ -176,20 +176,21 @@ class ResidualBlock(nn.Module):
         :return: [N, seq_len, features]
         """
         if isinstance(self.layer, nn.MultiheadAttention):
-            src = x.transpose(0, 1)     # [seq_len, N, features]
+
+            src = x.transpose(0, 1)     # [seq_len, N, features] for spatial / [features, N, seq_len] for channel
 
             device = src.device
             #mask = self._generate_square_subsequent_mask(len(src)).to(device)
             mask = None
             output, self.attn_weights = self.layer(src, src, src, attn_mask=mask)
 
-            output = output.transpose(0, 1)     # [N, seq_len, features]
+            output = output.transpose(0, 1)     # [N, seq_len, features] for spatial / [N, features, seq_len] for channel
 
         else:
             output = self.layer(x)
 
-        output = self.dropout(output)
-        output = self.norm(x + output)
+        # output = self.dropout(output)
+        # output = self.norm(x + output)
         return output
     
     #def _generate_square_subsequent_mask(self, sz):
@@ -220,17 +221,31 @@ class PositionWiseFeedForward(nn.Module):
 
 
 class EncoderBlock(nn.Module):
-    def __init__(self, embed_dim: int, num_head: int, dropout_rate=0.1) -> None:
+    def __init__(self, embed_dim: int, seq_len: int, num_head: int, dropout_rate=0.1) -> None:
         super(EncoderBlock, self).__init__()
 
-        self.attention = ResidualBlock(
+        self.attention_sm = ResidualBlock(
             nn.MultiheadAttention(embed_dim, num_head), embed_dim, p=dropout_rate
+        )
+        self.attention_cm = ResidualBlock(
+            nn.MultiheadAttention(seq_len, num_head), embed_dim, p=dropout_rate
         )
         self.ffn = ResidualBlock(PositionWiseFeedForward(embed_dim), embed_dim, p=dropout_rate)
 
+        self.dropout = nn.Dropout(p=dropout_rate)
+        self.norm = nn.LayerNorm(embed_dim)
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.attention(x)
-        x = self.ffn(x)
+        x_sm = self.attention_sm(x)
+        x_cm_input = x.transpose(1, 2)
+        x_cm = self.attention_cm(x_cm_input)
+        x_cm = x_cm.transpose(1, 2)
+        x_sum = x_sm+x_cm
+        x_sum = self.dropout(x_sum)
+        x = self.norm(x + x_sum)
+        x_ff = self.ffn(x)
+        x_ff = self.dropout(x_ff)
+        x = self.norm(x + x_ff)
         return x
 
 
@@ -242,7 +257,7 @@ class EncoderLayer(nn.Module):
         self.input_embedding = nn.Conv1d(input_features, d_model, 1)
         self.positional_encoding = PositionalEncoding(d_model, seq_len)
         self.blocks = nn.ModuleList([
-            EncoderBlock(d_model, n_heads, dropout_rate) for _ in range(n_layers)
+            EncoderBlock(d_model, seq_len, n_heads, dropout_rate) for _ in range(n_layers)
         ])
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:

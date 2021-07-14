@@ -181,7 +181,7 @@ def test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_times
 
     if torch.cuda.is_available():
         X_test, X_valid = X_test.cuda(),X_valid.cuda()
-        quantile_forecaster = quantile_forecaster.cuda()        
+        quantile_forecaster = quantile_forecaster.cuda()
 
     y_pred = quantile_forecaster.forward(X_test,n_outputs)
     y_pred = y_pred.cpu().detach().numpy()

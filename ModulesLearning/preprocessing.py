@@ -299,10 +299,12 @@ def standardize_from_train(X_train, X_valid, X_test, index_ghi, index_clearghi, 
 
     if X_train is not None:
         cols = X_train.shape[1]
+        # print(cols)
         standarize_dict = {}
         for i in range(cols):
 
             if i%total_features==index_ghi:
+                # print("here")
                 index_clearghi = i+diff
                 ## normalizing of dw_solar wrt clearGHI (to take the cloud factor into account)
                 mean_clear = np.mean(X_train[:, index_clearghi])
@@ -335,6 +337,7 @@ def standardize_from_train(X_train, X_valid, X_test, index_ghi, index_clearghi, 
 
 
     else:
+        # print("in else")
         cols = X_test.shape[1]
 
         with open(folder_saving+"standarize_data_for_lead_"+str(lead)+".pickle", 'rb') as handle:
