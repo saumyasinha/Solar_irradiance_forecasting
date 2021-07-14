@@ -26,7 +26,7 @@ pd.set_option('display.width', 1000)
 city = 'Sioux_Falls_SD'
 
 # lead time
-lead_times =[1,4,8,12,16,20,24,28,32,12*4,24*4] #,30*4,36*4,42*4]
+lead_times = [48, 96, 120] #[1,4,8,12,16,20,24,28,32] #,30*4,36*4,42*4]
 
 # season
 seasons =['year'] #,'fall', 'winter', 'spring', 'summer']
@@ -77,11 +77,12 @@ quantile = True #True
 
 #hyperparameters for the multi-attention model
 
-n_layers = 2 #2
+n_layers = 2 #2 #3
 factor = 12 #12
 num_heads = 4 #4
 d_model = 64 #128
-batch_size = 16 #32 #16 #16
+batch_size = 16 #32 #16 #16 
+
 
 epochs = 300 #250
 lr = 1e-6 #1e-5 #1e-4
@@ -258,7 +259,7 @@ def main():
     # df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
 
     #reg = "dcnn_with_lag_with_dual_attention_small_levels"
-    reg = "dcnn_with_lag_only_multiheadattention_dual_regularized_no_denseinterpolation_from_SAND"
+    reg = "dcnn_with_lag_only_multiheadattention_dual_2layers_regularized_no_denseinterpolation_from_SAND"
 
 
 
@@ -312,9 +313,9 @@ def main():
                 ## dividing the X_train data into train(70%)/valid(20%)/test(10%), the heldout data is kept hidden
 
                 X_train, X_test, y_train, y_test = train_test_split(
-                    X_train, y_train, test_size=0.3, random_state=42)
+                    X_train, y_train, test_size=0.3, random_state=42)#42
                 X_valid, X_test, y_valid, y_test = train_test_split(
-                    X_test, y_test, test_size=0.3, random_state=42)
+                    X_test, y_test, test_size=0.3, random_state=42)#42
 
 
                 print("train/valid/test sizes: ", len(X_train), " ", len(X_valid), " ", len(X_test))

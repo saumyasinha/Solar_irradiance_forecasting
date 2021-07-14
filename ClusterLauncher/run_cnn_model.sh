@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # === 2. List of SBATCH arguements ===
-#SBATCH --job-name=multi_head_no_dense
+#SBATCH --job-name=multi_head_no_dense_dual_attention_more_layers
 #SBATCH --nodelist=bgpu-casa1
 #SBATCH --account=blanca-kann
 #SBATCH --qos=preemptable
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --output=/pl/active/machinelearning/Solar_forecasting_project/job_outputs/multi_head_no_dense.%j.out
+#SBATCH --output=/pl/active/machinelearning/Solar_forecasting_project/job_outputs/multi_head_no_dense_dual_attention_more_layers.%j.out
 
 # === 3. Purge and load needed modules ===
 module purge
