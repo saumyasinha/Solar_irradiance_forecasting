@@ -383,10 +383,10 @@ def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
     # point_foreaster = TransAm(n_features, n_timesteps, folder_saving, model_saved, quantile, outputs=n_outputs, valid=valid)
     quantile_forecaster = MultiAttnHeadSimple(n_features, n_timesteps, folder_saving, model_saved, quantile, n_layers, factor, alphas = alphas, outputs = outputs, valid=valid, output_seq_len = output_seq_len, num_heads=num_heads, d_model=d_model)
     if train_on_gpu:
-        if torch.cuda.device_count() > 1:
-            print("Let's use", torch.cuda.device_count(), "GPUs!")
-            quantile_forecaster = nn.DataParallel(quantile_forecaster)
-            parallel=True
+        # if torch.cuda.device_count() > 1:
+            # print("Let's use", torch.cuda.device_count(), "GPUs!")
+            # quantile_forecaster = nn.DataParallel(quantile_forecaster)
+            # parallel=True
         quantile_forecaster = quantile_forecaster.cuda()
 
         # point_foreaster = point_foreaster.cuda()

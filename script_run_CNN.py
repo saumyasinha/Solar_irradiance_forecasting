@@ -79,7 +79,7 @@ quantile = True #True
 
 n_layers = 2 #2
 factor = 12 #12
-num_heads = 8 #4
+num_heads = 4 #4
 d_model = 64 #128
 batch_size = 16 #32 #16 #16
 
@@ -401,3 +401,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+
+

@@ -5,9 +5,9 @@ import pickle
 from sklearn.model_selection import train_test_split
 from ngboost import NGBRegressor
 import matplotlib.pyplot as plt
-from SolarForecasting.ModulesProcessing import collect_data,clean_data
-from SolarForecasting.ModulesLearning import preprocessing as preprocess
-from SolarForecasting.ModulesLearning import postprocessing as postprocess
+from ModulesProcessing import collect_data,clean_data
+from ModulesLearning import preprocessing as preprocess
+from ModulesLearning import postprocessing as postprocess
 from ngboost.scores import CRPS, MLE
 import scipy as sp
 from scipy.stats import norm as dist
@@ -23,7 +23,7 @@ pd.set_option('display.width', 1000)
 city = 'Sioux_Falls_SD'
 
 # lead time i.e how much in advance you want to make a prediction (lead of 4 corresponds to 1 hour..since the data is at 15min resolution)
-lead_times = [30*4,36*4,42*4]#[1,4,8,12,16,20,24,28,32,12*4,24*4]
+lead_times = [1,4,8,12,16,20,24,28,32,12*4,24*4,30*4,36*4,42*4]#]
 
 # season
 seasons =['year'] #from ['fall', 'winter', 'spring', 'summer', 'year']
@@ -33,7 +33,7 @@ res = '15min'
 # path_desktop = "C:\\Users\Shivendra\Desktop\SolarProject\solar_forecasting/"
 path_local = "/Users/saumya/Desktop/SolarProject/"
 path_cluster = "/pl/active/machinelearning/Solar_forecasting_project/"
-path_project = path_local
+path_project = path_cluster
 path = path_project+"Data/"
 folder_saving = path_project + city+"/Models/"
 folder_plots = path_project + city+"/Plots/"
@@ -216,7 +216,7 @@ def main():
     # plt.savefig("time series of clearness index zoomed")
     # plt.clf()
     #
-    reg = "ngboost_without_lag"  ## giving a name to the regression models -- useful when saving results
+    reg = "ngboost_with_lag24"  ## giving a name to the regression models -- useful when saving results
 
     for season_flag in seasons:
         os.makedirs(folder_saving + season_flag + "/ML_models_"+str(testyear)+"/probabilistic/"+str(res)+"/"+reg+"/", exist_ok=True)
@@ -247,13 +247,13 @@ def main():
 
 
                 # including features from prev imestamps - didn't need to do that for NgBoost
-                # X_train = include_previous_features(X_train, index_ghi)
-                # X_heldout = include_previous_features(X_heldout, index_ghi)
+                X_train = include_previous_features(X_train, index_ghi)
+                X_heldout = include_previous_features(X_heldout, index_ghi)
 
-                # X_train = X_train[n_timesteps:, :]
-                # X_heldout = X_heldout[n_timesteps:, :]
-                # y_train = y_train[n_timesteps:, :]
-                # y_heldout = y_heldout[n_timesteps:, :]
+                X_train = X_train[n_timesteps:, :]
+                X_heldout = X_heldout[n_timesteps:, :]
+                y_train = y_train[n_timesteps:, :]
+                y_heldout = y_heldout[n_timesteps:, :]
 
                 print("Final train size: ", X_train.shape, y_train.shape)
                 print("Final heldout size: ", X_heldout.shape, y_heldout.shape)

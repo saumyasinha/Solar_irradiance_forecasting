@@ -314,6 +314,7 @@ def standardize_from_train(X_train, X_valid, X_test, index_ghi, index_clearghi, 
                 X_test[:, index_ghi] = (X_test[:, index_ghi] - mean_clear) / std_clear
                 standarize_dict[i] = (mean_clear, std_clear)
 
+
             else:
                 mean = np.mean(X_train[:,i])
                 std = np.std(X_train[:,i])
@@ -330,7 +331,7 @@ def standardize_from_train(X_train, X_valid, X_test, index_ghi, index_clearghi, 
                 # X_test[:,i] = (X_test[:,i] - min)/(max-min)
                 # standarize_dict[i] = (max,min)
 
-
+            # print("when not using the saved file", i, standarize_dict[i])
 
         with open(folder_saving+"standarize_data_for_lead_"+str(lead)+".pickle", 'wb') as handle:
             pickle.dump(standarize_dict, handle)

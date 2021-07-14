@@ -153,10 +153,12 @@ def test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_
     # X_test = torch.from_numpy(X_test).reshape(-1, n_features, n_timesteps)
     X_test = torch.from_numpy(X_test).reshape(-1, n_timesteps, n_features)
 
+
     if X_valid is not None:
         X_valid, y_valid = X_valid.astype(np.float32), y_valid.astype(np.float32)
         # X_valid = torch.from_numpy(X_valid).reshape(-1, n_features, n_timesteps)
         X_valid = torch.from_numpy(X_valid).reshape(-1, n_timesteps, n_features)
+
 
     # point_foreaster = MultiAttnHeadSimple(n_features, n_timesteps, folder_saving, model_saved, quantile, outputs=n_outputs,
     #                           valid=True)
