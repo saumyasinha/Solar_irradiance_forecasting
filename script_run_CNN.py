@@ -12,7 +12,7 @@ from ModulesProcessing import collect_data, clean_data
 from ModulesLearning import preprocessing as preprocess
 from ModulesLearning import postprocessing as postprocess
 from ModulesLearning.ModulesCNN import train as cnn
-from ModulesLearning.ModuleLSTM import train as tranformers
+from SolarForecasting.ModulesLearning.ModuleLSTM import train as tranformers
 
 
 
@@ -26,7 +26,7 @@ pd.set_option('display.width', 1000)
 city = 'Sioux_Falls_SD'
 
 # lead time
-lead_times = [48, 96, 120] #[1,4,8,12,16,20,24,28,32] #,30*4,36*4,42*4]
+lead_times = [1,4,8,12,16,20,24,28,32,48,96,30*4,36*4,42*4]
 
 # season
 seasons =['year'] #,'fall', 'winter', 'spring', 'summer']
@@ -51,8 +51,8 @@ features = ['year','month','day','hour','min','zen','dw_solar','uw_solar','direc
 #final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','dw_ir','temp','rh','windspd','winddir','pressure','clear_ghi']
 # final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','diffuse','dw_ir','dw_casetemp','dw_dometemp','uw_ir','uw_casetemp','uw_dometemp','uvb','par','temp','rh','windspd','winddir','pressure', 'clear_ghi']
 ## ## selected features for the study (exploring multiple combinations)
-#final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
-final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','direct_n','dw_ir','temp','windspd','winddir','pressure', 'clear_ghi']
+final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
+# final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','direct_n','dw_ir','temp','windspd','winddir','pressure', 'clear_ghi']
 
 # target or Y
 target_feature = ['clearness_index']
@@ -70,9 +70,9 @@ testyear = 2017
 # hyperparameters
 
 
-n_timesteps = 47#72#24*7 for tcn
+n_timesteps = 168#72#24*7 for tcn
 # n_output_steps = len(lead_times)
-n_features = 12#12 for SAND #15 for tcn(taking 12(even) features for mulit-head and transformers)
+n_features = 15#12 for SAND #15 for tcn(taking 12(even) features for mulit-head and transformers)
 quantile = True #True
 
 #hyperparameters for the multi-attention model
@@ -258,8 +258,8 @@ def main():
     
     # df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
 
-    #reg = "dcnn_with_lag_with_dual_attention_small_levels"
-    reg = "dcnn_with_lag_only_multiheadattention_dual_2layers_regularized_no_denseinterpolation_from_SAND"
+    reg = "dcnn_with_lag_with_dual_attention_mod_from_DANET"
+    # reg = "dcnn_with_lag_only_multiheadattention_dual_2layers_regularized_no_denseinterpolation_from_SAND"
 
 
 
@@ -337,26 +337,26 @@ def main():
                 f.write("alphas = " + str(len((alphas))) + '\n')
 
 
-                #cnn.train_DCNN_with_attention(quantile,X_train, y_train, X_valid, y_valid, n_timesteps+1, n_features,
-                 #                                                                          folder_saving + season_flag + "/ML_models_" + str(
-                  #                                                                             testyear) + "/cnn/" + str(
-                   #                                                                            res) + "/" + reg + "/",
-                    #                                                                       model_saved="dcnn_lag_for_lead_" + str(
-                     #                                                                          lead))
-                #y_pred, y_valid_pred, valid_crps, test_crps = cnn.test_DCNN_with_attention(quantile, X_valid, y_valid,
-                 #                                                                          X_test, y_test,
-                  #                                                                         n_timesteps + 1, n_features,
-                   #                                                                        folder_saving + season_flag + "/ML_models_" + str(
-                    #                                                                           testyear) + "/cnn/" + str(
-                     #                                                                          res) + "/" + reg + "/",
-                      #                                                                     model_saved="dcnn_lag_for_lead_" + str(
-                       #                                                                        lead))  # "multi_horizon_dcnn", n_outputs=n_output_steps)
+                cnn.train_DCNN_with_attention(quantile,X_train, y_train, X_valid, y_valid, n_timesteps+1, n_features,
+                                                                                          folder_saving + season_flag + "/ML_models_" + str(
+                                                                                              testyear) + "/cnn/" + str(
+                                                                                              res) + "/" + reg + "/",
+                                                                                          model_saved="dcnn_lag_for_lead_" + str(
+                                                                                              lead))
+                y_pred, y_valid_pred, valid_crps, test_crps = cnn.test_DCNN_with_attention(quantile, X_valid, y_valid,
+                                                                                          X_test, y_test,
+                                                                                          n_timesteps + 1, n_features,
+                                                                                          folder_saving + season_flag + "/ML_models_" + str(
+                                                                                              testyear) + "/cnn/" + str(
+                                                                                              res) + "/" + reg + "/",
+                                                                                          model_saved="dcnn_lag_for_lead_" + str(
+                                                                                              lead))  # "multi_horizon_dcnn", n_outputs=n_output_steps)
 
-                tranformers.train_transformer(quantile, X_train, y_train, X_valid, y_valid, n_timesteps+1, n_features, n_layers, factor, num_heads, d_model, batch_size, epochs, lr,alphas, q50,
-                                          folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved ="dcnn_lag_for_lead_" + str(lead)) #"multi_horizon_dcnn", n_outputs=n_output_steps)
+                # tranformers.train_transformer(quantile, X_train, y_train, X_valid, y_valid, n_timesteps+1, n_features, n_layers, factor, num_heads, d_model, batch_size, epochs, lr,alphas, q50,
+                #                           folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved ="dcnn_lag_for_lead_" + str(lead)) #"multi_horizon_dcnn", n_outputs=n_output_steps)
                 
-                y_pred, y_valid_pred, valid_crps, test_crps  = tranformers.test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps+1, n_features,n_layers, factor, num_heads, d_model,alphas, q50,
-                                              folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved = "dcnn_lag_for_lead_" + str(lead))#"multi_horizon_dcnn", n_outputs=n_output_steps)
+                # y_pred, y_valid_pred, valid_crps, test_crps  = tranformers.test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps+1, n_features,n_layers, factor, num_heads, d_model,alphas, q50,
+                #                               folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved = "dcnn_lag_for_lead_" + str(lead))#"multi_horizon_dcnn", n_outputs=n_output_steps)
                 #
 
 

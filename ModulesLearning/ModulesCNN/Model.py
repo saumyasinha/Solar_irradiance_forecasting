@@ -144,9 +144,9 @@ class ConvForecasterDilationLowRes(nn.Module):
         # # self.fc = nn.Linear(self.conv_output_size,self.outputs)
 
         ## play around with channel size and kernel size
-        num_channels =[25]*6 #6#24/25 before and 6 num of channels, reduced for multihead
-
-        self.tcn = TemporalConvNet(self.input_dim, num_channels, kernel_size=5, dropout=0.2, attention=True)
+        # num_channels =[25]*6 #6#24/25 before and 6 num of channels, reduced for multihead
+        num_channels = [48]*4
+        self.tcn = TemporalConvNet(self.input_dim, num_channels, kernel_size=3, dropout=0.2, attention=True) #kernel size changed to 3 instead of 5
 
         self.linear = nn.Linear(num_channels[-1], self.outputs)
 
@@ -385,7 +385,7 @@ def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
 
                     valid_loss_this_epoch = sum(total_loss).item()
 
-                # valid_loss = elf.crps_score(validYPred, validYTrue, np.arange(0.05, 1.0, 0.05))s
+                # valid_loss = self.crps_score(validYPred, validYTrue, np.arange(0.05, 1.0, 0.05))s
                 valid_losses.append(valid_loss_this_epoch)
                 print("Epoch: %d, loss: %1.5f and valid_loss : %1.5f" % (epoch, train_loss_this_epoch, valid_loss_this_epoch))
             else:

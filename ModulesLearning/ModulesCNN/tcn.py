@@ -68,7 +68,7 @@ class TemporalConvNet(nn.Module):
 
 
         if attention == True:
-            layers += [ConvAttentionBlock(num_channels[-1])]
+            layers += [ConvAttentionBlockv2(num_channels[-1])]
 
         self.network = nn.Sequential(*layers)
 
@@ -275,3 +275,50 @@ class MultiAttnHeadSimple(torch.nn.Module):
         mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
         mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
         return mask
+
+
+class ConvAttentionBlockv2(nn.Module):
+    """
+      Similar to the Dual Attention Network for Scene Segmentation paper: https://github.com/junfu1115/DANet/blob/master/encoding/models/sseg/danet.py
+    """
+
+    # I haven't used any positional encoding here, not sure if needs to be there
+    def __init__(self, in_channels):
+        super(ConvAttentionBlockv2, self).__init__()
+
+        inter_channels = in_channels // 2
+        self.conv5a = nn.Sequential(weight_norm(nn.Conv1d(in_channels, inter_channels, 2, padding=1, bias=False)),
+                                    nn.ReLU())
+
+        self.conv5c = nn.Sequential(weight_norm(nn.Conv1d(in_channels, inter_channels, 2, padding=1, bias=False)),
+                                    nn.ReLU())
+
+        self.sa = ConvspatialAttentionBlock(inter_channels)
+        self.sc = ConvchannelAttentionBlock(inter_channels)
+        self.conv51 = nn.Sequential(weight_norm(nn.Conv1d(inter_channels, inter_channels, 2, padding=1, bias=False)),
+                                    nn.ReLU())
+        self.conv52 = nn.Sequential(weight_norm(nn.Conv1d(inter_channels, inter_channels, 2, padding=1, bias=False)),
+                                    nn.ReLU())
+
+        # self.conv6 = nn.Sequential(nn.Dropout2d(0.1, False), nn.Conv2d(inter_channels, out_channels, 1))
+        # self.conv7 = nn.Sequential(nn.Dropout2d(0.1, False), nn.Conv2d(inter_channels, out_channels, 1))
+
+        self.conv8 = nn.Sequential(nn.Dropout(0.1), nn.Conv1d(inter_channels, in_channels, 1))
+
+
+    def forward(self, x):
+        feat1 = self.conv5a(x)
+        sa_feat = self.sa(feat1)
+        sa_conv = self.conv51(sa_feat)
+        # sa_output = self.conv6(sa_conv)
+
+        feat2 = self.conv5c(x)
+        sc_feat = self.sc(feat2)
+        sc_conv = self.conv52(sc_feat)
+        # sc_output = self.conv7(sc_conv)
+
+        feat_sum = sa_conv + sc_conv
+
+        sasc_output = self.conv8(feat_sum)
+
+        return sasc_output
