@@ -3,7 +3,7 @@ import math
 import numpy as np
 import torch.nn as nn
 from torch.autograd import Variable
-from ModulesLearning.ModuleLSTM.functions import *
+# from SolarForecasting.ModulesLearning.ModuleLSTM.functions import *
 from torch.nn.modules.activation import MultiheadAttention
 
 
@@ -217,159 +217,185 @@ class quantileLSTM(nn.Module):
 #
 #         return x
 
+class PositionalEncoding(nn.Module):
 
-    # def __init__(self, input_dim, timesteps, folder_saving, model, quantile, alphas = None, outputs = None, valid = False,num_layers=2, dropout=0.1):
-    #     super(TransAm, self).__init__()
-    #     self.model_type = 'Transformer'
-    #
-    #     self.outputs = outputs
-    #     self.num_layers = num_layers
-    #     self.input_dim = input_dim
-    #     self.timesteps = timesteps
-    #     self.alphas = alphas
-    #     self.valid = valid
-    #     self.train_mode = False
-    #     self.saving_path = folder_saving + model
-    #     self.quantile = quantile
-    #
-    #     self.src_mask = None
-    #     self.pos_encoder = PositionalEncoding(self.input_dim)
-    #
-    #     # self.encoder_layer = nn.TransformerEncoderLayer(d_model=self.input_dim, nhead=2, dim_feedforward=200,dropout=dropout) #embed_dim must be divisible by n_heads
-    #
-    #     self.encoder_layer = nn.TransformerEncoderLayer(d_model=self.input_dim, nhead=2, dim_feedforward=128, dropout=dropout) #embed_dim must be divisible by n_heads
-    #
-    #     self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=self.num_layers)
-    #     self.decoder = nn.Linear(self.input_dim, self.outputs)
-    #     self.init_weights()
-    #
-    # def init_weights(self):
-    #     initrange = 0.1
-    #     self.decoder.bias.data.zero_()
-    #     self.decoder.weight.data.uniform_(-initrange, initrange)
-    #
-    # def forward(self, src):
-    #     if self.src_mask is None or self.src_mask.size(0) != len(src):
-    #         device = src.device
-    #         mask = self._generate_square_subsequent_mask(len(src)).to(device)
-    #         self.src_mask = mask
-    #
-    #     src = self.pos_encoder(src)
-    #     output = self.transformer_encoder(src, self.src_mask)  # , self.src_mask)
-    #     output = self.decoder(output)
-    #     return output[-1,:,:]
-    #
-    # def _generate_square_subsequent_mask(self, sz):
-    #     mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
-    #     mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
-    #     return mask
-    #
+    def __init__(self, d_model, max_len=5000):
+        super(PositionalEncoding, self).__init__()
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0).transpose(0, 1)
+        #pe.requires_grad = False
+        self.register_buffer('pe', pe)
+
+    def forward(self, x):
+        return x + self.pe[:x.size(0), :]
 
 
-
-
-class MultiAttnHeadSimple(torch.nn.Module):
-    """A simple multi-head attention model inspired by Vaswani et al."""
-
-    def __init__(
-            self, input_dim, seq_len, folder_saving, model, quantile, n_layers=2, factor=12, alphas=None, outputs=None, valid=False,
-
-         output_seq_len=1, num_heads=4, d_model=96, dropout=0.2): #0.5):
-
-        super(MultiAttnHeadSimple, self).__init__()
+class TransAm(nn.Module):
+    def __init__(self, input_dim, timesteps, folder_saving, model, quantile, alphas = None, outputs = None, valid = False,num_heads=4, d_model=128, num_layers=2, dropout=0.1):
+        super(TransAm, self).__init__()
+        self.model_type = 'Transformer'
 
         self.outputs = outputs
+        self.num_layers = num_layers
         self.input_dim = input_dim
-        self.seq_len = seq_len
+        self.d_model = d_model
+        self.num_heads = num_heads
+        self.timesteps = timesteps
         self.alphas = alphas
         self.valid = valid
         self.train_mode = False
         self.saving_path = folder_saving + model
         self.quantile = quantile
-        self.num_heads = num_heads
-        self.n_layers = n_layers
 
-        self.output_seq_len = output_seq_len
-        self.factor = factor
-        self.d_model = d_model
-        self.dropout = dropout
+        self.src_mask = None
 
-        # #If solving multi horizon problem
-        # if output_seq_len>1:
-        #     self.factor = self.output_seq_len
-        #
-        #
-        # #self.factor = self.seq_len #setting this when not using dense interpolation
-        #
-        self.encoder = EncoderLayer(self.input_dim, self.seq_len, self.num_heads, self.n_layers, self.d_model, self.dropout)
-        #self.dense_interpolation = DenseInterpolation(self.seq_len, self.factor)
-        #
-        # if self.output_seq_len>1:
-        #     self.fc = nn.Linear(self.d_model, self.outputs)
-        # else:
-        self.fc = nn.Linear(int(self.d_model * self.seq_len), self.outputs)
+        self.input_embedding = nn.Conv1d(self.input_dim, self.d_model, 1)
+        self.pos_encoder = PositionalEncoding(self.d_model)
 
-        # if self.output_seq_len >1:
-            # for i in range(self.output_seq_len):
-            #     setattr(self, "dense%d" % i, DenseInterpolation(self.seq_len, self.factor))
-            #     setattr(self, "fc%d" % i, nn.Linear(int(self.d_model * self.factor), self.outputs))
-        #
-        #
+        # self.encoder_layer = nn.TransformerEncoderLayer(d_model=self.input_dim, nhead=2, dim_feedforward=200,dropout=dropout) #embed_dim must be divisible by n_heads
 
+        self.encoder_layer = nn.TransformerEncoderLayer(self.d_model, nhead=self.num_heads, dim_feedforward=512, dropout=dropout) #embed_dim must be divisible by n_heads
 
+        self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=self.num_layers)
+        self.decoder = nn.Linear(self.d_model, self.outputs)
+        self.init_weights()
 
-    #     # self.dense_shape = torch.nn.Linear(number_time_series, d_model)
-    #     self.pe = SimplePositionalEncoding(self.d_model)
-    #     self.multi_attn = MultiheadAttention(
-    #         embed_dim=self.d_model, num_heads=self.num_heads, dropout=dropout)
-    #     self.final_layer = torch.nn.Linear(self.d_model, self.outputs)
-    #     self.length_data = seq_len
-    #     self.forecast_length = output_seq_len
-    #     self.last_layer = torch.nn.Linear(seq_len, output_seq_len)
-    #
-    #
-    # def forward(self, x: torch.Tensor, mask=None) -> torch.Tensor:
-    #
-    #     # Permute to (L, B, M)
-    #     x = x.permute(2, 0, 1)
-    #     # x = self.dense_shape(x)
-    #     x = self.pe(x)
-    #     if mask is None:
-    #         x = self.multi_attn(x, x, x)[0]
-    #     else:
-    #         x = self.multi_attn(x, x, x, attn_mask=self.mask)[0]
-    #     x = self.final_layer(x)
-    #
-    #     # Switch to (B, M, L)
-    #     x = x.permute(1, 2, 0)
-    #     x = self.last_layer(x)
-    #
-    #     if self.forecast_length>1:
-    #         return x
-    #     else:
-    #         return x[:,:,-1]
+    def init_weights(self):
+        initrange = 0.1
+        self.decoder.bias.data.zero_()
+        self.decoder.weight.data.uniform_(-initrange, initrange)
+
+    def forward(self, src):
+        src = src.transpose(1, 2)
+        src = self.input_embedding(src)  #batch,d_model,timesteps
+        src = src.transpose(1,2)  #batch,timesteps,d_model
+        src = src.transpose(0,1) #timesteps,batch,d_model
+
+        if self.src_mask is None or self.src_mask.size(0) != len(src):
+            device = src.device
+            mask = self._generate_square_subsequent_mask(len(src)).to(device)
+            self.src_mask = mask
+
+        src = self.pos_encoder(src)
+        output = self.transformer_encoder(src, self.src_mask)  # , self.src_mask)
+        output = self.decoder(output)
+        return output[-1]
+
+    def _generate_square_subsequent_mask(self, sz):
+        mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
+        mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
+        return mask
 
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # print("input x shape", x.shape)
-        x = self.encoder(x)
-        # print("after encoding", x.shape)
-        #x = self.dense_interpolation(x)
-        # x = x.transpose(1,2)
-        if self.output_seq_len==1:
-            x = x.contiguous().view(-1, int(self.seq_len * self.d_model))
-        x = self.fc(x)
-        # x = x.contiguous().view(-1, int(self.factor * self.d_model))
-        pred_outputs = {}
 
-        # for i in range(self.output_seq_len):
-        #     y = getattr(self, "dense%d" % i)(x)
-        #     y = y.contiguous().view(-1, int(self.factor * self.d_model))
-        #     pred_outputs[i] = getattr(self, "fc%d" % i)(y)
 
-        # print("final output", x.shape)
-        return x
-        # return pred_outputs
+
+# class MultiAttnHeadSimple(torch.nn.Module):
+#     """A simple multi-head attention model inspired by Vaswani et al."""
+#
+#     def __init__(
+#             self, input_dim, seq_len, folder_saving, model, quantile, n_layers=2, factor=12, alphas=None, outputs=None, valid=False,
+#
+#          output_seq_len=1, num_heads=4, d_model=96, dropout=0.2): #0.5):
+#
+#         super(MultiAttnHeadSimple, self).__init__()
+#
+#         self.outputs = outputs
+#         self.input_dim = input_dim
+#         self.seq_len = seq_len
+#         self.alphas = alphas
+#         self.valid = valid
+#         self.train_mode = False
+#         self.saving_path = folder_saving + model
+#         self.quantile = quantile
+#         self.num_heads = num_heads
+#         self.n_layers = n_layers
+#
+#         self.output_seq_len = output_seq_len
+#         self.factor = factor
+#         self.d_model = d_model
+#         self.dropout = dropout
+#
+#         # #If solving multi horizon problem
+#         # if output_seq_len>1:
+#         #     self.factor = self.output_seq_len
+#         #
+#         #
+#         # #self.factor = self.seq_len #setting this when not using dense interpolation
+#         #
+#         self.encoder = EncoderLayer(self.input_dim, self.seq_len, self.num_heads, self.n_layers, self.d_model, self.dropout)
+#         #self.dense_interpolation = DenseInterpolation(self.seq_len, self.factor)
+#         #
+#         # if self.output_seq_len>1:
+#         #     self.fc = nn.Linear(self.d_model, self.outputs)
+#         # else:
+#         self.fc = nn.Linear(int(self.d_model * self.seq_len), self.outputs)
+#
+#         # if self.output_seq_len >1:
+#             # for i in range(self.output_seq_len):
+#             #     setattr(self, "dense%d" % i, DenseInterpolation(self.seq_len, self.factor))
+#             #     setattr(self, "fc%d" % i, nn.Linear(int(self.d_model * self.factor), self.outputs))
+#         #
+#         #
+#
+#
+#
+#     #     # self.dense_shape = torch.nn.Linear(number_time_series, d_model)
+#     #     self.pe = SimplePositionalEncoding(self.d_model)
+#     #     self.multi_attn = MultiheadAttention(
+#     #         embed_dim=self.d_model, num_heads=self.num_heads, dropout=dropout)
+#     #     self.final_layer = torch.nn.Linear(self.d_model, self.outputs)
+#     #     self.length_data = seq_len
+#     #     self.forecast_length = output_seq_len
+#     #     self.last_layer = torch.nn.Linear(seq_len, output_seq_len)
+#     #
+#     #
+#     # def forward(self, x: torch.Tensor, mask=None) -> torch.Tensor:
+#     #
+#     #     # Permute to (L, B, M)
+#     #     x = x.permute(2, 0, 1)
+#     #     # x = self.dense_shape(x)
+#     #     x = self.pe(x)
+#     #     if mask is None:
+#     #         x = self.multi_attn(x, x, x)[0]
+#     #     else:
+#     #         x = self.multi_attn(x, x, x, attn_mask=self.mask)[0]
+#     #     x = self.final_layer(x)
+#     #
+#     #     # Switch to (B, M, L)
+#     #     x = x.permute(1, 2, 0)
+#     #     x = self.last_layer(x)
+#     #
+#     #     if self.forecast_length>1:
+#     #         return x
+#     #     else:
+#     #         return x[:,:,-1]
+#
+#
+#     def forward(self, x: torch.Tensor) -> torch.Tensor:
+#         # print("input x shape", x.shape)
+#         x = self.encoder(x)
+#         # print("after encoding", x.shape)
+#         #x = self.dense_interpolation(x)
+#         # x = x.transpose(1,2)
+#         if self.output_seq_len==1:
+#             x = x.contiguous().view(-1, int(self.seq_len * self.d_model))
+#         x = self.fc(x)
+#         # x = x.contiguous().view(-1, int(self.factor * self.d_model))
+#         pred_outputs = {}
+#
+#         # for i in range(self.output_seq_len):
+#         #     y = getattr(self, "dense%d" % i)(x)
+#         #     y = y.contiguous().view(-1, int(self.factor * self.d_model))
+#         #     pred_outputs[i] = getattr(self, "fc%d" % i)(y)
+#
+#         # print("final output", x.shape)
+#         return x
+#         # return pred_outputs
 
 
 def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
@@ -380,8 +406,8 @@ def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
     # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     parallel = False
-    # point_foreaster = TransAm(n_features, n_timesteps, folder_saving, model_saved, quantile, outputs=n_outputs, valid=valid)
-    quantile_forecaster = MultiAttnHeadSimple(n_features, n_timesteps, folder_saving, model_saved, quantile, n_layers, factor, alphas = alphas, outputs = outputs, valid=valid, output_seq_len = output_seq_len, num_heads=num_heads, d_model=d_model)
+    quantile_forecaster = TransAm(n_features, n_timesteps, folder_saving, model_saved, quantile,  alphas = alphas, outputs = outputs, valid=valid, num_heads=num_heads, d_model=d_model, num_layers=n_layers)
+    # quantile_forecaster = MultiAttnHeadSimple(n_features, n_timesteps, folder_saving, model_saved, quantile, n_layers, factor, alphas = alphas, outputs = outputs, valid=valid, output_seq_len = output_seq_len, num_heads=num_heads, d_model=d_model)
     if train_on_gpu:
         # if torch.cuda.device_count() > 1:
             # print("Let's use", torch.cuda.device_count(), "GPUs!")
@@ -393,9 +419,9 @@ def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
 
     print(quantile_forecaster)
 
-    optimizer = torch.optim.Adam(quantile_forecaster.parameters(), lr=lr, betas = (0.9,0.98))
+    optimizer = torch.optim.Adam(quantile_forecaster.parameters(), lr=lr) #, betas = (0.9,0.98))
     # scheduler = StepLR(optimizer, step_size=25, gamma=0.1)
-    criterion = torch.nn.MSELoss()
+    # criterion = torch.nn.MSELoss()
     # criterion = nn.L1Loss()
     samples = trainX.size()[0]
     losses = []
@@ -445,6 +471,7 @@ def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
             total_loss = loss + reg_lamdba / 2 * reg_loss
             # backward pass: compute gradient of the loss with respect to model parameters
             total_loss.backward()
+            torch.nn.utils.clip_grad_norm_(quantile_forecaster.parameters(), 0.7)
             # perform a single optimization step (parameter update)
             optimizer.step()
             # scheduler.step()

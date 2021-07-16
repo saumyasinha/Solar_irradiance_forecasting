@@ -1,5 +1,5 @@
 import torch
-from ModulesLearning.ModuleLSTM.Model import MultiAttnHeadSimple, trainBatchwise,crps_score
+from ModulesLearning.ModuleLSTM.Model import TransAm,trainBatchwise,crps_score
 import numpy as np
 import torch.nn as nn
 import matplotlib.pyplot as plt
@@ -166,12 +166,14 @@ def test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_
     outputs = len(alphas)
 
 
-    quantile_forecaster = MultiAttnHeadSimple(n_features, n_timesteps, folder_saving, model_saved, quantile,n_layers,factor,
-                                             alphas=alphas, outputs=outputs, valid=True, output_seq_len = n_outputs, num_heads=num_heads, d_model=d_model)
+    # quantile_forecaster = MultiAttnHeadSimple(n_features, n_timesteps, folder_saving, model_saved, quantile,n_layers,factor,
+    #                                          alphas=alphas, outputs=outputs, valid=True, output_seq_len = n_outputs, num_heads=num_heads, d_model=d_model)
+    #
+    #                                                    # changed np.arange step size from 0.05 to 0.1
 
-                                                       # changed np.arange step size from 0.05 to 0.1
-
-   
+    quantile_forecaster = TransAm(n_features, n_timesteps, folder_saving, model_saved, quantile, alphas=alphas,
+                                  outputs=outputs, valid=True, num_heads=num_heads, d_model=d_model,
+                                  num_layers=n_layers)
 
     quantile_forecaster.load_state_dict(torch.load(folder_saving + model_saved,map_location=torch.device('cpu')))
 
