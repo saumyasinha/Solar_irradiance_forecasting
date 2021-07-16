@@ -12,7 +12,7 @@ from ModulesProcessing import collect_data, clean_data
 from ModulesLearning import preprocessing as preprocess
 from ModulesLearning import postprocessing as postprocess
 from ModulesLearning.ModulesCNN import train as cnn
-from SolarForecasting.ModulesLearning.ModuleLSTM import train as tranformers
+#from SolarForecasting.ModulesLearning.ModuleLSTM import train as tranformers
 
 
 

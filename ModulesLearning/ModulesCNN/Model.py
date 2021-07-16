@@ -286,8 +286,8 @@ def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
     print(train_on_gpu)
 
     if train_on_gpu:
-        if torch.cuda.device_count() > 1:
-            print("Let's use", torch.cuda.device_count(), "GPUs!")
+        #if torch.cuda.device_count() > 1:
+         #   print("Let's use", torch.cuda.device_count(), "GPUs!")
 
             # quantile_forecaster = nn.DataParallel(quantile_forecaster)
 
