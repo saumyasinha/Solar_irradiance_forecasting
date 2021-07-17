@@ -307,13 +307,18 @@ def standardize_from_train(X_train, X_valid, X_test, index_ghi, index_clearghi, 
                 # print("here")
                 index_clearghi = i+diff
                 ## normalizing of dw_solar wrt clearGHI (to take the cloud factor into account)
-                mean_clear = np.mean(X_train[:, index_clearghi])
-                std_clear = np.std(X_train[:, index_clearghi])
-                X_train[:, index_ghi] = (X_train[:, index_ghi] - mean_clear) / std_clear
-                X_valid[:, index_ghi] = (X_valid[:, index_ghi] - mean_clear) / std_clear
-                X_test[:, index_ghi] = (X_test[:, index_ghi] - mean_clear) / std_clear
-                standarize_dict[i] = (mean_clear, std_clear)
-
+                # mean_clear = np.mean(X_train[:, index_clearghi])
+                # std_clear = np.std(X_train[:, index_clearghi])
+                # X_train[:, index_ghi] = (X_train[:, index_ghi] - mean_clear) / std_clear
+                # X_valid[:, index_ghi] = (X_valid[:, index_ghi] - mean_clear) / std_clear
+                # X_test[:, index_ghi] = (X_test[:, index_ghi] - mean_clear) / std_clear
+                # standarize_dict[i] = (mean_clear, std_clear)
+                max_clear = np.max(X_train[:, index_clearghi])
+                min_clear = np.min(X_train[:, index_clearghi])
+                X_train[:, index_ghi] = (X_train[:, index_ghi] - min_clear) / (max_clear - min_clear)
+                X_valid[:, index_ghi] = (X_valid[:, index_ghi] - min_clear) / (max_clear - min_clear)
+                X_test[:, index_ghi] = (X_test[:, index_ghi] - min_clear) / (max_clear - min_clear)
+                standarize_dict[i] = (max_clear, min_clear)
 
             else:
                 mean = np.mean(X_train[:,i])
@@ -322,42 +327,42 @@ def standardize_from_train(X_train, X_valid, X_test, index_ghi, index_clearghi, 
                 min = np.min(X_train[:,i])
                 # print(min,max)
                 ##normalize or standarize ?
-                X_train[:,i] = (X_train[:,i] - mean)/std
-                X_valid[:, i] = (X_valid[:, i] - mean) / std
-                X_test[:,i] = (X_test[:,i] - mean)/std
-                standarize_dict[i] = (mean,std)
-                # X_train[:,i] = (X_train[:,i] - min)/(max-min)
-                # X_valid[:, i] = (X_valid[:, i] - min) / (max-min)
-                # X_test[:,i] = (X_test[:,i] - min)/(max-min)
-                # standarize_dict[i] = (max,min)
+                # X_train[:,i] = (X_train[:,i] - mean)/std
+                # X_valid[:, i] = (X_valid[:, i] - mean) / std
+                # X_test[:,i] = (X_test[:,i] - mean)/std
+                # standarize_dict[i] = (mean,std)
+                X_train[:,i] = (X_train[:,i] - min)/(max-min)
+                X_valid[:, i] = (X_valid[:, i] - min) / (max-min)
+                X_test[:,i] = (X_test[:,i] - min)/(max-min)
+                standarize_dict[i] = (max,min)
 
             # print("when not using the saved file", i, standarize_dict[i])
 
-        with open(folder_saving+"standarize_data_for_lead_"+str(lead)+".pickle", 'wb') as handle:
-            pickle.dump(standarize_dict, handle)
+        # with open(folder_saving+"standarize_data_for_lead_"+str(lead)+".pickle", 'wb') as handle:
+        #     pickle.dump(standarize_dict, handle)
 
 
-    else:
-        # print("in else")
-        cols = X_test.shape[1]
-
-        with open(folder_saving+"standarize_data_for_lead_"+str(lead)+".pickle", 'rb') as handle:
-            standarize_dict = pickle.load(handle)
-
-        for i in range(cols):
-            ##normalize or standarize ?
-            mean = standarize_dict[i][0]
-            std = standarize_dict[i][1]
-            # print(mean,std)
-            # print("test before",np.mean(X_test[:,i]))
-            X_test[:,i] = (X_test[:,i] - mean)/std
-            # print("test after",np.mean(X_test[:, i]))
-            # max = standarize_dict[i][0]
-            # min = standarize_dict[i][1]
-            if X_valid is not None:
-                # print("valid before", np.mean(X_valid[:, i]))
-                X_valid[:,i] = (X_valid[:,i] - mean)/std
-                # print("valid after", np.mean(X_valid[:, i]))
+    # else:
+    #     # print("in else")
+    #     cols = X_test.shape[1]
+    #
+    #     with open(folder_saving+"standarize_data_for_lead_"+str(lead)+".pickle", 'rb') as handle:
+    #         standarize_dict = pickle.load(handle)
+    #
+    #     for i in range(cols):
+    #         ##normalize or standarize ?
+    #         mean = standarize_dict[i][0]
+    #         std = standarize_dict[i][1]
+    #         # print(mean,std)
+    #         # print("test before",np.mean(X_test[:,i]))
+    #         X_test[:,i] = (X_test[:,i] - mean)/std
+    #         # print("test after",np.mean(X_test[:, i]))
+    #         # max = standarize_dict[i][0]
+    #         # min = standarize_dict[i][1]
+    #         if X_valid is not None:
+    #             # print("valid before", np.mean(X_valid[:, i]))
+    #             X_valid[:,i] = (X_valid[:,i] - mean)/std
+    #             # print("valid after", np.mean(X_valid[:, i]))
 
     return X_train, X_valid, X_test
 
