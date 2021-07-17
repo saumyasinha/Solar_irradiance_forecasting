@@ -26,7 +26,7 @@ pd.set_option('display.width', 1000)
 city = 'Sioux_Falls_SD'
 
 # lead time
-lead_times = [1,4,8,12,16,20,24,28,32,48,96,30*4,36*4,42*4]
+lead_times = [4,8,12,16,20,24,28,32,48,96,30*4,36*4,42*4]
 
 # season
 seasons =['year'] #,'fall', 'winter', 'spring', 'summer']
@@ -77,7 +77,7 @@ quantile = True #True
 
 #hyperparameters for the multi-attention model
 
-n_layers = 2 #2 #3
+n_layers = 1 #2 #3
 factor = 12 #12
 num_heads = 4 #4
 d_model = 128 #128
