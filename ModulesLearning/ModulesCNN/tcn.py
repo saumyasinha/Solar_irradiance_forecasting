@@ -286,7 +286,7 @@ class ConvAttentionBlockv2(nn.Module):
     def __init__(self, in_channels):
         super(ConvAttentionBlockv2, self).__init__()
 
-        inter_channels = in_channels // 2
+        inter_channels = in_channels // 4
         self.conv5a = nn.Sequential(weight_norm(nn.Conv1d(in_channels, inter_channels, 2, padding=1, bias=False)),
                                     nn.ReLU())
 
