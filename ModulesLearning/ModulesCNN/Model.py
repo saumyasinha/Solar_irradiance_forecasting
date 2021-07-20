@@ -301,12 +301,12 @@ class Custom_resnet(nn.Module):
         self.outputs = outputs
         self.input_embedding = nn.Conv1d(self.input_dim, self.d_model, 1)
 
-        resnet = models.resnet50(pretrained=pretrained)
+        resnet = models.resnet18(pretrained=pretrained)
 
-        print(resnet)
+        #print(resnet)
         ## freezing the "features" parameters (this is excluding the fully connected layers)
-        for param in resnet.parameters():
-            param.requires_grad = False
+        #for param in resnet.parameters():
+         #   param.requires_grad = False
 
         ## Use vgg's "features" in your model
         self.features = nn.Sequential(*list(resnet.children())[:-1]) #resnet.features
@@ -314,17 +314,17 @@ class Custom_resnet(nn.Module):
         # build fully connected part of vgg and add it to your model
         test_ipt = Variable(torch.zeros(1,3,self.d_model,self.seq_len))
         test_out = self.features(test_ipt)
-        print(test_out.shape)
+        #print(test_out.shape)
 
         ## n_features give you an idea of the feature map size after the "features" layers
         self.n_features = test_out.size(1) * test_out.size(2) * test_out.size(3)
-        self.linear = nn.Sequential(nn.Linear(self.n_features, 1024),
-                                        nn.ReLU(True),
-                                        nn.Dropout(),
-                                        nn.Linear(1024, 1024),
-                                        nn.ReLU(True),
-                                        nn.Dropout(),
-                                        nn.Linear(1024, self.outputs)
+        self.linear = nn.Sequential(nn.Linear(self.n_features, self.outputs),
+                                       # nn.ReLU(True),
+                                        #nn.Dropout(),
+                                        #nn.Linear(256, 128),
+                                        #nn.ReLU(True),
+                                        #nn.Dropout(),
+                                        #nn.Linear(256, self.outputs)
                                        )
         self._init_classifier_weights()
 
@@ -367,7 +367,7 @@ def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
         #if torch.cuda.device_count() > 1:
          #   print("Let's use", torch.cuda.device_count(), "GPUs!")
 
-            # quantile_forecaster = nn.DataParallel(quantile_forecaster)
+            #quantile_forecaster = nn.DataParallel(quantile_forecaster)
 
         quantile_forecaster = quantile_forecaster.cuda()
         # point_forecaster = point_forecaster.cuda()
