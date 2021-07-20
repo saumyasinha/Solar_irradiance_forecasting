@@ -170,6 +170,7 @@ def train_DCNN_with_attention(quantile, X_train, y_train, X_valid, y_valid, n_ti
     epochs = 200 #200
     batch_size = 8 #16 #32
 
+
     train_loss, valid_loss = trainBatchwise(X_train, y_train, epochs, batch_size,learning_rate, X_valid, y_valid, n_outputs,n_features, n_timesteps, folder_saving, model_saved, quantile, alphas = np.arange(0.05, 1.0, 0.05), outputs=19, valid=valid, patience=1000)
     loss_plots(train_loss,valid_loss,folder_saving,model_saved)
 

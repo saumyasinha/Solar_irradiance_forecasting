@@ -258,7 +258,7 @@ class TransAm(nn.Module):
 
         # self.encoder_layer = nn.TransformerEncoderLayer(d_model=self.input_dim, nhead=2, dim_feedforward=200,dropout=dropout) #embed_dim must be divisible by n_heads
 
-        self.encoder_layer = nn.TransformerEncoderLayer(self.d_model, nhead=self.num_heads, dim_feedforward=512, dropout=dropout) #embed_dim must be divisible by n_heads
+        self.encoder_layer = nn.TransformerEncoderLayer(self.d_model, nhead=self.num_heads, dim_feedforward=200, dropout=dropout) #embed_dim must be divisible by n_heads
 
         self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=self.num_layers)
         self.decoder = nn.Linear(self.d_model, self.outputs)
@@ -409,10 +409,10 @@ def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
     quantile_forecaster = TransAm(n_features, n_timesteps, folder_saving, model_saved, quantile,  alphas = alphas, outputs = outputs, valid=valid, num_heads=num_heads, d_model=d_model, num_layers=n_layers)
     # quantile_forecaster = MultiAttnHeadSimple(n_features, n_timesteps, folder_saving, model_saved, quantile, n_layers, factor, alphas = alphas, outputs = outputs, valid=valid, output_seq_len = output_seq_len, num_heads=num_heads, d_model=d_model)
     if train_on_gpu:
-        # if torch.cuda.device_count() > 1:
-            # print("Let's use", torch.cuda.device_count(), "GPUs!")
-            # quantile_forecaster = nn.DataParallel(quantile_forecaster)
-            # parallel=True
+        if torch.cuda.device_count() > 1:
+            print("Let's use", torch.cuda.device_count(), "GPUs!")
+            quantile_forecaster = nn.DataParallel(quantile_forecaster)
+            parallel=True
         quantile_forecaster = quantile_forecaster.cuda()
 
         # point_foreaster = point_foreaster.cuda()

@@ -26,7 +26,7 @@ pd.set_option('display.width', 1000)
 city = 'Sioux_Falls_SD'
 
 # lead time
-lead_times = [1,4,8,12,16,20,24,28,32,48,96,30*4,36*4,42*4]
+lead_times = [4,8,12,16,20,24,28,32,48,96,30*4,36*4,42*4]
 
 # season
 seasons =['year'] #,'fall', 'winter', 'spring', 'summer']
@@ -77,11 +77,11 @@ quantile = True #True
 
 #hyperparameters for the multi-attention model
 
-n_layers = 2 #2 #3
+n_layers = 1 #2 #3
 factor = 12 #12
 num_heads = 4 #4
-d_model = 128 #128
-batch_size = 16 #32 #16 #16 
+d_model = 64 #128
+batch_size = 8 #32 #16 #16 
 
 
 epochs = 300 #250
@@ -264,6 +264,8 @@ def main():
 
 
 
+
+
     for season_flag in seasons:
         ## ML_models_2008 is the folder to save results on testyear 2008
         ## creating different folder for different methods: nn for fully connected networks, rf for random forest etc.
@@ -338,26 +340,26 @@ def main():
 
 
                 cnn.train_DCNN_with_attention(quantile,X_train, y_train, X_valid, y_valid, n_timesteps+1, n_features,
-                                                                                          folder_saving + season_flag + "/ML_models_" + str(
-                                                                                              testyear) + "/cnn/" + str(
-                                                                                              res) + "/" + reg + "/",
-                                                                                          model_saved="dcnn_lag_for_lead_" + str(
-                                                                                              lead))
+                                                                                         folder_saving + season_flag + "/ML_models_" + str(
+                                                                                             testyear) + "/cnn/" + str(
+                                                                                             res) + "/" + reg + "/",
+                                                                                         model_saved="dcnn_lag_for_lead_" + str(
+                                                                                             lead))
                 y_pred, y_valid_pred, valid_crps, test_crps = cnn.test_DCNN_with_attention(quantile, X_valid, y_valid,
-                                                                                          X_test, y_test,
-                                                                                          n_timesteps + 1, n_features,
-                                                                                          folder_saving + season_flag + "/ML_models_" + str(
-                                                                                              testyear) + "/cnn/" + str(
-                                                                                              res) + "/" + reg + "/",
-                                                                                          model_saved="dcnn_lag_for_lead_" + str(
-                                                                                              lead))  # "multi_horizon_dcnn", n_outputs=n_output_steps)
+                                                                                         X_test, y_test,
+                                                                                         n_timesteps + 1, n_features,
+                                                                                         folder_saving + season_flag + "/ML_models_" + str(
+                                                                                             testyear) + "/cnn/" + str(
+                                                                                             res) + "/" + reg + "/",
+                                                                                         model_saved="dcnn_lag_for_lead_" + str(
+                                                                                             lead))  # "multi_horizon_dcnn", n_outputs=n_output_steps)
 
                 # tranformers.train_transformer(quantile, X_train, y_train, X_valid, y_valid, n_timesteps+1, n_features, n_layers, factor, num_heads, d_model, batch_size, epochs, lr,alphas, q50,
-                #                           folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved ="dcnn_lag_for_lead_" + str(lead)) #"multi_horizon_dcnn", n_outputs=n_output_steps)
+                #                            folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved ="dcnn_lag_for_lead_" + str(lead)) #"multi_horizon_dcnn", n_outputs=n_output_steps)
                 #
                 # y_pred, y_valid_pred, valid_crps, test_crps  = tranformers.test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps+1, n_features,n_layers, factor, num_heads, d_model,alphas, q50,
-                #                               folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved = "dcnn_lag_for_lead_" + str(lead))#"multi_horizon_dcnn", n_outputs=n_output_steps)
-
+                #                                folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved = "dcnn_lag_for_lead_" + str(lead))#"multi_horizon_dcnn", n_outputs=n_output_steps)
+                #
 
 
             # for i in range(n_output_steps):
