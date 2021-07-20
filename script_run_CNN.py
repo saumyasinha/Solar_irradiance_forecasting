@@ -70,7 +70,7 @@ testyear = 2017
 # hyperparameters
 
 
-n_timesteps = 127#72#24*7 for tcn
+n_timesteps = 63#72#24*7 for tcn
 # n_output_steps = len(lead_times)
 n_features = 15#12 for SAND #15 for tcn(taking 12(even) features for mulit-head and transformers)
 quantile = True #True
@@ -258,7 +258,7 @@ def main():
     
     # df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
 
-    reg = "dcnn_with_lag_pretrained_resnet"
+    reg = "dcnn_with_lag_pretrained_resnet_finetuning_resnet"
     # reg = "transformers_single_step"
 
 

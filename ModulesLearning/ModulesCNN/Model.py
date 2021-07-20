@@ -33,13 +33,13 @@ class EarlyStopping:
         self.delta = delta
         self.saving_path = saving_path
 
-    def __call__(self, val_loss, model, epoch):
+    def __call__(self, val_loss, model, epoch, parallel=False):
 
         score = -val_loss
 
         if self.best_score is None:
             self.best_score = score
-            self.save_checkpoint(val_loss, model)
+            self.save_checkpoint(val_loss, model,parallel)
         elif (score < self.best_score + self.delta):
             self.counter += 1
             print('EarlyStopping counter: {} out of {}'.format(self.counter, self.patience))
@@ -47,14 +47,17 @@ class EarlyStopping:
                 self.early_stop = True
         elif epoch>20:
             self.best_score = score
-            self.save_checkpoint(val_loss, model)
+            self.save_checkpoint(val_loss, model, parallel)
             self.counter = 0
 
-    def save_checkpoint(self, val_loss, model):
+    def save_checkpoint(self, val_loss, model,parallel):
         '''Saves model when validation loss decrease.'''
         if self.verbose:
             print('Validation loss decreased ({} --> {}).  Saving model ...'.format(self.val_loss_min, val_loss))
-        torch.save(model.state_dict(), self.saving_path)
+        if parallel==True:
+            torch.save(model.module.state_dict(), self.saving_path)
+        else:
+            torch.save(model.state_dict(), self.saving_path)
         self.val_loss_min = val_loss
 
 
@@ -299,14 +302,14 @@ class Custom_resnet(nn.Module):
         self.seq_len = seq_len
         self.d_model = seq_len
         self.outputs = outputs
-        self.input_embedding = nn.Conv1d(self.input_dim, self.d_model, 1)
+        # self.input_embedding = nn.Conv1d(self.input_dim, self.d_model, 1)
 
-        resnet = models.resnet50(pretrained=pretrained)
+        resnet = models.resnet18(pretrained=pretrained)
 
         print(resnet)
         ## freezing the "features" parameters (this is excluding the fully connected layers)
-        for param in resnet.parameters():
-            param.requires_grad = False
+        # for param in resnet.parameters():
+        #     param.requires_grad = False
 
         ## Use vgg's "features" in your model
         self.features = nn.Sequential(*list(resnet.children())[:-1]) #resnet.features
@@ -318,23 +321,27 @@ class Custom_resnet(nn.Module):
 
         ## n_features give you an idea of the feature map size after the "features" layers
         self.n_features = test_out.size(1) * test_out.size(2) * test_out.size(3)
-        self.linear = nn.Sequential(nn.Linear(self.n_features, 1024),
-                                        nn.ReLU(True),
-                                        nn.Dropout(),
-                                        nn.Linear(1024, 1024),
-                                        nn.ReLU(True),
-                                        nn.Dropout(),
-                                        nn.Linear(1024, self.outputs)
+        self.linear = nn.Sequential(nn.Linear(self.n_features, self.outputs),
+                                        # nn.ReLU(True),
+                                        # nn.Dropout(),
+                                        # nn.Linear(1024, 1024),
+                                        # nn.ReLU(True),
+                                        # nn.Dropout(),
+                                        # nn.Linear(1024, self.outputs)
                                        )
         self._init_classifier_weights()
 
     def forward(self, x):
         # print(x.shape)
-        x = self.input_embedding(x)
+        # x = x.transpose(1,2)
         # print(x.shape)
-        x.unsqueeze_(1)
+        # x = self.input_embedding(x)
         # print(x.shape)
-        x=x.repeat(1,3,1,1)
+        # x = x.transpose(1, 2)
+        # print(x.shape)
+        # x.unsqueeze_(1)
+        # print(x.shape)
+        # x=x.repeat(1,3,1,1)
         # print(x.shape)
 
         x = self.features(x)
@@ -351,6 +358,8 @@ class Custom_resnet(nn.Module):
                 m.weight.data.normal_(0, 0.01)
                 m.bias.data.zero_()
 
+
+
 def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
                    validY, n_output_length, n_features, n_timesteps, folder_saving, model_saved, quantile, alphas, outputs, valid, patience=None, verbose=None, reg_lamdba = 0): #0.0001):
 
@@ -363,11 +372,14 @@ def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
     train_on_gpu = torch.cuda.is_available()
     print(train_on_gpu)
 
+    parallel = False
     if train_on_gpu:
-        #if torch.cuda.device_count() > 1:
-         #   print("Let's use", torch.cuda.device_count(), "GPUs!")
+        if torch.cuda.device_count() > 1:
+           # print("Let's use", torch.cuda.device_count(), "GPUs!")
 
-            # quantile_forecaster = nn.DataParallel(quantile_forecaster)
+            quantile_forecaster = nn.DataParallel(quantile_forecaster)
+            parallel = True
+
 
         quantile_forecaster = quantile_forecaster.cuda()
         # point_forecaster = point_forecaster.cuda()
@@ -392,11 +404,11 @@ def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
             train_mode = True
 
         indices = torch.randperm(samples)
-        trainX, trainY = trainX[indices, :, :], trainY[indices]
+        trainX, trainY = trainX[indices, :, :, :], trainY[indices]
         per_epoch_loss = 0
         count_train = 0
         for i in range(0, samples, batch_size):
-            xx = trainX[i: i + batch_size, :, :]
+            xx = trainX[i: i + batch_size, :, :, :]
             yy = trainY[i: i + batch_size]
 
             if train_on_gpu:
@@ -487,14 +499,17 @@ def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
                 print("Epoch: %d, train loss: %1.5f and valid loss : %1.5f" % (epoch, train_loss_this_epoch, valid_loss_this_epoch))
 
             # early_stopping(valid_loss, self)
-            early_stopping(valid_loss_this_epoch, quantile_forecaster, epoch)
+            early_stopping(valid_loss_this_epoch, quantile_forecaster, epoch, parallel)
 
             if early_stopping.early_stop:
                 print("Early stopping")
                 break
         else:
             print("Epoch: %d, loss: %1.5f" % (epoch, train_loss_this_epoch))
-            torch.save(quantile_forecaster.state_dict(), saving_path)
+            if parallel:
+                torch.save(quantile_forecaster.module.state_dict(), saving_path)
+            else:
+                torch.save(quantile_forecaster.state_dict(), saving_path)
     # load the last checkpoint with the best model
     # self.load_state_dict(torch.load('checkpoint.pt'))
     return losses, valid_losses

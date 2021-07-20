@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch.nn as nn
 from sklearn.model_selection import train_test_split
-from torchvision import transforms
+#from torchvision import transforms
 
 
 def basic_CNN_train(X_train, y_train, folder_saving, model_saved):
@@ -126,6 +126,15 @@ def loss_plots(train_loss, valid_loss, folder_saving, loss_type=""):
     plt.savefig(folder_saving+"loss_plots_"+loss_type)
     plt.close()
 
+def transform(X):
+    mean = [0.485, 0.456, 0.406]
+    std = [0.229, 0.224, 0.225]
+
+    X[:, 0, :, :] = (X[:, 0, :, :] - mean[0]) / std[0]
+    X[:, 1, :, :] = (X[:, 1, :, :] - mean[1]) / std[1]
+    X[:, 2, :, :] = (X[:, 2, :, :] - mean[2]) / std[2]
+
+    return X
 
 def train_DCNN_with_attention(quantile, X_train, y_train, X_valid, y_valid, n_timesteps, n_features, folder_saving, model_saved, n_outputs = 1):
 
@@ -139,30 +148,27 @@ def train_DCNN_with_attention(quantile, X_train, y_train, X_valid, y_valid, n_ti
     X_train = torch.from_numpy(X_train).reshape(-1, n_features, n_timesteps)
     y_train = torch.from_numpy(y_train).reshape(-1, n_outputs)
 
-    # X_train.unsqueeze_(1)
-    # X_train = X_train.repeat(1, 3, 1, 1)
-    # transform = transforms.Compose([
-    #     transforms.Normalize(mean=[0.485, 0.456, 0.406],
-    #                          std=[0.229, 0.224, 0.225]),
-    # ])
-    # X_train = transform(X_train)
+    X_train.unsqueeze_(1)
+    X_train = X_train.repeat(1, 3, 1, 1)
+
+    X_train = transform(X_train)
     #
     if valid:
         X_valid, y_valid = X_valid.astype(np.float32), y_valid.astype(np.float32)
         X_valid = torch.from_numpy(X_valid).reshape(-1, n_features, n_timesteps)
         y_valid = torch.from_numpy(y_valid).reshape(-1, n_outputs)
-        # X_valid.unsqueeze_(1)
-        # X_valid = X_valid.repeat(1, 3, 1, 1)
-        # X_valid = transform(X_valid)
+        X_valid.unsqueeze_(1)
+        X_valid = X_valid.repeat(1, 3, 1, 1)
+        X_valid = transform(X_valid)
 
 
     print(X_train.shape, y_train.shape)
 
     # point_forecaster = ConvForecasterDilationLowRes(n_features, n_timesteps, folder_saving, model_saved, quantile, outputs=n_outputs, valid=valid)
-    learning_rate = 1e-3#changed from 1e-5
+    learning_rate = 1e-4#changed from 1e-5
 
-    epochs = 1 #200
-    batch_size = 16 #16 #32
+    epochs = 200 #200
+    batch_size = 8 #16 #32
 
     train_loss, valid_loss = trainBatchwise(X_train, y_train, epochs, batch_size,learning_rate, X_valid, y_valid, n_outputs,n_features, n_timesteps, folder_saving, model_saved, quantile, alphas = np.arange(0.05, 1.0, 0.05), outputs=19, valid=valid, patience=1000)
     loss_plots(train_loss,valid_loss,folder_saving,model_saved)
@@ -175,9 +181,18 @@ def test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_times
     X_test, y_test = X_test.astype(np.float32), y_test.astype(np.float32)
     X_test = torch.from_numpy(X_test).reshape(-1, n_features, n_timesteps)
 
+    X_test.unsqueeze_(1)
+    X_test = X_test.repeat(1, 3, 1, 1)
+
+    X_test = transform(X_test)
+
     if X_valid is not None:
         X_valid, y_valid = X_valid.astype(np.float32), y_valid.astype(np.float32)
         X_valid = torch.from_numpy(X_valid).reshape(-1, n_features, n_timesteps)
+
+        X_valid.unsqueeze_(1)
+        X_valid = X_valid.repeat(1, 3, 1, 1)
+        X_valid = transform(X_valid)
 
 
     # point_forecaster = ConvForecasterDilationLowRes(n_features, n_timesteps, folder_saving, model_saved, quantile,
@@ -235,7 +250,6 @@ def test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_times
 
     # print(valid_crps)
     return y_pred, y_valid_pred, valid_crps, test_crps
-
 
 
 
