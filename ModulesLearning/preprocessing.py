@@ -307,18 +307,18 @@ def standardize_from_train(X_train, X_valid, X_test, index_ghi, index_clearghi, 
                 # print("here")
                 index_clearghi = i+diff
                 ## normalizing of dw_solar wrt clearGHI (to take the cloud factor into account)
-                # mean_clear = np.mean(X_train[:, index_clearghi])
-                # std_clear = np.std(X_train[:, index_clearghi])
-                # X_train[:, index_ghi] = (X_train[:, index_ghi] - mean_clear) / std_clear
-                # X_valid[:, index_ghi] = (X_valid[:, index_ghi] - mean_clear) / std_clear
-                # X_test[:, index_ghi] = (X_test[:, index_ghi] - mean_clear) / std_clear
-                # standarize_dict[i] = (mean_clear, std_clear)
-                max_clear = np.max(X_train[:, index_clearghi])
-                min_clear = np.min(X_train[:, index_clearghi])
-                X_train[:, index_ghi] = (X_train[:, index_ghi] - min_clear) / (max_clear - min_clear)
-                X_valid[:, index_ghi] = (X_valid[:, index_ghi] - min_clear) / (max_clear - min_clear)
-                X_test[:, index_ghi] = (X_test[:, index_ghi] - min_clear) / (max_clear - min_clear)
-                standarize_dict[i] = (max_clear, min_clear)
+                mean_clear = np.mean(X_train[:, index_clearghi])
+                std_clear = np.std(X_train[:, index_clearghi])
+                X_train[:, index_ghi] = (X_train[:, index_ghi] - mean_clear) / std_clear
+                X_valid[:, index_ghi] = (X_valid[:, index_ghi] - mean_clear) / std_clear
+                X_test[:, index_ghi] = (X_test[:, index_ghi] - mean_clear) / std_clear
+                standarize_dict[i] = (mean_clear, std_clear)
+                # max_clear = np.max(X_train[:, index_clearghi])
+                # min_clear = np.min(X_train[:, index_clearghi])
+                # X_train[:, index_ghi] = (X_train[:, index_ghi] - min_clear) / (max_clear - min_clear)
+                # X_valid[:, index_ghi] = (X_valid[:, index_ghi] - min_clear) / (max_clear - min_clear)
+                # X_test[:, index_ghi] = (X_test[:, index_ghi] - min_clear) / (max_clear - min_clear)
+                # standarize_dict[i] = (max_clear, min_clear)
 
             else:
                 mean = np.mean(X_train[:,i])
@@ -327,14 +327,14 @@ def standardize_from_train(X_train, X_valid, X_test, index_ghi, index_clearghi, 
                 min = np.min(X_train[:,i])
                 # print(min,max)
                 ##normalize or standarize ?
-                # X_train[:,i] = (X_train[:,i] - mean)/std
-                # X_valid[:, i] = (X_valid[:, i] - mean) / std
-                # X_test[:,i] = (X_test[:,i] - mean)/std
-                # standarize_dict[i] = (mean,std)
-                X_train[:,i] = (X_train[:,i] - min)/(max-min)
-                X_valid[:, i] = (X_valid[:, i] - min) / (max-min)
-                X_test[:,i] = (X_test[:,i] - min)/(max-min)
-                standarize_dict[i] = (max,min)
+                X_train[:,i] = (X_train[:,i] - mean)/std
+                X_valid[:, i] = (X_valid[:, i] - mean) / std
+                X_test[:,i] = (X_test[:,i] - mean)/std
+                standarize_dict[i] = (mean,std)
+                # X_train[:,i] = (X_train[:,i] - min)/(max-min)
+                # X_valid[:, i] = (X_valid[:, i] - min) / (max-min)
+                # X_test[:,i] = (X_test[:,i] - min)/(max-min)
+                # standarize_dict[i] = (max,min)
 
             # print("when not using the saved file", i, standarize_dict[i])
 
@@ -380,12 +380,37 @@ def shuffle(X,y, city, res):
 
 
 def generateFlag(x):
-    if int(x) < 15 and int(x) >= 0:
+    # if int(x) < 15 and int(x) >= 0:
+    #     return 1
+    # elif int(x) < 30 and int(x) >= 15:
+    #     return 2
+    # elif int(x) < 45 and int(x) >= 30:
+    #     return 3
+    # elif int(x) <= 60 and int(x) >= 45:
+    #     return 4
+
+    if int(x) < 5 and int(x) >= 0:
         return 1
-    elif int(x) < 30 and int(x) >= 15:
+    elif int(x) < 10 and int(x) >= 5:
         return 2
-    elif int(x) < 45 and int(x) >= 30:
+    elif int(x) < 15 and int(x) >= 10:
         return 3
-    elif int(x) <= 60 and int(x) >= 45:
+    elif int(x) < 20 and int(x) >= 15:
         return 4
+    if int(x) < 25 and int(x) >= 20:
+        return 5
+    elif int(x) < 30 and int(x) >= 25:
+        return 6
+    elif int(x) < 35 and int(x) >= 30:
+        return 7
+    elif int(x) < 40 and int(x) >= 35:
+        return 8
+    if int(x) < 45 and int(x) >= 40:
+        return 9
+    elif int(x) < 50 and int(x) >= 45:
+        return 10
+    elif int(x) < 55 and int(x) >= 50:
+        return 11
+    elif int(x) <= 60 and int(x) >= 55:
+        return 12
 

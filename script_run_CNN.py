@@ -26,11 +26,11 @@ pd.set_option('display.width', 1000)
 city = 'Sioux_Falls_SD'
 
 # lead time
-lead_times = [4,8,12,16,20,24,28,32,48,96,30*4,36*4,42*4]
+lead_times = [2,4,8,12,12*2,12*3,12*4,12*5,12*6]
 
 # season
 seasons =['year'] #,'fall', 'winter', 'spring', 'summer']
-res = '15min' #15min
+res = '5min' #15min
 
 # file locations
 
@@ -41,7 +41,7 @@ path_project = path_cluster
 path = path_project+"Data/"
 folder_saving = path_project + city+"/Models/"
 folder_plots = path_project + city+"/Plots/"
-clearsky_file_path = path+'clear-sky/'+city+'_15min_original.csv'
+clearsky_file_path = path+'clear-sky/'+city+'_1min_original.csv'
 
 
 # scan all the features (except the flags)
@@ -70,7 +70,7 @@ testyear = 2017
 # hyperparameters
 
 
-n_timesteps = 63#72#24*7 for tcn
+n_timesteps = 144#72#24*7 for tcn # 144 for 5-min reoslution
 # n_output_steps = len(lead_times)
 n_features = 15#12 for SAND #15 for tcn(taking 12(even) features for mulit-head and transformers)
 quantile = True #True
@@ -213,6 +213,7 @@ def main():
     clearsky[['year', 'month', 'day', 'hour', 'min']] = clearsky['# Observation period'].apply(preprocess.extract_time)
     # clearsky = clearsky.groupby(['year', 'month', 'day', 'hour']).mean()
     clearsky['MinFlag'] = clearsky['min'].apply(preprocess.generateFlag)
+    clearsky = clearsky.groupby(['year', 'month', 'day', 'hour', 'MinFlag']).mean()
     print("clearsky rows before merging: ", len(clearsky))
 
     # merging the clear sky values with SURFAD input dataset
@@ -258,7 +259,7 @@ def main():
     
     # df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
 
-    reg = "dcnn_with_lag_pretrained_resnet_finetuning_resnet"
+    reg = "dcnn_with_tcn_without_attention_5mins"
     # reg = "transformers_single_step"
 
 
@@ -327,13 +328,13 @@ def main():
                 X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, X_test,index_ghi,index_clearghi, len(col_to_indices_mapping),
                                                                              folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/", lead = lead)
 
-                f.write("epochs = " + str(epochs) + '\n')
-                f.write("batch_size = " + str(batch_size) + '\n')
-                f.write("learning rate = " + str(lr) + '\n')
-                f.write("n_layers = " + str(n_layers) + '\n')
-                f.write("factor = " + str(factor) + '\n')
-                f.write("num_heads = " + str(num_heads) + '\n')
-                f.write("d_model = " + str(d_model) + '\n')
+                # f.write("epochs = " + str(epochs) + '\n')
+                # f.write("batch_size = " + str(batch_size) + '\n')
+                # f.write("learning rate = " + str(lr) + '\n')
+                # f.write("n_layers = " + str(n_layers) + '\n')
+                # f.write("factor = " + str(factor) + '\n')
+                # f.write("num_heads = " + str(num_heads) + '\n')
+                # f.write("d_model = " + str(d_model) + '\n')
                 f.write("seq_len = " + str(n_timesteps) + '\n')
                 f.write("total features = " + str(n_features)+ '\n')
                 f.write("alphas = " + str(len((alphas))) + '\n')

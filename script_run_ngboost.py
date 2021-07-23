@@ -5,9 +5,9 @@ import pickle
 from sklearn.model_selection import train_test_split
 from ngboost import NGBRegressor
 import matplotlib.pyplot as plt
-from ModulesProcessing import collect_data,clean_data
-from ModulesLearning import preprocessing as preprocess
-from ModulesLearning import postprocessing as postprocess
+from SolarForecasting.ModulesProcessing import collect_data,clean_data
+from SolarForecasting.ModulesLearning import preprocessing as preprocess
+from SolarForecasting.ModulesLearning import postprocessing as postprocess
 from ngboost.scores import CRPS, MLE
 import scipy as sp
 from scipy.stats import norm as dist
@@ -23,21 +23,21 @@ pd.set_option('display.width', 1000)
 city = 'Sioux_Falls_SD'
 
 # lead time i.e how much in advance you want to make a prediction (lead of 4 corresponds to 1 hour..since the data is at 15min resolution)
-lead_times = [1,4,8,12,16,20,24,28,32,12*4,24*4,30*4,36*4,42*4]#]
+lead_times =  [2,4,8,12,12*2,12*3,12*4,12*5,12*6]
 
 # season
 seasons =['year'] #from ['fall', 'winter', 'spring', 'summer', 'year']
-res = '15min'
+res = '5min'
 
 # file locations
 # path_desktop = "C:\\Users\Shivendra\Desktop\SolarProject\solar_forecasting/"
 path_local = "/Users/saumya/Desktop/SolarProject/"
 path_cluster = "/pl/active/machinelearning/Solar_forecasting_project/"
-path_project = path_cluster
+path_project = path_local
 path = path_project+"Data/"
 folder_saving = path_project + city+"/Models/"
 folder_plots = path_project + city+"/Plots/"
-clearsky_file_path = path+'clear-sky/'+city+'_15min_original.csv'
+clearsky_file_path = path+'clear-sky/'+city+'_1min_original.csv'
 
 # scan all the features
 features = ['year','month','day','hour','min','zen','dw_solar','uw_solar','direct_n','diffuse','dw_ir','dw_casetemp','dw_dometemp','uw_ir','uw_casetemp','uw_dometemp','uvb','par','netsolar','netir','totalnet','temp','rh','windspd','winddir','pressure']
@@ -63,7 +63,7 @@ endmonth = 8
 testyear = 2017
 
 # hyperparameters
-n_timesteps = 24
+n_timesteps = 0#24
 n_features = 15 #(after including month and hour)
 
 
@@ -139,10 +139,11 @@ def main():
     # extract the features from the input
     dataset = combined_csv[features]
     print('dataset size: ',len(dataset))
-
+    print("orig data stats", dataset.describe())
      #15 mins resolution
     dataset['MinFlag'] = dataset['min'].apply(preprocess.generateFlag)
     dataset = dataset.groupby(['year', 'month', 'day', 'hour', 'MinFlag']).mean()
+    print()
     # dataset = dataset.groupby(['year', 'month', 'day', 'hour']).mean()
     dataset.reset_index(inplace=True)
     print('dataset size : ',len(dataset))
@@ -157,6 +158,8 @@ def main():
     clearsky[['year', 'month', 'day', 'hour', 'min']] = clearsky['# Observation period'].apply(preprocess.extract_time)
     # clearsky = clearsky.groupby(['year', 'month', 'day', 'hour']).mean()
     clearsky['MinFlag'] = clearsky['min'].apply(preprocess.generateFlag)
+    print("clearsky before converting to 5min res")
+    clearsky = clearsky.groupby(['year', 'month', 'day', 'hour', 'MinFlag']).mean()
     print("clearsky rows before merging: ", len(clearsky))
 
     # merging the clear sky values with SURFAD input dataset
@@ -216,7 +219,7 @@ def main():
     # plt.savefig("time series of clearness index zoomed")
     # plt.clf()
     #
-    reg = "ngboost_with_lag24"  ## giving a name to the regression models -- useful when saving results
+    reg = "ngboost_without_lag_5mins"  ## giving a name to the regression models -- useful when saving results
 
     for season_flag in seasons:
         os.makedirs(folder_saving + season_flag + "/ML_models_"+str(testyear)+"/probabilistic/"+str(res)+"/"+reg+"/", exist_ok=True)
@@ -247,13 +250,13 @@ def main():
 
 
                 # including features from prev imestamps - didn't need to do that for NgBoost
-                X_train = include_previous_features(X_train, index_ghi)
-                X_heldout = include_previous_features(X_heldout, index_ghi)
-
-                X_train = X_train[n_timesteps:, :]
-                X_heldout = X_heldout[n_timesteps:, :]
-                y_train = y_train[n_timesteps:, :]
-                y_heldout = y_heldout[n_timesteps:, :]
+                # X_train = include_previous_features(X_train, index_ghi)
+                # X_heldout = include_previous_features(X_heldout, index_ghi)
+                #
+                # X_train = X_train[n_timesteps:, :]
+                # X_heldout = X_heldout[n_timesteps:, :]
+                # y_train = y_train[n_timesteps:, :]
+                # y_heldout = y_heldout[n_timesteps:, :]
 
                 print("Final train size: ", X_train.shape, y_train.shape)
                 print("Final heldout size: ", X_heldout.shape, y_heldout.shape)

@@ -83,112 +83,111 @@ class ConvForecasterDilationLowRes(nn.Module):
         self.train_mode = False
         self.saving_path = folder_saving+model
 
-        self.conv1 = nn.Conv1d(self.input_dim, 40, 2, stride=1)
-        self.conv1_fn = nn.ReLU()
-        self.avgpool1 = nn.AvgPool1d(kernel_size=2, stride=1)
-        self.conv1.apply(weights_init)
-
-        self.conv2 = nn.Conv1d(40, 80, 3, stride=1, dilation=2)
-        self.conv2_fn = nn.ReLU()
-        self.avgpool2 = nn.AvgPool1d(kernel_size=2, stride=2)
-        self.conv2.apply(weights_init)
-
-        self.conv3 = nn.Conv1d(80, 128, 3, stride=1, dilation=4)
-        self.conv3_fn = nn.ReLU()
-        self.avgpool3 = nn.AvgPool1d(kernel_size=2, stride=1)
-        # self.avgpool3 = nn.AvgPool1d(kernel_size=2, stride=2)
-        self.conv3.apply(weights_init)
-
-        conv_layers = [ self.conv1,self.conv1_fn,self.avgpool1,self.conv2,self.conv2_fn,self.avgpool2,self.conv3,self.conv3_fn,self.avgpool3]
-        # conv_layers = [self.conv1, self.conv1_fn, self.conv2, self.conv2_fn, self.conv3,
-        #                self.conv3_fn]
-
-        # self.conv4 = nn.Conv1d(100, 150, 3, stride=1, dilation=6)
-        # self.conv4_fn = nn.ReLU()
-        # self.avgpool4 = nn.AvgPool1d(kernel_size=2, stride=1)
-
-        conv_module = nn.Sequential(*conv_layers)
-
-        test_ipt = Variable(torch.zeros(1, self.input_dim, self.timesteps))
-        test_out = conv_module(test_ipt)
-
-        self.conv_output_size = test_out.size(1) * test_out.size(2)
-        # fc1_dim = self.conv_output_size+(self.input_dim*self.timesteps)
-
-        self.dropout = nn.Dropout(0.25)
-
-        #self.fc1 = nn.Linear(fc1_dim, int(fc1_dim/2))#int(fc1_dim/4))
-        #self.fc1_fn = nn.Tanh()
-
-        # self.fc2 = nn.Linear(int(fc1_dim/2), int(fc1_dim/4))
-        # self.fc2_fn = nn.Tanh()
-
-
-        # Attention Layer :
-        # self.conv_attn = nn.Conv1d(self.input_dim, 1, 1, stride=1)
-        # self.attn_layer = nn.Sequential(
-        #     #nn.Linear(self.conv_output_size+self.timesteps, self.timesteps*self.input_dim),
-        #     #nn.Tanh(),
-        #     # nn.Linear(self.timesteps*self.input_dim, self.timesteps),
-        #     nn.Linear(self.conv_output_size+self.timesteps, self.timesteps),
-        #     nn.Softmax(dim=1)
-        # )
-
-
-        channel_size = test_out.size(1)
-        self.attention = ConvAttentionBlockv2(channel_size)
-        self.fc = nn.Linear(self.conv_output_size, self.outputs)
-
-        #self.fc3 = nn.Linear(int(fc1_dim/2), self.outputs)
-        # self.fc3 = nn.Linear(fc1_dim, self.outputs)
-
-        ## adding self attention (and not the one above)
-        # in_dim = test_out.size(1)
-        # self.query_conv = nn.Conv1d(in_channels=in_dim, out_channels=in_dim // 8, kernel_size=1)
-        # self.key_conv = nn.Conv1d(in_channels=in_dim, out_channels=in_dim // 8, kernel_size=1)
-        # self.value_conv = nn.Conv1d(in_channels=in_dim, out_channels=in_dim, kernel_size=1)
-        # self.gamma = nn.Parameter(torch.zeros(1))
-        # self.softmax = nn.Softmax(dim=-1)
-        # self.fc = nn.Linear(self.conv_output_size,self.outputs)
+        # self.conv1 = nn.Conv1d(self.input_dim, 40, 2, stride=1)
+        # self.conv1_fn = nn.ReLU()
+        # self.avgpool1 = nn.AvgPool1d(kernel_size=2, stride=1)
+        # self.conv1.apply(weights_init)
+        #
+        # self.conv2 = nn.Conv1d(40, 80, 3, stride=1, dilation=2)
+        # self.conv2_fn = nn.ReLU()
+        # self.avgpool2 = nn.AvgPool1d(kernel_size=2, stride=2)
+        # self.conv2.apply(weights_init)
+        #
+        # self.conv3 = nn.Conv1d(80, 128, 3, stride=1, dilation=4)
+        # self.conv3_fn = nn.ReLU()
+        # self.avgpool3 = nn.AvgPool1d(kernel_size=2, stride=1)
+        # # self.avgpool3 = nn.AvgPool1d(kernel_size=2, stride=2)
+        # self.conv3.apply(weights_init)
+        #
+        # conv_layers = [ self.conv1,self.conv1_fn,self.avgpool1,self.conv2,self.conv2_fn,self.avgpool2,self.conv3,self.conv3_fn,self.avgpool3]
+        # # conv_layers = [self.conv1, self.conv1_fn, self.conv2, self.conv2_fn, self.conv3,
+        # #                self.conv3_fn]
+        #
+        # # self.conv4 = nn.Conv1d(100, 150, 3, stride=1, dilation=6)
+        # # self.conv4_fn = nn.ReLU()
+        # # self.avgpool4 = nn.AvgPool1d(kernel_size=2, stride=1)
+        #
+        # conv_module = nn.Sequential(*conv_layers)
+        #
+        # test_ipt = Variable(torch.zeros(1, self.input_dim, self.timesteps))
+        # test_out = conv_module(test_ipt)
+        #
+        # self.conv_output_size = test_out.size(1) * test_out.size(2)
+        # # fc1_dim = self.conv_output_size+(self.input_dim*self.timesteps)
+        #
+        # self.dropout = nn.Dropout(0.25)
+        #
+        # #self.fc1 = nn.Linear(fc1_dim, int(fc1_dim/2))#int(fc1_dim/4))
+        # #self.fc1_fn = nn.Tanh()
+        #
+        # # self.fc2 = nn.Linear(int(fc1_dim/2), int(fc1_dim/4))
+        # # self.fc2_fn = nn.Tanh()
+        #
+        #
+        # # Attention Layer :
+        # # self.conv_attn = nn.Conv1d(self.input_dim, 1, 1, stride=1)
+        # # self.attn_layer = nn.Sequential(
+        # #     #nn.Linear(self.conv_output_size+self.timesteps, self.timesteps*self.input_dim),
+        # #     #nn.Tanh(),
+        # #     # nn.Linear(self.timesteps*self.input_dim, self.timesteps),
+        # #     nn.Linear(self.conv_output_size+self.timesteps, self.timesteps),
+        # #     nn.Softmax(dim=1)
+        # # )
+        #
+        #
+        # channel_size = test_out.size(1)
+        # self.attention = ConvAttentionBlockv2(channel_size)
+        # self.fc = nn.Linear(self.conv_output_size, self.outputs)
+        #
+        # #self.fc3 = nn.Linear(int(fc1_dim/2), self.outputs)
+        # # self.fc3 = nn.Linear(fc1_dim, self.outputs)
+        #
+        # ## adding self attention (and not the one above)
+        # # in_dim = test_out.size(1)
+        # # self.query_conv = nn.Conv1d(in_channels=in_dim, out_channels=in_dim // 8, kernel_size=1)
+        # # self.key_conv = nn.Conv1d(in_channels=in_dim, out_channels=in_dim // 8, kernel_size=1)
+        # # self.value_conv = nn.Conv1d(in_channels=in_dim, out_channels=in_dim, kernel_size=1)
+        # # self.gamma = nn.Parameter(torch.zeros(1))
+        # # self.softmax = nn.Softmax(dim=-1)
+        # # self.fc = nn.Linear(self.conv_output_size,self.outputs)
 
         ## play around with channel size and kernel size
-        # num_channels =[25]*6 #6#24/25 before and 6 num of channels, reduced for multihead
-        # num_channels = [48]*4
-        # self.tcn = TemporalConvNet(self.input_dim, num_channels, kernel_size=3, dropout=0.2, attention=True) #kernel size changed to 3 instead of 5
-        #
-        # self.linear = nn.Linear(num_channels[-1], self.outputs)
+        num_channels =[25]*6 #6#24/25 before and 6 num of channels, reduced for multihead
+        self.tcn = TemporalConvNet(self.input_dim, num_channels, kernel_size=5, dropout=0.2, attention=False) #kernel size changed to 3 instead of 5
+
+        self.linear = nn.Linear(num_channels[-1], self.outputs)
 
 
 
     def forward(self, xx, n_output_length=1):
-        # # print(xx.shape)
-        output = self.conv1(xx)
+        # # # print(xx.shape)
+        # output = self.conv1(xx)
+        # # print(output.shape)
+        # output = self.conv1_fn(output)
+        # # if self.train_mode:
+        # output = self.dropout(output)
+        # output = self.avgpool1(output)
+        # # print(output.shape)
+        #
+        # output = self.conv2(output)
+        # # print(output.shape)
+        # output = self.conv2_fn(output)
+        # # if self.train_mode:
+        # output = self.dropout(output)
+        # output = self.avgpool2(output)
+        #
+        # # print(output.shape)
+        #
+        # output = self.conv3(output)
+        # # print(output.shape)
+        # output = self.conv3_fn(output)
+        # # if self.train_mode:
+        # output = self.dropout(output)
+        # output = self.avgpool3(output)
         # print(output.shape)
-        output = self.conv1_fn(output)
-        # if self.train_mode:
-        output = self.dropout(output)
-        output = self.avgpool1(output)
+        # output = self.attention(output)
         # print(output.shape)
-
-        output = self.conv2(output)
-        # print(output.shape)
-        output = self.conv2_fn(output)
-        # if self.train_mode:
-        output = self.dropout(output)
-        output = self.avgpool2(output)
-
-        # print(output.shape)
-
-        output = self.conv3(output)
-        # print(output.shape)
-        output = self.conv3_fn(output)
-        # if self.train_mode:
-        output = self.dropout(output)
-        output = self.avgpool3(output)
-        print(output.shape)
-        output = self.attention(output)
-        print(output.shape)
-        output = self.fc(output)
+        # output = self.fc(output)
         #
         # # output = self.conv4(output)
         # # output = self.conv4_fn(output)
@@ -222,15 +221,15 @@ class ConvForecasterDilationLowRes(nn.Module):
         # output = self.fc3(output)
 
 
-        # if n_output_length>1:
-        #     # print(xx.shape)
-        #     output = self.tcn(xx).transpose(1,2)
-        #     # print(output.shape)
-        #     output = self.linear(output).transpose(1,2)[:,:,:n_output_length] #unsure here if it should be [:,:,-n_output_length:]
-        #     # print(output.shape)
-        # else:
-        #     output = self.tcn(xx)
-        #     output = self.linear(output[:,:,-1])
+        if n_output_length>1:
+            # print(xx.shape)
+            output = self.tcn(xx).transpose(1,2)
+            # print(output.shape)
+            output = self.linear(output).transpose(1,2)[:,:,:n_output_length] #unsure here if it should be [:,:,-n_output_length:]
+            # print(output.shape)
+        else:
+            output = self.tcn(xx)
+            output = self.linear(output[:,:,-1])
 
 
         return output
@@ -288,77 +287,77 @@ class ConvForecasterDilationLowRes(nn.Module):
     #
     #     return output
 
-## Model used for transfer learning
-class Custom_resnet(nn.Module):
-
-    def __init__(self,input_dim, seq_len,outputs,
-                 pretrained=True):
-
-        super(Custom_resnet, self).__init__()
-
-        ## Using vgg16 pretrained model
-        # os.environ['TORCH_HOME'] = '/pl/active/machinelearning/AvalancheProject/Sophie_tmp'
-        self.input_dim = input_dim
-        self.seq_len = seq_len
-        self.d_model = seq_len
-        self.outputs = outputs
-        # self.input_embedding = nn.Conv1d(self.input_dim, self.d_model, 1)
-
-        resnet = models.resnet18(pretrained=pretrained)
-
-        #print(resnet)
-        ## freezing the "features" parameters (this is excluding the fully connected layers)
-        # for param in resnet.parameters():
-        #     param.requires_grad = False
-
-
-        ## Use vgg's "features" in your model
-        self.features = nn.Sequential(*list(resnet.children())[:-1]) #resnet.features
-
-        # build fully connected part of vgg and add it to your model
-        test_ipt = Variable(torch.zeros(1,3,self.d_model,self.seq_len))
-        test_out = self.features(test_ipt)
-        #print(test_out.shape)
-
-        ## n_features give you an idea of the feature map size after the "features" layers
-        self.n_features = test_out.size(1) * test_out.size(2) * test_out.size(3)
-        self.linear = nn.Sequential(nn.Linear(self.n_features, self.outputs))
-                                       # nn.ReLU(True),
-                                        #nn.Dropout(),
-                                        #nn.Linear(256, 128),
-                                        #nn.ReLU(True),
-                                        #nn.Dropout(),
-                                        #nn.Linear(256, self.outputs)
-
-        self._init_classifier_weights()
-
-    def forward(self, x):
-        # print(x.shape)
-        # x = x.transpose(1,2)
-        # print(x.shape)
-        # x = self.input_embedding(x)
-        # print(x.shape)
-        # x = x.transpose(1, 2)
-        # print(x.shape)
-        # x.unsqueeze_(1)
-        # print(x.shape)
-        # x=x.repeat(1,3,1,1)
-        # print(x.shape)
-
-        x = self.features(x)
-        # print(x.shape)
-        x = x.view(x.size(0), -1)
-        # print(x.shape)
-        x = self.linear(x)
-        # print(x.shape)
-        return x
-
-    def _init_classifier_weights(self):
-        for m in self.linear:
-            if isinstance(m, nn.Linear):
-                m.weight.data.normal_(0, 0.01)
-                m.bias.data.zero_()
-
+# ## Model used for transfer learning
+# class Custom_resnet(nn.Module):
+#
+#     def __init__(self,input_dim, seq_len,outputs,
+#                  pretrained=True):
+#
+#         super(Custom_resnet, self).__init__()
+#
+#         ## Using vgg16 pretrained model
+#         # os.environ['TORCH_HOME'] = '/pl/active/machinelearning/AvalancheProject/Sophie_tmp'
+#         self.input_dim = input_dim
+#         self.seq_len = seq_len
+#         self.d_model = seq_len
+#         self.outputs = outputs
+#         # self.input_embedding = nn.Conv1d(self.input_dim, self.d_model, 1)
+#
+#         resnet = models.resnet18(pretrained=pretrained)
+#
+#         #print(resnet)
+#         ## freezing the "features" parameters (this is excluding the fully connected layers)
+#         # for param in resnet.parameters():
+#         #     param.requires_grad = False
+#
+#
+#         ## Use vgg's "features" in your model
+#         self.features = nn.Sequential(*list(resnet.children())[:-1]) #resnet.features
+#
+#         # build fully connected part of vgg and add it to your model
+#         test_ipt = Variable(torch.zeros(1,3,self.d_model,self.seq_len))
+#         test_out = self.features(test_ipt)
+#         #print(test_out.shape)
+#
+#         ## n_features give you an idea of the feature map size after the "features" layers
+#         self.n_features = test_out.size(1) * test_out.size(2) * test_out.size(3)
+#         self.linear = nn.Sequential(nn.Linear(self.n_features, self.outputs))
+#                                        # nn.ReLU(True),
+#                                         #nn.Dropout(),
+#                                         #nn.Linear(256, 128),
+#                                         #nn.ReLU(True),
+#                                         #nn.Dropout(),
+#                                         #nn.Linear(256, self.outputs)
+#
+#         self._init_classifier_weights()
+#
+#     def forward(self, x):
+#         # print(x.shape)
+#         # x = x.transpose(1,2)
+#         # print(x.shape)
+#         # x = self.input_embedding(x)
+#         # print(x.shape)
+#         # x = x.transpose(1, 2)
+#         # print(x.shape)
+#         # x.unsqueeze_(1)
+#         # print(x.shape)
+#         # x=x.repeat(1,3,1,1)
+#         # print(x.shape)
+#
+#         x = self.features(x)
+#         # print(x.shape)
+#         x = x.view(x.size(0), -1)
+#         # print(x.shape)
+#         x = self.linear(x)
+#         # print(x.shape)
+#         return x
+#
+#     def _init_classifier_weights(self):
+#         for m in self.linear:
+#             if isinstance(m, nn.Linear):
+#                 m.weight.data.normal_(0, 0.01)
+#                 m.bias.data.zero_()
+#
 
 
 def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
@@ -380,7 +379,7 @@ def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
 
             quantile_forecaster = nn.DataParallel(quantile_forecaster)
             parallel = True
-            
+
         quantile_forecaster = quantile_forecaster.cuda()
         # point_forecaster = point_forecaster.cuda()
 
