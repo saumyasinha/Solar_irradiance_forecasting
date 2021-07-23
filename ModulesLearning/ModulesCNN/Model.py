@@ -287,6 +287,7 @@ class ConvForecasterDilationLowRes(nn.Module):
     #
     #     return output
 
+
 # ## Model used for transfer learning
 # class Custom_resnet(nn.Module):
 #
@@ -307,8 +308,8 @@ class ConvForecasterDilationLowRes(nn.Module):
 #
 #         #print(resnet)
 #         ## freezing the "features" parameters (this is excluding the fully connected layers)
-#         # for param in resnet.parameters():
-#         #     param.requires_grad = False
+#         for param in resnet.parameters():
+#             param.requires_grad = False
 #
 #
 #         ## Use vgg's "features" in your model
@@ -321,13 +322,13 @@ class ConvForecasterDilationLowRes(nn.Module):
 #
 #         ## n_features give you an idea of the feature map size after the "features" layers
 #         self.n_features = test_out.size(1) * test_out.size(2) * test_out.size(3)
-#         self.linear = nn.Sequential(nn.Linear(self.n_features, self.outputs))
+#         self.linear = nn.Sequential(nn.Linear(self.n_features, 200),
 #                                        # nn.ReLU(True),
 #                                         #nn.Dropout(),
 #                                         #nn.Linear(256, 128),
-#                                         #nn.ReLU(True),
-#                                         #nn.Dropout(),
-#                                         #nn.Linear(256, self.outputs)
+#                                         nn.ReLU(True),
+#                                         nn.Dropout(),
+#                                         nn.Linear(200, self.outputs))
 #
 #         self._init_classifier_weights()
 #
@@ -358,27 +359,28 @@ class ConvForecasterDilationLowRes(nn.Module):
 #                 m.weight.data.normal_(0, 0.01)
 #                 m.bias.data.zero_()
 #
+#
 
 
 def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
                    validY, n_output_length, n_features, n_timesteps, folder_saving, model_saved, quantile, alphas, outputs, valid, patience=None, verbose=None, reg_lamdba = 0): #0.0001):
 
-    # quantile_forecaster = ConvForecasterDilationLowRes(n_features, n_timesteps, folder_saving, model_saved, quantile,
-    #                                                    alphas=alphas, outputs=outputs,
-    #                                                    valid=valid)  # changed np.arange step size from 0.05 to 0.1
-    #
+    quantile_forecaster = ConvForecasterDilationLowRes(n_features, n_timesteps, folder_saving, model_saved, quantile,
+                                                       alphas=alphas, outputs=outputs,
+                                                       valid=valid)  # changed np.arange step size from 0.05 to 0.1
 
-    quantile_forecaster = Custom_resnet(n_features, n_timesteps, outputs)
+
+    # quantile_forecaster = Custom_resnet(n_features, n_timesteps, outputs)
     train_on_gpu = torch.cuda.is_available()
     print(train_on_gpu)
 
     parallel = False
     if train_on_gpu:
-        if torch.cuda.device_count() > 1:
+        # if torch.cuda.device_count() > 1:
            # print("Let's use", torch.cuda.device_count(), "GPUs!")
 
-            quantile_forecaster = nn.DataParallel(quantile_forecaster)
-            parallel = True
+            # quantile_forecaster = nn.DataParallel(quantile_forecaster)
+            # parallel = True
 
         quantile_forecaster = quantile_forecaster.cuda()
         # point_forecaster = point_forecaster.cuda()
@@ -403,17 +405,17 @@ def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
             train_mode = True
 
         indices = torch.randperm(samples)
-        trainX, trainY = trainX[indices, :, :, :], trainY[indices]
+        trainX, trainY = trainX[indices, :, :], trainY[indices]
         per_epoch_loss = 0
         count_train = 0
         for i in range(0, samples, batch_size):
-            xx = trainX[i: i + batch_size, :, :, :]
+            xx = trainX[i: i + batch_size, :, :]
             yy = trainY[i: i + batch_size]
 
             if train_on_gpu:
                 xx, yy = xx.cuda(), yy.cuda()
 
-            outputs = quantile_forecaster.forward(xx)#, n_output_length)
+            outputs = quantile_forecaster.forward(xx, n_output_length)
             optimizer.zero_grad()
             if quantile:
                 if n_output_length==1:
@@ -456,7 +458,7 @@ def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
 
 
             if quantile:
-                validYPred = quantile_forecaster.forward(validX) #,n_output_length)
+                validYPred = quantile_forecaster.forward(validX,n_output_length)
                 # validYPred = validYPred.cpu().detach().numpy()
                 # validYTrue = validY.cpu().detach().numpy()
                 # valid_loss_this_epoch = self.quantile_loss(validYPred,validY).item()

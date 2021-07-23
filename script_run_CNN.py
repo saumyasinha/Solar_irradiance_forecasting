@@ -259,7 +259,11 @@ def main():
     
     # df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
 
+<<<<<<< HEAD
     reg = "dcnn_with_tcn_without_attention_5mins"
+=======
+    reg = "dcnn_with_lag_pretrained_resnet_updated"
+>>>>>>> b3fd587cbe13f5f6c323c9bec403323916782f1f
     # reg = "transformers_single_step"
 
 
