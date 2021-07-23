@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # === 2. List of SBATCH arguements ===
-#SBATCH --job-name=transformers_Single_Step
-#SBATCH --nodelist=bgpu-papp1
+#SBATCH --job-name=pretrained_Resnet_normalized
+#SBATCH --nodelist=bgpu-dhl1
 #SBATCH --account=blanca-kann
 #SBATCH --qos=preemptable
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --output=/pl/active/machinelearning/Solar_forecasting_project/job_outputs/transformers_single_Step.%j.out
+#SBATCH --output=/pl/active/machinelearning/Solar_forecasting_project/job_outputs/pretrained_Resnet_normalized.%j.out
 
 # === 3. Purge and load needed modules ===
 module purge

@@ -258,7 +258,7 @@ def main():
     
     # df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
 
-    reg = "dcnn_with_lag_pretrained_resnet_finetuning_resnet"
+    reg = "dcnn_with_lag_pretrained_resnet_updated"
     # reg = "transformers_single_step"
 
 
