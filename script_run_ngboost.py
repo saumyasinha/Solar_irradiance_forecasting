@@ -20,14 +20,14 @@ pd.set_option('display.width', 1000)
 # All the variables and hyper-parameters
 
 # city
-city = 'Sioux_Falls_SD'
+city = 'Sioux_Falls_SD' #'Fort_Peck_MT'
 
 # lead time i.e how much in advance you want to make a prediction (lead of 4 corresponds to 1 hour..since the data is at 15min resolution)
-lead_times =  [2,4,8,12,12*2,12*3,12*4,12*5,12*6]
+lead_times = [24*7]#[12*12,12*24,12,12*2,12*3,12*4,12*5,12*6,8,4,2]
 
 # season
 seasons =['year'] #from ['fall', 'winter', 'spring', 'summer', 'year']
-res = '5min'
+res = '15min'
 
 # file locations
 # path_desktop = "C:\\Users\Shivendra\Desktop\SolarProject\solar_forecasting/"
@@ -45,22 +45,24 @@ features = ['year','month','day','hour','min','zen','dw_solar','uw_solar','direc
 # selected features for the study
 # final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','dw_ir','temp','rh','windspd','winddir','pressure','clear_ghi']
 
-## selected features for the study
+# ## selected features for the study
 final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
 
+## selected features for the study
+# final_features = ['year','month','day','hour','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
 
 # target or Y
 target_feature = ['clearness_index']
 
 # start and end month+year
-startyear = 2015 #2005
+startyear = 2016 #2005
 endyear = 2018 #2009
-startmonth = 9
-endmonth = 8
+startmonth = 1
+endmonth = 12
 
 # test year
 # testyear = 2008  # i.e all of Fall(Sep2008-Nov2008), Winter(Dec2008-Feb2009), Spring(Mar2009-May2009), Summer(June2009-Aug2009), year(Sep2008-Aug2009)
-testyear = 2017
+testyear = 2018
 
 # hyperparameters
 n_timesteps = 0#24
@@ -139,11 +141,11 @@ def main():
     # extract the features from the input
     dataset = combined_csv[features]
     print('dataset size: ',len(dataset))
-    print("orig data stats", dataset.describe())
+    print(dataset.head())
      #15 mins resolution
     dataset['MinFlag'] = dataset['min'].apply(preprocess.generateFlag)
     dataset = dataset.groupby(['year', 'month', 'day', 'hour', 'MinFlag']).mean()
-    print()
+
     # dataset = dataset.groupby(['year', 'month', 'day', 'hour']).mean()
     dataset.reset_index(inplace=True)
     print('dataset size : ',len(dataset))
@@ -156,9 +158,10 @@ def main():
 
     # divide the observation period in form of year, month, day, hour, min (adding them as variables)
     clearsky[['year', 'month', 'day', 'hour', 'min']] = clearsky['# Observation period'].apply(preprocess.extract_time)
+    # print("clearsky before converting to 1hour res", len(clearsky))
     # clearsky = clearsky.groupby(['year', 'month', 'day', 'hour']).mean()
     clearsky['MinFlag'] = clearsky['min'].apply(preprocess.generateFlag)
-    print("clearsky before converting to 5min res")
+
     clearsky = clearsky.groupby(['year', 'month', 'day', 'hour', 'MinFlag']).mean()
     print("clearsky rows before merging: ", len(clearsky))
 
@@ -219,7 +222,7 @@ def main():
     # plt.savefig("time series of clearness index zoomed")
     # plt.clf()
     #
-    reg = "ngboost_without_lag_5mins"  ## giving a name to the regression models -- useful when saving results
+    reg = "ngboost_without_lag_week_ahead"  ## giving a name to the regression models -- useful when saving results
 
     for season_flag in seasons:
         os.makedirs(folder_saving + season_flag + "/ML_models_"+str(testyear)+"/probabilistic/"+str(res)+"/"+reg+"/", exist_ok=True)
@@ -262,19 +265,19 @@ def main():
                 print("Final heldout size: ", X_heldout.shape, y_heldout.shape)
 
                 ## dividing the X_train data into train(70%)/valid(20%)/test(10%), the heldout data is kept hidden
-                X_train, X_test, y_train, y_test = train_test_split(
+                X_train, X_valid, y_train, y_valid = train_test_split(
                     X_train, y_train, test_size=0.3, random_state=42)
-                X_valid, X_test, y_valid, y_test = train_test_split(
-                    X_test, y_test, test_size=0.3, random_state=42)
+                # X_valid, X_test, y_valid, y_test = train_test_split(
+                #     X_test, y_test, test_size=0.3, random_state=42)
 
-                print("train/valid/test sizes: ",len(X_train)," ",len(X_valid)," ", len(X_test))
+                print("train/valid: ",len(X_train)," ",len(X_valid))
 
                 # normalizing the Xtrain, Xvalid and Xtest data and saving the mean,std of train to normalize the heldout data later
-                X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, X_test, index_ghi, index_clearghi, len(col_to_indices_mapping), folder_saving+season_flag + "/ML_models_"+str(testyear)+"/probabilistic/"+str(res)+"/"+reg+"/",lead)
+                X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, None, index_ghi, index_clearghi, len(col_to_indices_mapping), folder_saving+season_flag + "/ML_models_"+str(testyear)+"/probabilistic/"+str(res)+"/"+reg+"/",lead)
 
 
                 y_train = np.reshape(y_train, -1)
-                y_test = np.reshape(y_test, -1)
+                # y_test = np.reshape(y_test, -1)
                 y_valid = np.reshape(y_valid, -1)
 
                 ## model built and saved (commented if it's already built and just being loaded as below)
@@ -291,10 +294,10 @@ def main():
                 f.write("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
 
                 ## making predictions
-                y_pred = model.predict(X_test)
+                # y_pred = model.predict(X_test)
                 y_valid_pred = model.predict(X_valid)
 
-                y_pred = np.reshape(y_pred, -1)
+                # y_pred = np.reshape(y_pred, -1)
                 y_valid_pred = np.reshape(y_valid_pred, -1)
 
                 print("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
@@ -310,24 +313,24 @@ def main():
                     round(rmse_our, 2)) + "," + str(round(mae_our, 2)) + "," +
                         str(round(mean_our, 2)) + "," + str(round(std_our, 2)) + "," + str(round(r2_our, 2)) + '\n')
 
-                print("##########Test##########")
-                rmse_our, mae_our, mean_our, std_our, r2_our = postprocess.evaluation_metrics(y_test,
-                                                                                              y_pred)
-                print("Performance of our model (rmse, mae, mb,sd, r2): \n\n", round(rmse_our, 2), round(mae_our, 2),
-                      round(mean_our, 2), round(std_our, 2), round(r2_our, 2))
-                f.write('\n evaluation metrics (rmse, mae, mb,sd, r2) on test data for ' + reg + '=' + str(
-                    round(rmse_our, 2)) + "," + str(round(mae_our, 2)) + "," +
-                        str(round(mean_our, 2)) + "," + str(round(std_our, 2)) + "," + str(round(r2_our, 2)) + '\n')
-
+                # print("##########Test##########")
+                # rmse_our, mae_our, mean_our, std_our, r2_our = postprocess.evaluation_metrics(y_test,
+                #                                                                               y_pred)
+                # print("Performance of our model (rmse, mae, mb,sd, r2): \n\n", round(rmse_our, 2), round(mae_our, 2),
+                #       round(mean_our, 2), round(std_our, 2), round(r2_our, 2))
+                # f.write('\n evaluation metrics (rmse, mae, mb,sd, r2) on test data for ' + reg + '=' + str(
+                #     round(rmse_our, 2)) + "," + str(round(mae_our, 2)) + "," +
+                #         str(round(mean_our, 2)) + "," + str(round(std_our, 2)) + "," + str(round(r2_our, 2)) + '\n')
+                #
 
                 ## get CRPS score
                 crps_valid = get_crps_for_ngboost(model, X_valid, y_valid)
-                crps_test = get_crps_for_ngboost(model, X_test, y_test)
+                # crps_test = get_crps_for_ngboost(model, X_test, y_test)
 
                 f.write('\n CRPS score on valid data for lead ' + str(lead) + '=' + str(
                     round(crps_valid, 2)) + '\n')
-                f.write('\n CRPS score on test data for lead ' + str(lead) + '=' + str(
-                    round(crps_test, 2)) + '\n')
+                # f.write('\n CRPS score on test data for lead ' + str(lead) + '=' + str(
+                #     round(crps_test, 2)) + '\n')
 
 
 
@@ -339,5 +342,5 @@ def main():
 
 if __name__=='__main__':
     main()
-
-
+#
+#

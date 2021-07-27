@@ -74,6 +74,8 @@ class ConvForecasterDilationLowRes(nn.Module):
 
         if self.quantile:
             assert outputs == len(alphas), "The outputs and the quantiles should be of the same dimension"
+        else:
+            outputs = 1
 
         self.input_dim = input_dim
         self.timesteps = timesteps

@@ -8,11 +8,11 @@ from sklearn.model_selection import train_test_split
 from datetime import timedelta
 
 
-from ModulesProcessing import collect_data, clean_data
-from ModulesLearning import preprocessing as preprocess
-from ModulesLearning import postprocessing as postprocess
-from ModulesLearning.ModulesCNN import train as cnn
-from ModulesLearning.ModuleLSTM import train as tranformers
+from SolarForecasting.ModulesProcessing import collect_data, clean_data
+from SolarForecasting.ModulesLearning import preprocessing as preprocess
+from SolarForecasting.ModulesLearning import postprocessing as postprocess
+from SolarForecasting.ModulesLearning.ModulesCNN import train as cnn
+from SolarForecasting.ModulesLearning.ModuleLSTM import train as tranformers
 
 
 
@@ -23,7 +23,7 @@ pd.set_option('display.width', 1000)
 # All the variables and hyper-parameters
 
 # city
-city = 'Sioux_Falls_SD'
+city = 'Fort_Peck_MT'#'Sioux_Falls_SD'
 
 # lead time
 lead_times = [2,4,8,12,12*2,12*3,12*4,12*5,12*6]
@@ -37,7 +37,7 @@ res = '5min' #15min
 # path_desktop = "C:\\Users\Shivendra\Desktop\SolarProject\solar_forecasting/"
 path_local = "/Users/saumya/Desktop/SolarProject/"
 path_cluster = "/pl/active/machinelearning/Solar_forecasting_project/"
-path_project = path_cluster
+path_project = path_local
 path = path_project+"Data/"
 folder_saving = path_project + city+"/Models/"
 folder_plots = path_project + city+"/Plots/"
@@ -256,15 +256,11 @@ def main():
     # df_final['clearness_index'] = df_final['dw_solar']
     df_final.reset_index(drop=True, inplace=True)
     print("after removing data points with 0 clear_ghi and selecting daytimes",len(df_final))
-    
+
     # df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
 
-<<<<<<< HEAD
+
     reg = "dcnn_with_tcn_without_attention_5mins"
-=======
-    reg = "dcnn_with_lag_pretrained_resnet_updated"
->>>>>>> b3fd587cbe13f5f6c323c9bec403323916782f1f
-    # reg = "transformers_single_step"
 
 
 

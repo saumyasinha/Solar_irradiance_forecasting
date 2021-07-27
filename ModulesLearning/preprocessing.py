@@ -121,8 +121,10 @@ def get_yearly_or_season_data(df_lead, season_flag, testyear):
 
     if season_flag == 'year' or season_flag == 'yearly':
         df = df_lead
-        start_date = date(testyear, 9, 1)
-        end_date = date(testyear+1, 8, 31)
+        # start_date = date(testyear, 9, 1)
+        # end_date = date(testyear+1, 8, 31)
+        start_date = date(testyear, 1, 1)
+        end_date = date(testyear, 12, 31)
     elif season_flag == 'fall':
         df = df_lead[df_lead.month.isin([9,10,11])]
         start_date = date(testyear, 9, 1)
@@ -162,9 +164,11 @@ def train_test_spilt(dataframe, season_flag, testyear):
         dataframe_test = dataframe[dataframe.year == testyear + 1]
         dataframe_train = dataframe[dataframe.year != testyear + 1]
     elif season_flag == 'year' or season_flag == 'yearly':
-        dataframe_test = dataframe[((dataframe.year == testyear) & (dataframe.month >= 9) & (dataframe.month <= 12)) | (
-                    (dataframe.year == testyear + 1) & (dataframe.month >= 1) & (dataframe.month <= 8))]
-        dataframe_train = pd.concat([dataframe, dataframe_test, dataframe_test]).drop_duplicates(keep=False)
+        # dataframe_test = dataframe[((dataframe.year == testyear) & (dataframe.month >= 9) & (dataframe.month <= 12)) | (
+        #             (dataframe.year == testyear + 1) & (dataframe.month >= 1) & (dataframe.month <= 8))]
+        # dataframe_train = pd.concat([dataframe, dataframe_test, dataframe_test]).drop_duplicates(keep=False)
+        dataframe_test = dataframe[dataframe.year == testyear]
+        dataframe_train = dataframe[dataframe.year != testyear]
 
     # removing the rows with the GHI(dw_solar) variable as Null (why would it be NULL??)
     # print(len(dataframe_train[dataframe_train['dw_solar'].isnull()]))
@@ -311,7 +315,8 @@ def standardize_from_train(X_train, X_valid, X_test, index_ghi, index_clearghi, 
                 std_clear = np.std(X_train[:, index_clearghi])
                 X_train[:, index_ghi] = (X_train[:, index_ghi] - mean_clear) / std_clear
                 X_valid[:, index_ghi] = (X_valid[:, index_ghi] - mean_clear) / std_clear
-                X_test[:, index_ghi] = (X_test[:, index_ghi] - mean_clear) / std_clear
+                if X_test is not None:
+                    X_test[:, index_ghi] = (X_test[:, index_ghi] - mean_clear) / std_clear
                 standarize_dict[i] = (mean_clear, std_clear)
                 # max_clear = np.max(X_train[:, index_clearghi])
                 # min_clear = np.min(X_train[:, index_clearghi])
@@ -329,7 +334,8 @@ def standardize_from_train(X_train, X_valid, X_test, index_ghi, index_clearghi, 
                 ##normalize or standarize ?
                 X_train[:,i] = (X_train[:,i] - mean)/std
                 X_valid[:, i] = (X_valid[:, i] - mean) / std
-                X_test[:,i] = (X_test[:,i] - mean)/std
+                if X_test is not None:
+                    X_test[:,i] = (X_test[:,i] - mean)/std
                 standarize_dict[i] = (mean,std)
                 # X_train[:,i] = (X_train[:,i] - min)/(max-min)
                 # X_valid[:, i] = (X_valid[:, i] - min) / (max-min)
@@ -380,37 +386,37 @@ def shuffle(X,y, city, res):
 
 
 def generateFlag(x):
-    # if int(x) < 15 and int(x) >= 0:
-    #     return 1
-    # elif int(x) < 30 and int(x) >= 15:
-    #     return 2
-    # elif int(x) < 45 and int(x) >= 30:
-    #     return 3
-    # elif int(x) <= 60 and int(x) >= 45:
-    #     return 4
-
-    if int(x) < 5 and int(x) >= 0:
+    if int(x) < 15 and int(x) >= 0:
         return 1
-    elif int(x) < 10 and int(x) >= 5:
+    elif int(x) < 30 and int(x) >= 15:
         return 2
-    elif int(x) < 15 and int(x) >= 10:
+    elif int(x) < 45 and int(x) >= 30:
         return 3
-    elif int(x) < 20 and int(x) >= 15:
+    elif int(x) <= 60 and int(x) >= 45:
         return 4
-    if int(x) < 25 and int(x) >= 20:
-        return 5
-    elif int(x) < 30 and int(x) >= 25:
-        return 6
-    elif int(x) < 35 and int(x) >= 30:
-        return 7
-    elif int(x) < 40 and int(x) >= 35:
-        return 8
-    if int(x) < 45 and int(x) >= 40:
-        return 9
-    elif int(x) < 50 and int(x) >= 45:
-        return 10
-    elif int(x) < 55 and int(x) >= 50:
-        return 11
-    elif int(x) <= 60 and int(x) >= 55:
-        return 12
+
+    # if int(x) < 5 and int(x) >= 0:
+    #     return 1
+    # elif int(x) < 10 and int(x) >= 5:
+    #     return 2
+    # elif int(x) < 15 and int(x) >= 10:
+    #     return 3
+    # elif int(x) < 20 and int(x) >= 15:
+    #     return 4
+    # if int(x) < 25 and int(x) >= 20:
+    #     return 5
+    # elif int(x) < 30 and int(x) >= 25:
+    #     return 6
+    # elif int(x) < 35 and int(x) >= 30:
+    #     return 7
+    # elif int(x) < 40 and int(x) >= 35:
+    #     return 8
+    # if int(x) < 45 and int(x) >= 40:
+    #     return 9
+    # elif int(x) < 50 and int(x) >= 45:
+    #     return 10
+    # elif int(x) < 55 and int(x) >= 50:
+    #     return 11
+    # elif int(x) <= 60 and int(x) >= 55:
+    #     return 12
 
