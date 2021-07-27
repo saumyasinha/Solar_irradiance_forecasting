@@ -8,11 +8,11 @@ from sklearn.model_selection import train_test_split
 from datetime import timedelta
 
 
-from SolarForecasting.ModulesProcessing import collect_data, clean_data
-from SolarForecasting.ModulesLearning import preprocessing as preprocess
-from SolarForecasting.ModulesLearning import postprocessing as postprocess
-from SolarForecasting.ModulesLearning.ModulesCNN import train as cnn
-from SolarForecasting.ModulesLearning.ModuleLSTM import train as tranformers
+from ModulesProcessing import collect_data, clean_data
+from ModulesLearning import preprocessing as preprocess
+from ModulesLearning import postprocessing as postprocess
+from ModulesLearning.ModulesCNN import train as cnn
+from ModulesLearning.ModuleLSTM import train as tranformers
 
 
 
@@ -23,14 +23,14 @@ pd.set_option('display.width', 1000)
 # All the variables and hyper-parameters
 
 # city
-city = 'Fort_Peck_MT'#'Sioux_Falls_SD'
+city = 'Sioux_Falls_SD' #'Fort_Peck_MT'
 
 # lead time
-lead_times = [2,4,8,12,12*2,12*3,12*4,12*5,12*6]
+lead_times = [24*4*7]
 
 # season
 seasons =['year'] #,'fall', 'winter', 'spring', 'summer']
-res = '5min' #15min
+res = '15min' #15min
 
 # file locations
 
@@ -58,22 +58,22 @@ final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_sol
 target_feature = ['clearness_index']
 
 # start and end month+year
-startyear = 2015 #2005
+startyear = 2016 #2005
 endyear = 2018 #2009
-startmonth = 9
-endmonth = 8
+startmonth = 1
+endmonth = 12
 
 # test year
 # testyear = 2008  # i.e all of Fall(Sep2008-Nov2008), Winter(Dec2008-Feb2009), Spring(Mar2009-May2009), Summer(June2009-Aug2009), year(Sep2008-Aug2009)
-testyear = 2017
+testyear = 2018
 
 # hyperparameters
 
 
-n_timesteps = 144#72#24*7 for tcn # 144 for 5-min reoslution
+n_timesteps = 24*4*1#72#24*7 for tcn # 144 for 5-min resolution
 # n_output_steps = len(lead_times)
 n_features = 15#12 for SAND #15 for tcn(taking 12(even) features for mulit-head and transformers)
-quantile = True #True
+quantile = False #True
 
 #hyperparameters for the multi-attention model
 
@@ -260,12 +260,7 @@ def main():
     # df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
 
 
-    reg = "dcnn_with_tcn_without_attention_5mins"
-
-
-
-
-
+    reg = "tcn_without_attention_week_ahead_and_1day_lag"
 
     for season_flag in seasons:
         ## ML_models_2008 is the folder to save results on testyear 2008
@@ -315,17 +310,17 @@ def main():
 
                 ## dividing the X_train data into train(70%)/valid(20%)/test(10%), the heldout data is kept hidden
 
-                X_train, X_test, y_train, y_test = train_test_split(
+                X_train, X_valid, y_train, y_valid = train_test_split(
                     X_train, y_train, test_size=0.3, random_state=42)#42
-                X_valid, X_test, y_valid, y_test = train_test_split(
-                    X_test, y_test, test_size=0.3, random_state=42)#42
+                #X_valid, X_test, y_valid, y_test = train_test_split(
+                    #X_test, y_test, test_size=0.3, random_state=42)#42
 
 
-                print("train/valid/test sizes: ", len(X_train), " ", len(X_valid), " ", len(X_test))
+                print("train/valid sizes: ", len(X_train), " ", len(X_valid))
 
 
                 # normalizing the Xtrain, Xvalid and Xtest data and saving the mean,std of train to normalize the heldout data later
-                X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, X_test,index_ghi,index_clearghi, len(col_to_indices_mapping),
+                X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, None,index_ghi,index_clearghi, len(col_to_indices_mapping),
                                                                              folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/", lead = lead)
 
                 # f.write("epochs = " + str(epochs) + '\n')
@@ -347,7 +342,7 @@ def main():
                                                                                          model_saved="dcnn_lag_for_lead_" + str(
                                                                                              lead))
                 y_pred, y_valid_pred, valid_crps, test_crps = cnn.test_DCNN_with_attention(quantile, X_valid, y_valid,
-                                                                                         X_test, y_test,
+                                                                                         None, None,
                                                                                          n_timesteps + 1, n_features,
                                                                                          folder_saving + season_flag + "/ML_models_" + str(
                                                                                              testyear) + "/cnn/" + str(
@@ -387,14 +382,14 @@ def main():
                     round(rmse_our, 2)) + "," + str(round(mae_our, 2)) + "," +
                         str(round(mean_our, 2)) + "," + str(round(std_our, 2)) + "," + str(round(r2_our, 2)) + "," + str(round(valid_crps, 2)) +'\n')
 
-                print("##########Test##########")
-                rmse_our, mae_our, mean_our, std_our, r2_our = postprocess.evaluation_metrics(y_test, y_pred)
-                print("Performance of our model (rmse, mae, mb, sd, r2, crps): \n\n", round(rmse_our, 2), round(mae_our, 2),
-                      round(mean_our, 2), round(std_our, 2), round(r2_our, 2), round(test_crps, 2))
-                f.write('\n evaluation metrics (rmse, mae, mb, sd, r2, crps) on test data for ' + reg + '=' + str(
-                    round(rmse_our, 2)) + "," + str(round(mae_our, 2)) + "," +
-                        str(round(mean_our, 2)) + "," + str(round(std_our, 2)) + "," + str(
-                    round(r2_our, 2)) + "," + str(round(test_crps, 2)) + '\n')
+                #print("##########Test##########")
+                #rmse_our, mae_our, mean_our, std_our, r2_our = postprocess.evaluation_metrics(y_test, y_pred)
+                #print("Performance of our model (rmse, mae, mb, sd, r2, crps): \n\n", round(rmse_our, 2), round(mae_our, 2),
+                 #     round(mean_our, 2), round(std_our, 2), round(r2_our, 2), round(test_crps, 2))
+                #f.write('\n evaluation metrics (rmse, mae, mb, sd, r2, crps) on test data for ' + reg + '=' + str(
+                 #   round(rmse_our, 2)) + "," + str(round(mae_our, 2)) + "," +
+                  #      str(round(mean_our, 2)) + "," + str(round(std_our, 2)) + "," + str(
+                   # round(r2_our, 2)) + "," + str(round(test_crps, 2)) + '\n')
 
 
             else:

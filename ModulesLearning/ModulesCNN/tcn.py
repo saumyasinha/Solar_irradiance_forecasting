@@ -68,7 +68,7 @@ class TemporalConvNet(nn.Module):
 
 
         if attention == True:
-            layers += [ConvAttentionBlockv2(num_channels[-1])]
+            layers += [ConvspatialAttentionBlock(num_channels[-1])]
 
         self.network = nn.Sequential(*layers)
 

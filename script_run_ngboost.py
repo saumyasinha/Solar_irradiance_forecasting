@@ -23,7 +23,7 @@ pd.set_option('display.width', 1000)
 city = 'Sioux_Falls_SD' #'Fort_Peck_MT'
 
 # lead time i.e how much in advance you want to make a prediction (lead of 4 corresponds to 1 hour..since the data is at 15min resolution)
-lead_times = [24*7]#[12*12,12*24,12,12*2,12*3,12*4,12*5,12*6,8,4,2]
+lead_times = [24*4*7]#[12*12,12*24,12,12*2,12*3,12*4,12*5,12*6,8,4,2]
 
 # season
 seasons =['year'] #from ['fall', 'winter', 'spring', 'summer', 'year']
@@ -65,7 +65,7 @@ endmonth = 12
 testyear = 2018
 
 # hyperparameters
-n_timesteps = 0#24
+n_timesteps = 4*6 #6hours
 n_features = 15 #(after including month and hour)
 
 
@@ -222,7 +222,7 @@ def main():
     # plt.savefig("time series of clearness index zoomed")
     # plt.clf()
     #
-    reg = "ngboost_without_lag_week_ahead"  ## giving a name to the regression models -- useful when saving results
+    reg = "ngboost_with_lag_week_ahead"  ## giving a name to the regression models -- useful when saving results
 
     for season_flag in seasons:
         os.makedirs(folder_saving + season_flag + "/ML_models_"+str(testyear)+"/probabilistic/"+str(res)+"/"+reg+"/", exist_ok=True)
@@ -253,13 +253,13 @@ def main():
 
 
                 # including features from prev imestamps - didn't need to do that for NgBoost
-                # X_train = include_previous_features(X_train, index_ghi)
-                # X_heldout = include_previous_features(X_heldout, index_ghi)
-                #
-                # X_train = X_train[n_timesteps:, :]
-                # X_heldout = X_heldout[n_timesteps:, :]
-                # y_train = y_train[n_timesteps:, :]
-                # y_heldout = y_heldout[n_timesteps:, :]
+                X_train = include_previous_features(X_train, index_ghi)
+                X_heldout = include_previous_features(X_heldout, index_ghi)
+
+                X_train = X_train[n_timesteps:, :]
+                X_heldout = X_heldout[n_timesteps:, :]
+                y_train = y_train[n_timesteps:, :]
+                y_heldout = y_heldout[n_timesteps:, :]
 
                 print("Final train size: ", X_train.shape, y_train.shape)
                 print("Final heldout size: ", X_heldout.shape, y_heldout.shape)

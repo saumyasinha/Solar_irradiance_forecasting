@@ -315,6 +315,7 @@ def standardize_from_train(X_train, X_valid, X_test, index_ghi, index_clearghi, 
                 std_clear = np.std(X_train[:, index_clearghi])
                 X_train[:, index_ghi] = (X_train[:, index_ghi] - mean_clear) / std_clear
                 X_valid[:, index_ghi] = (X_valid[:, index_ghi] - mean_clear) / std_clear
+
                 if X_test is not None:
                     X_test[:, index_ghi] = (X_test[:, index_ghi] - mean_clear) / std_clear
                 standarize_dict[i] = (mean_clear, std_clear)
