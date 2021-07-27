@@ -74,6 +74,8 @@ class ConvForecasterDilationLowRes(nn.Module):
 
         if self.quantile:
             assert outputs == len(alphas), "The outputs and the quantiles should be of the same dimension"
+        else:
+            outputs = 1
 
         self.input_dim = input_dim
         self.timesteps = timesteps
@@ -376,11 +378,11 @@ def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
 
     parallel = False
     if train_on_gpu:
-        # if torch.cuda.device_count() > 1:
+        if torch.cuda.device_count() > 1:
            # print("Let's use", torch.cuda.device_count(), "GPUs!")
 
-            # quantile_forecaster = nn.DataParallel(quantile_forecaster)
-            # parallel = True
+            quantile_forecaster = nn.DataParallel(quantile_forecaster)
+            parallel = True
 
         quantile_forecaster = quantile_forecaster.cuda()
         # point_forecaster = point_forecaster.cuda()

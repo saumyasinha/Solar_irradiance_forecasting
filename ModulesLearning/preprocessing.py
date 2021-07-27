@@ -311,7 +311,9 @@ def standardize_from_train(X_train, X_valid, X_test, index_ghi, index_clearghi, 
                 std_clear = np.std(X_train[:, index_clearghi])
                 X_train[:, index_ghi] = (X_train[:, index_ghi] - mean_clear) / std_clear
                 X_valid[:, index_ghi] = (X_valid[:, index_ghi] - mean_clear) / std_clear
-                X_test[:, index_ghi] = (X_test[:, index_ghi] - mean_clear) / std_clear
+                
+                if X_test is not None:
+                    X_test[:, index_ghi] = (X_test[:, index_ghi] - mean_clear) / std_clear
                 standarize_dict[i] = (mean_clear, std_clear)
                 # max_clear = np.max(X_train[:, index_clearghi])
                 # min_clear = np.min(X_train[:, index_clearghi])
@@ -329,7 +331,8 @@ def standardize_from_train(X_train, X_valid, X_test, index_ghi, index_clearghi, 
                 ##normalize or standarize ?
                 X_train[:,i] = (X_train[:,i] - mean)/std
                 X_valid[:, i] = (X_valid[:, i] - mean) / std
-                X_test[:,i] = (X_test[:,i] - mean)/std
+                if X_test is not None:
+                    X_test[:,i] = (X_test[:,i] - mean)/std
                 standarize_dict[i] = (mean,std)
                 # X_train[:,i] = (X_train[:,i] - min)/(max-min)
                 # X_valid[:, i] = (X_valid[:, i] - min) / (max-min)

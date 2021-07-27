@@ -167,7 +167,7 @@ def train_DCNN_with_attention(quantile, X_train, y_train, X_valid, y_valid, n_ti
     # point_forecaster = ConvForecasterDilationLowRes(n_features, n_timesteps, folder_saving, model_saved, quantile, outputs=n_outputs, valid=valid)
     learning_rate = 1e-5#changed from 1e-5
 
-    epochs = 1 #200
+    epochs = 300 #200
     batch_size = 16 #16 #32
 
 
@@ -178,9 +178,9 @@ def train_DCNN_with_attention(quantile, X_train, y_train, X_valid, y_valid, n_ti
 def test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_features, folder_saving, model_saved, n_outputs = 1):
 
 
-
-    X_test, y_test = X_test.astype(np.float32), y_test.astype(np.float32)
-    X_test = torch.from_numpy(X_test).reshape(-1, n_features, n_timesteps)
+    if X_test is not None:
+        X_test, y_test = X_test.astype(np.float32), y_test.astype(np.float32)
+        X_test = torch.from_numpy(X_test).reshape(-1, n_features, n_timesteps)
 
     # X_test.unsqueeze_(1)
     # X_test = X_test.repeat(1, 3, 1, 1)
@@ -208,12 +208,14 @@ def test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_times
 
     quantile_forecaster.eval()
 
-    if torch.cuda.is_available():
-        X_test, X_valid = X_test.cuda(),X_valid.cuda()
-        quantile_forecaster = quantile_forecaster.cuda()
-
-    y_pred = quantile_forecaster.forward(X_test, n_outputs)
-    y_pred = y_pred.cpu().detach().numpy()
+    #if torch.cuda.is_available():
+     #   X_test, X_valid = X_test.cuda(),X_valid.cuda()
+      #  quantile_forecaster = quantile_forecaster.cuda()
+    
+    y_pred = None
+    if X_test is not None:
+        y_pred = quantile_forecaster.forward(X_test, n_outputs)
+        y_pred = y_pred.cpu().detach().numpy()
     y_valid_pred = None
 
     if X_valid is not None:
@@ -222,18 +224,19 @@ def test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_times
 
     valid_crps, test_crps = 0.0, 0.0
     if quantile:
-        if n_outputs>1:
-            test_crps=[]
-            for n in range(n_outputs):
-                print(y_pred.shape)
-                y_pred_n = y_pred[:, :, n]
-                test_crps.append(crps_score(y_pred_n, y_test[:,n], np.arange(0.05, 1.0, 0.05)))
+        if X_test is not None:
+            if n_outputs>1:
+                test_crps=[]
+                for n in range(n_outputs):
+                    print(y_pred.shape)
+                    y_pred_n = y_pred[:, :, n]
+                    test_crps.append(crps_score(y_pred_n, y_test[:,n], np.arange(0.05, 1.0, 0.05)))
 
-            y_pred = y_pred[:,9,:]
+                y_pred = y_pred[:,9,:]
 
-        else:
-            test_crps=crps_score(y_pred, y_test, np.arange(0.05, 1.0, 0.05))
-            y_pred = y_pred[:,9]#changed from 9
+            else:
+                test_crps=crps_score(y_pred, y_test, np.arange(0.05, 1.0, 0.05))
+                y_pred = y_pred[:,9]#changed from 9
 
         if X_valid is not None:
 

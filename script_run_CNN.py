@@ -26,7 +26,7 @@ pd.set_option('display.width', 1000)
 city = 'Sioux_Falls_SD'
 
 # lead time
-lead_times = [2,4,8,12,12*2,12*3,12*4,12*5,12*6]
+lead_times = [8,12,12*2,12*3,12*4,12*5,12*6]
 
 # season
 seasons =['year'] #,'fall', 'winter', 'spring', 'summer']
@@ -259,12 +259,9 @@ def main():
     
     # df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
 
-<<<<<<< HEAD
+
     reg = "dcnn_with_tcn_without_attention_5mins"
-=======
-    reg = "dcnn_with_lag_pretrained_resnet_updated"
->>>>>>> b3fd587cbe13f5f6c323c9bec403323916782f1f
-    # reg = "transformers_single_step"
+
 
 
 
@@ -319,17 +316,17 @@ def main():
 
                 ## dividing the X_train data into train(70%)/valid(20%)/test(10%), the heldout data is kept hidden
 
-                X_train, X_test, y_train, y_test = train_test_split(
-                    X_train, y_train, test_size=0.3, random_state=42)#42
-                X_valid, X_test, y_valid, y_test = train_test_split(
-                    X_test, y_test, test_size=0.3, random_state=42)#42
+                X_train, X_valid, y_train, y_valid = train_test_split(
+                    X_train, y_train, test_size=0.25, random_state=42)#42
+                #X_valid, X_test, y_valid, y_test = train_test_split(
+                    #X_test, y_test, test_size=0.3, random_state=42)#42
 
 
-                print("train/valid/test sizes: ", len(X_train), " ", len(X_valid), " ", len(X_test))
+                print("train/valid sizes: ", len(X_train), " ", len(X_valid))
 
 
                 # normalizing the Xtrain, Xvalid and Xtest data and saving the mean,std of train to normalize the heldout data later
-                X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, X_test,index_ghi,index_clearghi, len(col_to_indices_mapping),
+                X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, None,index_ghi,index_clearghi, len(col_to_indices_mapping),
                                                                              folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/", lead = lead)
 
                 # f.write("epochs = " + str(epochs) + '\n')
@@ -351,7 +348,7 @@ def main():
                                                                                          model_saved="dcnn_lag_for_lead_" + str(
                                                                                              lead))
                 y_pred, y_valid_pred, valid_crps, test_crps = cnn.test_DCNN_with_attention(quantile, X_valid, y_valid,
-                                                                                         X_test, y_test,
+                                                                                         None, None,
                                                                                          n_timesteps + 1, n_features,
                                                                                          folder_saving + season_flag + "/ML_models_" + str(
                                                                                              testyear) + "/cnn/" + str(
@@ -391,14 +388,14 @@ def main():
                     round(rmse_our, 2)) + "," + str(round(mae_our, 2)) + "," +
                         str(round(mean_our, 2)) + "," + str(round(std_our, 2)) + "," + str(round(r2_our, 2)) + "," + str(round(valid_crps, 2)) +'\n')
 
-                print("##########Test##########")
-                rmse_our, mae_our, mean_our, std_our, r2_our = postprocess.evaluation_metrics(y_test, y_pred)
-                print("Performance of our model (rmse, mae, mb, sd, r2, crps): \n\n", round(rmse_our, 2), round(mae_our, 2),
-                      round(mean_our, 2), round(std_our, 2), round(r2_our, 2), round(test_crps, 2))
-                f.write('\n evaluation metrics (rmse, mae, mb, sd, r2, crps) on test data for ' + reg + '=' + str(
-                    round(rmse_our, 2)) + "," + str(round(mae_our, 2)) + "," +
-                        str(round(mean_our, 2)) + "," + str(round(std_our, 2)) + "," + str(
-                    round(r2_our, 2)) + "," + str(round(test_crps, 2)) + '\n')
+                #print("##########Test##########")
+                #rmse_our, mae_our, mean_our, std_our, r2_our = postprocess.evaluation_metrics(y_test, y_pred)
+                #print("Performance of our model (rmse, mae, mb, sd, r2, crps): \n\n", round(rmse_our, 2), round(mae_our, 2),
+                 #     round(mean_our, 2), round(std_our, 2), round(r2_our, 2), round(test_crps, 2))
+                #f.write('\n evaluation metrics (rmse, mae, mb, sd, r2, crps) on test data for ' + reg + '=' + str(
+                 #   round(rmse_our, 2)) + "," + str(round(mae_our, 2)) + "," +
+                  #      str(round(mean_our, 2)) + "," + str(round(std_our, 2)) + "," + str(
+                   # round(r2_our, 2)) + "," + str(round(test_crps, 2)) + '\n')
 
 
             else:
