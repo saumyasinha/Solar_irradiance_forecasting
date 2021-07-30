@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # === 2. List of SBATCH arguements ===
-#SBATCH --job-name=tcn_5min_wihtout_attn
-#SBATCH --nodelist=bgpu-dhl1
+#SBATCH --job-name=tcn_week_ahead_with_attn_no_quantile
+#SBATCH --nodelist=bgpu-casa1
 #SBATCH --account=blanca-kann
 #SBATCH --qos=preemptable
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --output=/pl/active/machinelearning/Solar_forecasting_project/job_outputs/tcn_5min_wihtout_attn.%j.out
+#SBATCH --output=/pl/active/machinelearning/Solar_forecasting_project/job_outputs/tcn_week_ahead_with_attn_no_quantile.%j.out
 
 # === 3. Purge and load needed modules ===
 module purge

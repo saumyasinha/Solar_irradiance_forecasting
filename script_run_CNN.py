@@ -37,7 +37,7 @@ res = '15min' #15min
 # path_desktop = "C:\\Users\Shivendra\Desktop\SolarProject\solar_forecasting/"
 path_local = "/Users/saumya/Desktop/SolarProject/"
 path_cluster = "/pl/active/machinelearning/Solar_forecasting_project/"
-path_project = path_local
+path_project = path_cluster
 path = path_project+"Data/"
 folder_saving = path_project + city+"/Models/"
 folder_plots = path_project + city+"/Plots/"
@@ -183,6 +183,7 @@ def create_mulitple_lead_dataset(dataframe, final_set_of_features, target):
 
 def main():
 
+
     # ## pre-processing steps
     #
     # # extract the input data files (SURFAD data)
@@ -263,6 +264,7 @@ def main():
 
     reg = "transformers_week_ahead_and_1day_lag"
 
+
     for season_flag in seasons:
         ## ML_models_2008 is the folder to save results on testyear 2008
         ## creating different folder for different methods: nn for fully connected networks, rf for random forest etc.
@@ -312,7 +314,7 @@ def main():
                 ## dividing the X_train data into train(70%)/valid(20%)/test(10%), the heldout data is kept hidden
 
                 X_train, X_valid, y_train, y_valid = train_test_split(
-                    X_train, y_train, test_size=0.3, random_state=42)#42
+                    X_train, y_train, test_size=0.3, random_state=100)#42
                 #X_valid, X_test, y_valid, y_test = train_test_split(
                     #X_test, y_test, test_size=0.3, random_state=42)#42
 
