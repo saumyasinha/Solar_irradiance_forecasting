@@ -167,7 +167,7 @@ def train_DCNN_with_attention(quantile, X_train, y_train, X_valid, y_valid, n_ti
     # point_forecaster = ConvForecasterDilationLowRes(n_features, n_timesteps, folder_saving, model_saved, quantile, outputs=n_outputs, valid=valid)
     learning_rate = 1e-5#changed from 1e-5
 
-    epochs = 300 #200
+    epochs = 400 #200
     batch_size = 16 #16 #32
 
 

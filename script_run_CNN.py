@@ -37,7 +37,7 @@ res = '15min' #15min
 # path_desktop = "C:\\Users\Shivendra\Desktop\SolarProject\solar_forecasting/"
 path_local = "/Users/saumya/Desktop/SolarProject/"
 path_cluster = "/pl/active/machinelearning/Solar_forecasting_project/"
-path_project = path_local
+path_project = path_cluster
 path = path_project+"Data/"
 folder_saving = path_project + city+"/Models/"
 folder_plots = path_project + city+"/Plots/"
@@ -70,7 +70,7 @@ testyear = 2018
 # hyperparameters
 
 
-n_timesteps = 24*4*1#72#24*7 for tcn # 144 for 5-min resolution
+n_timesteps = 24*4*2#72#24*7 for tcn # 144 for 5-min resolution
 # n_output_steps = len(lead_times)
 n_features = 15#12 for SAND #15 for tcn(taking 12(even) features for mulit-head and transformers)
 quantile = False #True
@@ -186,54 +186,54 @@ def main():
     ## pre-processing steps
 
     # extract the input data files (SURFAD data)
-    processed_file_path = path + 'processed/' + city
-    if not os.path.isdir(processed_file_path):
-        get_data()
-    combined_csv = preprocess.extract_frame(processed_file_path)
-    print("The columns of the initial data file: ", combined_csv.columns)
+    #processed_file_path = path + 'processed/' + city
+    #if not os.path.isdir(processed_file_path):
+     #   get_data()
+    #combined_csv = preprocess.extract_frame(processed_file_path)
+    #print("The columns of the initial data file: ", combined_csv.columns)
 
     # extract the features from the input
-    dataset = combined_csv[features]
-    print('dataset size: ',len(dataset))
+    #dataset = combined_csv[features]
+    #print('dataset size: ',len(dataset))
 
     #1hour resolution #15 mins resolution
-    dataset['MinFlag'] = dataset['min'].apply(preprocess.generateFlag)
-    dataset = dataset.groupby(['year', 'month', 'day', 'hour', 'MinFlag']).mean()
+    #dataset['MinFlag'] = dataset['min'].apply(preprocess.generateFlag)
+    #dataset = dataset.groupby(['year', 'month', 'day', 'hour', 'MinFlag']).mean()
     # dataset = dataset.groupby(['year', 'month', 'day', 'hour']).mean()
-    dataset.reset_index(inplace=True)
-    print('dataset size: ',len(dataset))
+    #dataset.reset_index(inplace=True)
+    #print('dataset size: ',len(dataset))
 
-    print(dataset.isnull().values.any())
+    #print(dataset.isnull().values.any())
 
     # read the clear-sky values
-    clearsky = pd.read_csv(clearsky_file_path, skiprows=37, delimiter=';')
-    print("The columns of the clear sky file: ", clearsky.columns)
+    #clearsky = pd.read_csv(clearsky_file_path, skiprows=37, delimiter=';')
+    #print("The columns of the clear sky file: ", clearsky.columns)
 
     # divide the observation period in form of year, month, day, hour, min (adding them as variables)
-    clearsky[['year', 'month', 'day', 'hour', 'min']] = clearsky['# Observation period'].apply(preprocess.extract_time)
+    #clearsky[['year', 'month', 'day', 'hour', 'min']] = clearsky['# Observation period'].apply(preprocess.extract_time)
     # clearsky = clearsky.groupby(['year', 'month', 'day', 'hour']).mean()
-    clearsky['MinFlag'] = clearsky['min'].apply(preprocess.generateFlag)
-    clearsky = clearsky.groupby(['year', 'month', 'day', 'hour', 'MinFlag']).mean()
-    print("clearsky rows before merging: ", len(clearsky))
+    #clearsky['MinFlag'] = clearsky['min'].apply(preprocess.generateFlag)
+    #clearsky = clearsky.groupby(['year', 'month', 'day', 'hour', 'MinFlag']).mean()
+    #print("clearsky rows before merging: ", len(clearsky))
 
     # merging the clear sky values with SURFAD input dataset
-    df = dataset.merge(clearsky, on=['year', 'month', 'day', 'hour', 'MinFlag'], how='inner')
+    #df = dataset.merge(clearsky, on=['year', 'month', 'day', 'hour', 'MinFlag'], how='inner')
     # df = dataset.merge(clearsky, on=['year', 'month', 'day', 'hour'], how='inner')
 
     # renaming the clear sky GHI
-    df = df.rename(columns={'Clear sky GHI': 'clear_ghi'})
-    print("stats of all raw features/columns")
-    print(df.describe())
+    #df = df.rename(columns={'Clear sky GHI': 'clear_ghi'})
+    #print("stats of all raw features/columns")
+    #print(df.describe())
 
 
     # selecting only the required columns
-    df = df[final_features]
+    #df = df[final_features]
 
     # get dataset for the study period
-    df = preprocess.extract_study_period(df,startmonth, startyear, endmonth, endyear)
-    print("\n\n after extracting study period")
-    df.reset_index(drop=True, inplace=True)
-    print(df.tail)
+    #df = preprocess.extract_study_period(df,startmonth, startyear, endmonth, endyear)
+    #print("\n\n after extracting study period")
+    #df.reset_index(drop=True, inplace=True)
+    #print(df.tail)
 
 
     # ## removing outliers from this dataset and then removing nan rows
@@ -241,26 +241,26 @@ def main():
     # df = df.dropna()
 
     ## convert negatives to 0 for all features
-    df[df<0] = 0
-    print("stats of selected features/columns after converting all negatives to 0")
-    print(df.describe())
+    #df[df<0] = 0
+    #print("stats of selected features/columns after converting all negatives to 0")
+    #print(df.describe())
 
     # adjust the boundary values (no need to do this anymore -- will drop the rows with 0 clear_ghi later)
     # df = preprocess.adjust_boundary_values(df)
 
 
     # adding the clearness index and dropping rows with 0 clear_ghi and taking only daytimes
-    df = df[df['clear_ghi'] > 0]
-    df_final = df[df['zen']<85]
-    df_final['clearness_index'] = df_final['dw_solar'] / df_final['clear_ghi']
+    #df = df[df['clear_ghi'] > 0]
+    #df_final = df[df['zen']<85]
+    #df_final['clearness_index'] = df_final['dw_solar'] / df_final['clear_ghi']
     # df_final['clearness_index'] = df_final['dw_solar']
-    df_final.reset_index(drop=True, inplace=True)
-    print("after removing data points with 0 clear_ghi and selecting daytimes",len(df_final))
+   # df_final.reset_index(drop=True, inplace=True)
+  #  print("after removing data points with 0 clear_ghi and selecting daytimes",len(df_final))
 
     # df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
-
-
-    reg = "tcn_without_attention_week_ahead_and_1day_lag"
+    processed_file_path = path + 'processed/' + city+"/"
+    df_final  = pd.read_pickle(processed_file_path+"data_At_"+res+"_resolution_2016-2018.pkl")
+    reg = "test_tcn_with_attention_week_ahead_and_2day_lag_no_quantile"
 
     for season_flag in seasons:
         ## ML_models_2008 is the folder to save results on testyear 2008
@@ -311,7 +311,7 @@ def main():
                 ## dividing the X_train data into train(70%)/valid(20%)/test(10%), the heldout data is kept hidden
 
                 X_train, X_valid, y_train, y_valid = train_test_split(
-                    X_train, y_train, test_size=0.3, random_state=42)#42
+                    X_train, y_train, test_size=0.3, random_state=100)#42
                 #X_valid, X_test, y_valid, y_test = train_test_split(
                     #X_test, y_test, test_size=0.3, random_state=42)#42
 
