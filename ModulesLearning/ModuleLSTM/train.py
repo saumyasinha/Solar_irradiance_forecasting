@@ -148,10 +148,9 @@ def train_transformer(quantile, X_train, y_train, X_valid, y_valid, n_timesteps,
 
 def test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_features, n_layers, factor, num_heads, d_model, alphas, q50, folder_saving, model_saved, n_outputs = 1):
 
-
-    X_test, y_test = X_test.astype(np.float32), y_test.astype(np.float32)
-    # X_test = torch.from_numpy(X_test).reshape(-1, n_features, n_timesteps)
-    X_test = torch.from_numpy(X_test).reshape(-1, n_timesteps, n_features)
+    if X_test is not None:
+        X_test, y_test = X_test.astype(np.float32), y_test.astype(np.float32)
+        X_test = torch.from_numpy(X_test).reshape(-1, n_features, n_timesteps)
 
 
     if X_valid is not None:
@@ -179,8 +178,10 @@ def test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_
 
     quantile_forecaster.eval()
 
-    y_pred = quantile_forecaster.forward(X_test)
-    # y_pred = y_pred.cpu().detach().numpy()
+    y_pred = None
+    if X_test is not None:
+        y_pred = quantile_forecaster.forward(X_test)
+        # y_pred = y_pred.cpu().detach().numpy()
     y_valid_pred = None
 
     if X_valid is not None:
@@ -188,25 +189,23 @@ def test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_
         # y_valid_pred = y_valid_pred.cpu().detach().numpy()
 
     valid_crps, test_crps = 0.0, 0.0
-
-
     if quantile:
-        if n_outputs>1:
-            test_crps=[]
+        if X_test is not None:
+            if n_outputs > 1:
+                test_crps = []
 
-            for n in range(n_outputs):
-                # print(y_pred.shape)
-                # y_pred_n = y_pred[:, n, :]
-                y_pred_n = y_pred[n].cpu().detach().numpy()
-                test_crps.append(crps_score(y_pred_n, y_test[:,n], alphas))
+                for n in range(n_outputs):
+                    # print(y_pred.shape)
+                    # y_pred_n = y_pred[:, n, :]
+                    y_pred_n = y_pred[n].cpu().detach().numpy()
+                    test_crps.append(crps_score(y_pred_n, y_test[:, n], alphas))
 
+                # y_pred = y_pred[:,:,q50]
 
-            # y_pred = y_pred[:,:,q50]
-
-        else:
-            y_pred = y_pred.cpu().detach().numpy()
-            test_crps=crps_score(y_pred, y_test, alphas)
-            y_pred = y_pred[:,q50]#changed from 9
+            else:
+                y_pred = y_pred.cpu().detach().numpy()
+                test_crps = crps_score(y_pred, y_test, alphas)
+                y_pred = y_pred[:, q50]  # changed from 9
 
         if X_valid is not None:
 
@@ -223,6 +222,7 @@ def test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_
                 y_valid_pred = y_valid_pred.cpu().detach().numpy()
                 valid_crps = crps_score(y_valid_pred, y_valid, alphas)
                 y_valid_pred = y_valid_pred[:, q50]
+
 
     return y_pred, y_valid_pred, valid_crps, test_crps
 

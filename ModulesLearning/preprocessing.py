@@ -387,37 +387,37 @@ def shuffle(X,y, city, res):
 
 
 def generateFlag(x):
-    if int(x) < 15 and int(x) >= 0:
-        return 1
-    elif int(x) < 30 and int(x) >= 15:
-        return 2
-    elif int(x) < 45 and int(x) >= 30:
-        return 3
-    elif int(x) <= 60 and int(x) >= 45:
-        return 4
-
-    # if int(x) < 5 and int(x) >= 0:
+    # if int(x) < 15 and int(x) >= 0:
     #     return 1
-    # elif int(x) < 10 and int(x) >= 5:
+    # elif int(x) < 30 and int(x) >= 15:
     #     return 2
-    # elif int(x) < 15 and int(x) >= 10:
+    # elif int(x) < 45 and int(x) >= 30:
     #     return 3
-    # elif int(x) < 20 and int(x) >= 15:
+    # elif int(x) <= 60 and int(x) >= 45:
     #     return 4
-    # if int(x) < 25 and int(x) >= 20:
-    #     return 5
-    # elif int(x) < 30 and int(x) >= 25:
-    #     return 6
-    # elif int(x) < 35 and int(x) >= 30:
-    #     return 7
-    # elif int(x) < 40 and int(x) >= 35:
-    #     return 8
-    # if int(x) < 45 and int(x) >= 40:
-    #     return 9
-    # elif int(x) < 50 and int(x) >= 45:
-    #     return 10
-    # elif int(x) < 55 and int(x) >= 50:
-    #     return 11
-    # elif int(x) <= 60 and int(x) >= 55:
-    #     return 12
+    #
+    if int(x) < 5 and int(x) >= 0:
+        return 1
+    elif int(x) < 10 and int(x) >= 5:
+        return 2
+    elif int(x) < 15 and int(x) >= 10:
+        return 3
+    elif int(x) < 20 and int(x) >= 15:
+        return 4
+    if int(x) < 25 and int(x) >= 20:
+        return 5
+    elif int(x) < 30 and int(x) >= 25:
+        return 6
+    elif int(x) < 35 and int(x) >= 30:
+        return 7
+    elif int(x) < 40 and int(x) >= 35:
+        return 8
+    if int(x) < 45 and int(x) >= 40:
+        return 9
+    elif int(x) < 50 and int(x) >= 45:
+        return 10
+    elif int(x) < 55 and int(x) >= 50:
+        return 11
+    elif int(x) <= 60 and int(x) >= 55:
+        return 12
 

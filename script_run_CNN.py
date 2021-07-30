@@ -183,84 +183,85 @@ def create_mulitple_lead_dataset(dataframe, final_set_of_features, target):
 
 def main():
 
-    ## pre-processing steps
+    # ## pre-processing steps
+    #
+    # # extract the input data files (SURFAD data)
+    # processed_file_path = path + 'processed/' + city
+    # if not os.path.isdir(processed_file_path):
+    #     get_data()
+    # combined_csv = preprocess.extract_frame(processed_file_path)
+    # print("The columns of the initial data file: ", combined_csv.columns)
+    #
+    # # extract the features from the input
+    # dataset = combined_csv[features]
+    # print('dataset size: ',len(dataset))
+    #
+    # #1hour resolution #15 mins resolution
+    # dataset['MinFlag'] = dataset['min'].apply(preprocess.generateFlag)
+    # dataset = dataset.groupby(['year', 'month', 'day', 'hour', 'MinFlag']).mean()
+    # # dataset = dataset.groupby(['year', 'month', 'day', 'hour']).mean()
+    # dataset.reset_index(inplace=True)
+    # print('dataset size: ',len(dataset))
+    #
+    # print(dataset.isnull().values.any())
+    #
+    # # read the clear-sky values
+    # clearsky = pd.read_csv(clearsky_file_path, skiprows=37, delimiter=';')
+    # print("The columns of the clear sky file: ", clearsky.columns)
+    #
+    # # divide the observation period in form of year, month, day, hour, min (adding them as variables)
+    # clearsky[['year', 'month', 'day', 'hour', 'min']] = clearsky['# Observation period'].apply(preprocess.extract_time)
+    # # clearsky = clearsky.groupby(['year', 'month', 'day', 'hour']).mean()
+    # clearsky['MinFlag'] = clearsky['min'].apply(preprocess.generateFlag)
+    # clearsky = clearsky.groupby(['year', 'month', 'day', 'hour', 'MinFlag']).mean()
+    # print("clearsky rows before merging: ", len(clearsky))
+    #
+    # # merging the clear sky values with SURFAD input dataset
+    # df = dataset.merge(clearsky, on=['year', 'month', 'day', 'hour', 'MinFlag'], how='inner')
+    # # df = dataset.merge(clearsky, on=['year', 'month', 'day', 'hour'], how='inner')
+    #
+    # # renaming the clear sky GHI
+    # df = df.rename(columns={'Clear sky GHI': 'clear_ghi'})
+    # print("stats of all raw features/columns")
+    # print(df.describe())
+    #
+    #
+    # # selecting only the required columns
+    # df = df[final_features]
+    #
+    # # get dataset for the study period
+    # df = preprocess.extract_study_period(df,startmonth, startyear, endmonth, endyear)
+    # print("\n\n after extracting study period")
+    # df.reset_index(drop=True, inplace=True)
+    # print(df.tail)
+    #
+    #
+    # # ## removing outliers from this dataset and then removing nan rows
+    # # df = preprocess.remove_negative_values(df, final_features[5:])
+    # # df = df.dropna()
+    #
+    # ## convert negatives to 0 for all features
+    # df[df<0] = 0
+    # print("stats of selected features/columns after converting all negatives to 0")
+    # print(df.describe())
+    #
+    # # adjust the boundary values (no need to do this anymore -- will drop the rows with 0 clear_ghi later)
+    # # df = preprocess.adjust_boundary_values(df)
+    #
+    #
+    # # adding the clearness index and dropping rows with 0 clear_ghi and taking only daytimes
+    # df = df[df['clear_ghi'] > 0]
+    # df_final = df[df['zen']<85]
+    # df_final['clearness_index'] = df_final['dw_solar'] / df_final['clear_ghi']
+    # # df_final['clearness_index'] = df_final['dw_solar']
+    # df_final.reset_index(drop=True, inplace=True)
+    # print("after removing data points with 0 clear_ghi and selecting daytimes",len(df_final))
+    #
+    # # df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
+    processed_file_path = path + 'processed/' + city + "/"
+    df_final = pd.read_pickle(processed_file_path + "data_At_" + res + "_resolution_2016-2018.pkl")
 
-    # extract the input data files (SURFAD data)
-    processed_file_path = path + 'processed/' + city
-    if not os.path.isdir(processed_file_path):
-        get_data()
-    combined_csv = preprocess.extract_frame(processed_file_path)
-    print("The columns of the initial data file: ", combined_csv.columns)
-
-    # extract the features from the input
-    dataset = combined_csv[features]
-    print('dataset size: ',len(dataset))
-
-    #1hour resolution #15 mins resolution
-    dataset['MinFlag'] = dataset['min'].apply(preprocess.generateFlag)
-    dataset = dataset.groupby(['year', 'month', 'day', 'hour', 'MinFlag']).mean()
-    # dataset = dataset.groupby(['year', 'month', 'day', 'hour']).mean()
-    dataset.reset_index(inplace=True)
-    print('dataset size: ',len(dataset))
-
-    print(dataset.isnull().values.any())
-
-    # read the clear-sky values
-    clearsky = pd.read_csv(clearsky_file_path, skiprows=37, delimiter=';')
-    print("The columns of the clear sky file: ", clearsky.columns)
-
-    # divide the observation period in form of year, month, day, hour, min (adding them as variables)
-    clearsky[['year', 'month', 'day', 'hour', 'min']] = clearsky['# Observation period'].apply(preprocess.extract_time)
-    # clearsky = clearsky.groupby(['year', 'month', 'day', 'hour']).mean()
-    clearsky['MinFlag'] = clearsky['min'].apply(preprocess.generateFlag)
-    clearsky = clearsky.groupby(['year', 'month', 'day', 'hour', 'MinFlag']).mean()
-    print("clearsky rows before merging: ", len(clearsky))
-
-    # merging the clear sky values with SURFAD input dataset
-    df = dataset.merge(clearsky, on=['year', 'month', 'day', 'hour', 'MinFlag'], how='inner')
-    # df = dataset.merge(clearsky, on=['year', 'month', 'day', 'hour'], how='inner')
-
-    # renaming the clear sky GHI
-    df = df.rename(columns={'Clear sky GHI': 'clear_ghi'})
-    print("stats of all raw features/columns")
-    print(df.describe())
-
-
-    # selecting only the required columns
-    df = df[final_features]
-
-    # get dataset for the study period
-    df = preprocess.extract_study_period(df,startmonth, startyear, endmonth, endyear)
-    print("\n\n after extracting study period")
-    df.reset_index(drop=True, inplace=True)
-    print(df.tail)
-
-
-    # ## removing outliers from this dataset and then removing nan rows
-    # df = preprocess.remove_negative_values(df, final_features[5:])
-    # df = df.dropna()
-
-    ## convert negatives to 0 for all features
-    df[df<0] = 0
-    print("stats of selected features/columns after converting all negatives to 0")
-    print(df.describe())
-
-    # adjust the boundary values (no need to do this anymore -- will drop the rows with 0 clear_ghi later)
-    # df = preprocess.adjust_boundary_values(df)
-
-
-    # adding the clearness index and dropping rows with 0 clear_ghi and taking only daytimes
-    df = df[df['clear_ghi'] > 0]
-    df_final = df[df['zen']<85]
-    df_final['clearness_index'] = df_final['dw_solar'] / df_final['clear_ghi']
-    # df_final['clearness_index'] = df_final['dw_solar']
-    df_final.reset_index(drop=True, inplace=True)
-    print("after removing data points with 0 clear_ghi and selecting daytimes",len(df_final))
-
-    # df_lead = create_mulitple_lead_dataset(df_final, final_features, target_feature)
-
-
-    reg = "tcn_without_attention_week_ahead_and_1day_lag"
+    reg = "transformers_week_ahead_and_1day_lag"
 
     for season_flag in seasons:
         ## ML_models_2008 is the folder to save results on testyear 2008
@@ -323,39 +324,39 @@ def main():
                 X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, None,index_ghi,index_clearghi, len(col_to_indices_mapping),
                                                                              folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/", lead = lead)
 
-                # f.write("epochs = " + str(epochs) + '\n')
-                # f.write("batch_size = " + str(batch_size) + '\n')
-                # f.write("learning rate = " + str(lr) + '\n')
-                # f.write("n_layers = " + str(n_layers) + '\n')
-                # f.write("factor = " + str(factor) + '\n')
-                # f.write("num_heads = " + str(num_heads) + '\n')
-                # f.write("d_model = " + str(d_model) + '\n')
+                f.write("epochs = " + str(epochs) + '\n')
+                f.write("batch_size = " + str(batch_size) + '\n')
+                f.write("learning rate = " + str(lr) + '\n')
+                f.write("n_layers = " + str(n_layers) + '\n')
+                f.write("factor = " + str(factor) + '\n')
+                f.write("num_heads = " + str(num_heads) + '\n')
+                f.write("d_model = " + str(d_model) + '\n')
                 f.write("seq_len = " + str(n_timesteps) + '\n')
                 f.write("total features = " + str(n_features)+ '\n')
                 f.write("alphas = " + str(len((alphas))) + '\n')
 
 
-                cnn.train_DCNN_with_attention(quantile,X_train, y_train, X_valid, y_valid, n_timesteps+1, n_features,
-                                                                                         folder_saving + season_flag + "/ML_models_" + str(
-                                                                                             testyear) + "/cnn/" + str(
-                                                                                             res) + "/" + reg + "/",
-                                                                                         model_saved="dcnn_lag_for_lead_" + str(
-                                                                                             lead))
-                y_pred, y_valid_pred, valid_crps, test_crps = cnn.test_DCNN_with_attention(quantile, X_valid, y_valid,
-                                                                                         None, None,
-                                                                                         n_timesteps + 1, n_features,
-                                                                                         folder_saving + season_flag + "/ML_models_" + str(
-                                                                                             testyear) + "/cnn/" + str(
-                                                                                             res) + "/" + reg + "/",
-                                                                                         model_saved="dcnn_lag_for_lead_" + str(
-                                                                                             lead))  # "multi_horizon_dcnn", n_outputs=n_output_steps)
+                # cnn.train_DCNN_with_attention(quantile,X_train, y_train, X_valid, y_valid, n_timesteps+1, n_features,
+                #                                                                          folder_saving + season_flag + "/ML_models_" + str(
+                #                                                                              testyear) + "/cnn/" + str(
+                #                                                                              res) + "/" + reg + "/",
+                #                                                                          model_saved="dcnn_lag_for_lead_" + str(
+                #                                                                              lead))
+                # y_pred, y_valid_pred, valid_crps, test_crps = cnn.test_DCNN_with_attention(quantile, X_valid, y_valid,
+                #                                                                          None, None,
+                #                                                                          n_timesteps + 1, n_features,
+                #                                                                          folder_saving + season_flag + "/ML_models_" + str(
+                #                                                                              testyear) + "/cnn/" + str(
+                #                                                                              res) + "/" + reg + "/",
+                #                                                                          model_saved="dcnn_lag_for_lead_" + str(
+                #                                                                              lead))  # "multi_horizon_dcnn", n_outputs=n_output_steps)
 
-                # tranformers.train_transformer(quantile, X_train, y_train, X_valid, y_valid, n_timesteps+1, n_features, n_layers, factor, num_heads, d_model, batch_size, epochs, lr,alphas, q50,
-                #                            folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved ="dcnn_lag_for_lead_" + str(lead)) #"multi_horizon_dcnn", n_outputs=n_output_steps)
-                #
-                # y_pred, y_valid_pred, valid_crps, test_crps  = tranformers.test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps+1, n_features,n_layers, factor, num_heads, d_model,alphas, q50,
-                #                                folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved = "dcnn_lag_for_lead_" + str(lead))#"multi_horizon_dcnn", n_outputs=n_output_steps)
-                #
+                tranformers.train_transformer(quantile, X_train, y_train, X_valid, y_valid, n_timesteps+1, n_features, n_layers, factor, num_heads, d_model, batch_size, epochs, lr,alphas, q50,
+                                           folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved ="dcnn_lag_for_lead_" + str(lead)) #"multi_horizon_dcnn", n_outputs=n_output_steps)
+
+                y_pred, y_valid_pred, valid_crps, test_crps  = tranformers.test_transformer(quantile, X_valid, y_valid,None,None, n_timesteps+1, n_features,n_layers, factor, num_heads, d_model,alphas, q50,
+                                               folder_saving + season_flag + "/ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved = "dcnn_lag_for_lead_" + str(lead))#"multi_horizon_dcnn", n_outputs=n_output_steps)
+
 
 
             # for i in range(n_output_steps):

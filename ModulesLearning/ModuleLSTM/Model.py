@@ -239,7 +239,12 @@ class TransAm(nn.Module):
         super(TransAm, self).__init__()
         self.model_type = 'Transformer'
 
-        self.outputs = outputs
+        if self.quantile:
+            assert outputs == len(alphas), "The outputs and the quantiles should be of the same dimension"
+        else:
+            outputs = 1
+
+        self.outouts = outputs
         self.num_layers = num_layers
         self.input_dim = input_dim
         self.d_model = d_model
@@ -421,7 +426,7 @@ def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
 
     optimizer = torch.optim.Adam(quantile_forecaster.parameters(), lr=lr) #, betas = (0.9,0.98))
     # scheduler = StepLR(optimizer, step_size=25, gamma=0.1)
-    # criterion = torch.nn.MSELoss()
+    criterion = torch.nn.MSELoss()
     # criterion = nn.L1Loss()
     samples = trainX.size()[0]
     losses = []

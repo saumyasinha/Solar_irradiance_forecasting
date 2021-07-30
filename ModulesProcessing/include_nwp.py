@@ -30,5 +30,17 @@ Day = nc.variables["Day"][:]
 print(nc.variables["irradiance"][:,10,2,300])
 
 
+print("TIGGE now")
 
+tigge_file = "/Users/saumya/Desktop/mars/bin/201601.nc"
+nc = netCDF4.Dataset(tigge_file)
+
+
+num_variables = len(nc.variables.values())
+
+for var in nc.variables.values():
+    print(var)
+
+for dim in nc.dimensions.values():
+    print(dim)
 
