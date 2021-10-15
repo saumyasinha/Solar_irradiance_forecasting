@@ -406,8 +406,9 @@ class TransAm(nn.Module):
 #         # return pred_outputs
 
 
-# def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
-#                    validY, n_output_length, n_features, n_timesteps, folder_saving, model_saved, quantile, n_layers, factor, alphas, outputs, valid, output_seq_len, num_heads, d_model, patience=None, verbose=None, reg_lamdba = 0):
+#def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
+ #                 validY, n_output_length, n_features, n_timesteps, folder_saving, model_saved, quantile, n_layers, factor, alphas, outputs, valid, output_seq_len, num_heads, d_model, patience=None, verbose=None, reg_lamdba = 0):
+
 def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
                    validY, n_output_length, n_features, n_timesteps, folder_saving, model_saved, quantile,hidden_size, alphas, outputs, valid, patience=None, verbose=None,
                    reg_lamdba=0):
@@ -418,7 +419,11 @@ def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
     parallel = False
     quantile_forecaster = quantileLSTM(n_features, n_timesteps, folder_saving, model_saved, quantile, hidden_size, alphas = alphas, outputs = outputs, valid=valid)
 
-    # quantile_forecaster = MultiAttnHeadSimple(n_features, n_timesteps, folder_saving, model_saved, quantile, n_layers, factor, alphas = alphas, outputs = outputs, valid=valid, output_seq_len = output_seq_len, num_heads=num_heads, d_model=d_model)
+    #quantile_forecaster = MultiAttnHeadSimple(n_features, n_timesteps, folder_saving, model_saved, quantile, n_layers, factor, alphas = alphas, outputs = outputs, valid=valid, output_seq_len = output_seq_len, num_heads=num_heads, d_model=d_model)
+  #  quantile_forecaster = TransAm(n_features, n_timesteps, folder_saving, model_saved, quantile, alphas=alphas,
+   #                               outputs=outputs, valid=valid, num_heads=num_heads, d_model=d_model,
+    #                              num_layers=n_layers)
+
     if train_on_gpu:
         # if torch.cuda.device_count() > 1:
         #     print("Let's use", torch.cuda.device_count(), "GPUs!")

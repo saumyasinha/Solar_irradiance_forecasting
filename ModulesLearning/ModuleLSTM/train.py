@@ -54,6 +54,7 @@ def train_LSTM(quantile, X_train, y_train, X_valid, y_valid, n_timesteps, n_feat
     loss_plots(train_loss, valid_loss, folder_saving, model_saved)
 
 
+
 def test_LSTM(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_features, hidden_size, alphas, q50, folder_saving, model_saved, X_before_normalized=None, index_clearghi=None, lead=None, n_outputs = 1):
 
     if X_test is not None:
@@ -87,6 +88,7 @@ def test_LSTM(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_feature
     if quantile:
 
         if X_test is not None:
+
             if X_before_normalized is not None:
                 clearsky = np.reshape(X_before_normalized[:, index_clearghi],
                                       (X_before_normalized[:, index_clearghi].shape[0], 1))
@@ -101,6 +103,7 @@ def test_LSTM(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_feature
         if X_valid is not None:
             valid_crps = crps_score(y_valid_pred, y_valid, np.arange(0.05, 1.0, 0.05))
             # y_valid_pred = y_valid_pred[:,9]
+
 
     return y_pred, y_valid_pred, valid_crps, test_crps
 
@@ -210,6 +213,7 @@ def test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_
                 pred = np.roll(y_pred, lead, axis=0)
                 y_pred = np.multiply(pred, clearsky)
 
+
             test_crps = crps_score(y_pred, y_test, np.arange(0.05, 1.0, 0.05))
             # y_pred = y_pred[:,9]
 
@@ -218,6 +222,7 @@ def test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_
             # y_valid_pred = y_valid_pred[:,9]
 
     return y_pred, y_valid_pred, valid_crps, test_crps, y_test
+
 
 
 

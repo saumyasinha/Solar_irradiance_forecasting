@@ -153,9 +153,11 @@ class ConvForecasterDilationLowRes(nn.Module):
         # # self.softmax = nn.Softmax(dim=-1)
         # # self.fc = nn.Linear(self.conv_output_size,self.outputs)
 
+
         num_channels = [25] * 3  # 6#24/25 before and 6 num of channels, reduced for multihead
         self.tcn = TemporalConvNet(self.input_dim, num_channels, kernel_size=3, dropout=0.2,
                                    attention=True)  # kernel size changed to 3 instead of 5
+
 
         self.linear = nn.Linear(num_channels[-1], self.outputs)
 
@@ -377,11 +379,11 @@ def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
 
     parallel = False
     if train_on_gpu:
-        if torch.cuda.device_count() > 1:
-           # print("Let's use", torch.cuda.device_count(), "GPUs!")
+        #if torch.cuda.device_count() > 1:
+         #   print("Let's use", torch.cuda.device_count(), "GPUs!")
 
-            quantile_forecaster = nn.DataParallel(quantile_forecaster)
-            parallel = True
+        #quantile_forecaster = nn.DataParallel(quantile_forecaster)
+        #parallel = True
 
         quantile_forecaster = quantile_forecaster.cuda()
         # point_forecaster = point_forecaster.cuda()
@@ -390,7 +392,7 @@ def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
 
     optimizer = torch.optim.Adam(quantile_forecaster.parameters(), lr=lr)
     # scheduler = StepLR(optimizer, step_size=25, gamma=0.1)
-    criterion = torch.nn.MSELoss()
+    criterion = torch.nn.MSELoss() #torch.nn.L1Loss()
     # criterion = nn.L1Loss()
     samples = trainX.size()[0]
     losses = []

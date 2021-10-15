@@ -200,7 +200,7 @@ class ConvAttentionBlock(nn.Module):
     self.channel_attention = ConvchannelAttentionBlock(dims)
     #self.conv1 = nn.Sequential(nn.Dropout2d(0.1, False), nn.Conv1d(dims, dims, 1))
     #self.conv2 = nn.Sequential(nn.Dropout2d(0.1, False), nn.Conv1d(dims, dims, 1))
-    self.conv3 = nn.Sequential(nn.Dropout1d(0.1, False), nn.Conv1d(dims, dims, 1))
+    self.conv3 = nn.Sequential(nn.Dropout(0.1), nn.Conv1d(dims, dims, 1))
   def forward(self, minibatch):
 
     s = self.spatial_attention(minibatch)
