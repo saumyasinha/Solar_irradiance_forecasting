@@ -191,7 +191,7 @@ def get_train_test_data(dataframe_train, dataframe_test, final_set_of_features, 
 
     final_features.extend(['clearness_index_input'])#,'smart_persistence'])
 
-
+    index_zen=-1
     # storing the position/indices of clear_ghi, ghi, and zen
     for ind in range(len(final_features)):
         if final_features[ind] == 'clear_ghi':
@@ -395,7 +395,7 @@ def generateFlag(x):
     #     return 3
     # elif int(x) <= 60 and int(x) >= 45:
     #     return 4
-    #
+
     if int(x) < 5 and int(x) >= 0:
         return 1
     elif int(x) < 10 and int(x) >= 5:

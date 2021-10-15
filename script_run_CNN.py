@@ -117,7 +117,7 @@ def include_previous_features(X, index_ghi):
 
     for l in previous_time_periods:
         # print("rolling by: ", l)
-        X_train_shifted = np.roll(X, l)
+        X_train_shifted = np.roll(X, l, axis=0)
         y_list.append(X_train_shifted)
         # y_list.append(dw_solar_rolled)
     y_list = y_list[::-1]
@@ -314,7 +314,7 @@ def main():
                 ## dividing the X_train data into train(70%)/valid(20%)/test(10%), the heldout data is kept hidden
 
                 X_train, X_valid, y_train, y_valid = train_test_split(
-                    X_train, y_train, test_size=0.3, random_state=100)#42
+                    X_train, y_train, test_size=0.3, random_state=42)#42
                 #X_valid, X_test, y_valid, y_test = train_test_split(
                     #X_test, y_test, test_size=0.3, random_state=42)#42
 

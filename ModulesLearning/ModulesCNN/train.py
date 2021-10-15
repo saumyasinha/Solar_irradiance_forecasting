@@ -175,17 +175,19 @@ def train_DCNN_with_attention(quantile, X_train, y_train, X_valid, y_valid, n_ti
     loss_plots(train_loss,valid_loss,folder_saving,model_saved)
 
 
-def test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_features, folder_saving, model_saved, n_outputs = 1):
 
+
+
+def test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_features, folder_saving, model_saved, X_before_normalized=None, index_clearghi=None, lead=None, n_outputs = 1):
 
     if X_test is not None:
         X_test, y_test = X_test.astype(np.float32), y_test.astype(np.float32)
         X_test = torch.from_numpy(X_test).reshape(-1, n_features, n_timesteps)
 
-    # X_test.unsqueeze_(1)
-    # X_test = X_test.repeat(1, 3, 1, 1)
-    #
-    # X_test = transform(X_test)
+        # X_test.unsqueeze_(1)
+        # X_test = X_test.repeat(1, 3, 1, 1)
+        #
+        # X_test = transform(X_test)
 
     if X_valid is not None:
         X_valid, y_valid = X_valid.astype(np.float32), y_valid.astype(np.float32)
@@ -195,23 +197,22 @@ def test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_times
         # X_valid = X_valid.repeat(1, 3, 1, 1)
         # X_valid = transform(X_valid)
 
-
-    # point_forecaster = ConvForecasterDilationLowRes(n_features, n_timesteps, folder_saving, model_saved, quantile,
-    #                                                outputs=n_outputs, valid=True)
+        # point_forecaster = ConvForecasterDilationLowRes(n_features, n_timesteps, folder_saving, model_saved, quantile,
+        #                                                outputs=n_outputs, valid=True)
 
     quantile_forecaster = ConvForecasterDilationLowRes(n_features, n_timesteps, folder_saving, model_saved, quantile,
-                                                      alphas=np.arange(0.05, 1.0, 0.05), outputs=19, valid=True)
+                                                       alphas=np.arange(0.05, 1.0, 0.05), outputs=19, valid=True)
 
     # alphas = np.arange(0.05, 1.0, 0.05)
     # quantile_forecaster = Custom_resnet(n_features, n_timesteps, outputs=len(alphas))
-    quantile_forecaster.load_state_dict(torch.load(folder_saving + model_saved,map_location=torch.device('cpu')))
+    quantile_forecaster.load_state_dict(torch.load(folder_saving + model_saved, map_location=torch.device('cpu')))
 
     quantile_forecaster.eval()
 
-    #if torch.cuda.is_available():
-     #   X_test, X_valid = X_test.cuda(),X_valid.cuda()
-      #  quantile_forecaster = quantile_forecaster.cuda()
-    
+    # if torch.cuda.is_available():
+    #   X_test, X_valid = X_test.cuda(),X_valid.cuda()
+    #  quantile_forecaster = quantile_forecaster.cuda()
+
     y_pred = None
     if X_test is not None:
         y_pred = quantile_forecaster.forward(X_test, n_outputs)
@@ -219,10 +220,11 @@ def test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_times
     y_valid_pred = None
 
     if X_valid is not None:
-        y_valid_pred = quantile_forecaster.forward(X_valid ,n_outputs)
+        y_valid_pred = quantile_forecaster.forward(X_valid, n_outputs)
         y_valid_pred = y_valid_pred.cpu().detach().numpy()
 
     valid_crps, test_crps = 0.0, 0.0
+
     if quantile:
         if X_test is not None:
             if n_outputs>1:
@@ -235,8 +237,16 @@ def test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_times
                 y_pred = y_pred[:,9,:]
 
             else:
-                test_crps=crps_score(y_pred, y_test, np.arange(0.05, 1.0, 0.05))
-                y_pred = y_pred[:,9]#changed from 9
+                if X_before_normalized is not None:
+                    clearsky = np.reshape(X_before_normalized[:, index_clearghi], (X_before_normalized[:, index_clearghi].shape[0], 1))
+                    true = np.roll(y_test, lead)
+                    y_test = np.multiply(true, clearsky)
+                    pred = np.roll(y_pred, lead,axis=0)
+                    y_pred = np.multiply(pred, clearsky)
+
+
+                test_crps=crps_score(y_pred, y_test, np.arange(0.05, 1.0, 0.05), post_process = True, lead=lead)
+                # y_pred = y_pred[:,9]#changed from 9
 
         if X_valid is not None:
 
@@ -250,11 +260,10 @@ def test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_times
 
             else:
                 valid_crps = crps_score(y_valid_pred, y_valid, np.arange(0.05, 1.0, 0.05))
-                y_valid_pred = y_valid_pred[:, 9]
+                # y_valid_pred = y_valid_pred[:, 9]
 
     # print(valid_crps)
-    return y_pred, y_valid_pred, valid_crps, test_crps
-
+    return y_pred, y_valid_pred, valid_crps, test_crps, y_test
 
 
 

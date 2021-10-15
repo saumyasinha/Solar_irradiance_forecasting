@@ -153,88 +153,87 @@ class ConvForecasterDilationLowRes(nn.Module):
         # # self.softmax = nn.Softmax(dim=-1)
         # # self.fc = nn.Linear(self.conv_output_size,self.outputs)
 
-        ## play around with channel size and kernel size
-        num_channels =[25]*6 #6#24/25 before and 6 num of channels, reduced for multihead
-        self.tcn = TemporalConvNet(self.input_dim, num_channels, kernel_size=5, dropout=0.2, attention=True) #kernel size changed to 3 instead of 5
+        num_channels = [25] * 3  # 6#24/25 before and 6 num of channels, reduced for multihead
+        self.tcn = TemporalConvNet(self.input_dim, num_channels, kernel_size=3, dropout=0.2,
+                                   attention=True)  # kernel size changed to 3 instead of 5
 
         self.linear = nn.Linear(num_channels[-1], self.outputs)
 
 
-
     def forward(self, xx, n_output_length=1):
-        # # # print(xx.shape)
-        # output = self.conv1(xx)
-        # # print(output.shape)
-        # output = self.conv1_fn(output)
-        # # if self.train_mode:
-        # output = self.dropout(output)
-        # output = self.avgpool1(output)
-        # # print(output.shape)
-        #
-        # output = self.conv2(output)
-        # # print(output.shape)
-        # output = self.conv2_fn(output)
-        # # if self.train_mode:
-        # output = self.dropout(output)
-        # output = self.avgpool2(output)
-        #
-        # # print(output.shape)
-        #
-        # output = self.conv3(output)
-        # # print(output.shape)
-        # output = self.conv3_fn(output)
-        # # if self.train_mode:
-        # output = self.dropout(output)
-        # output = self.avgpool3(output)
-        # print(output.shape)
-        # output = self.attention(output)
-        # print(output.shape)
-        # output = self.fc(output)
-        #
-        # # output = self.conv4(output)
-        # # output = self.conv4_fn(output)
-        # # output = self.avgpool4(output)
-        # output = output.reshape(-1, output.shape[1]*output.shape[2])
-        # # print("after convolution: ", output.shape)
-        # # Compute Context Vector
-        # xx_single = self.conv_attn(xx).reshape(-1, self.timesteps)
-        # # print("xx_single: ", xx_single.shape)
-        # attn_input = torch.cat((output, xx_single), dim=1)
-        # # print("attn_input: ", attn_input.shape)
-        # attention = self.attn_layer(attn_input).reshape(-1, 1, self.timesteps)
-        #
-        # # print("attention: ", attention.shape)
-        # x_attenuated = (xx * attention)
-        # # print("xx attentuated: ",x_attenuated.shape)
-        # x_attenuated = x_attenuated.reshape(-1, x_attenuated.shape[1]*x_attenuated.shape[2])
-        #
-        #
-        # output = torch.cat((output, x_attenuated), dim=1)
-        # # print("output concat with attenuated: ",output.shape)
-        # #output = self.fc1(output)
-        # #output = self.fc1_fn(output)
-        # #if self.train_mode:
-        #  #   output = self.dropout(output)
-        # #
-        # # output = self.fc2(output)
-        # # output = self.fc2_fn(output)
-        # # if self.train_mode:
-        # #     output = self.dropout(output)
-        # output = self.fc3(output)
-
-
-        if n_output_length>1:
-            # print(xx.shape)
-            output = self.tcn(xx).transpose(1,2)
+            # # # print(xx.shape)
+            # output = self.conv1(xx)
+            # # print(output.shape)
+            # output = self.conv1_fn(output)
+            # # if self.train_mode:
+            # output = self.dropout(output)
+            # output = self.avgpool1(output)
+            # # print(output.shape)
+            #
+            # output = self.conv2(output)
+            # # print(output.shape)
+            # output = self.conv2_fn(output)
+            # # if self.train_mode:
+            # output = self.dropout(output)
+            # output = self.avgpool2(output)
+            #
+            # # print(output.shape)
+            #
+            # output = self.conv3(output)
+            # # print(output.shape)
+            # output = self.conv3_fn(output)
+            # # if self.train_mode:
+            # output = self.dropout(output)
+            # output = self.avgpool3(output)
             # print(output.shape)
-            output = self.linear(output).transpose(1,2)[:,:,:n_output_length] #unsure here if it should be [:,:,-n_output_length:]
+            # output = self.attention(output)
             # print(output.shape)
-        else:
-            output = self.tcn(xx)
-            output = self.linear(output[:,:,-1])
+            # output = self.fc(output)
+            #
+            # # output = self.conv4(output)
+            # # output = self.conv4_fn(output)
+            # # output = self.avgpool4(output)
+            # output = output.reshape(-1, output.shape[1]*output.shape[2])
+            # # print("after convolution: ", output.shape)
+            # # Compute Context Vector
+            # xx_single = self.conv_attn(xx).reshape(-1, self.timesteps)
+            # # print("xx_single: ", xx_single.shape)
+            # attn_input = torch.cat((output, xx_single), dim=1)
+            # # print("attn_input: ", attn_input.shape)
+            # attention = self.attn_layer(attn_input).reshape(-1, 1, self.timesteps)
+            #
+            # # print("attention: ", attention.shape)
+            # x_attenuated = (xx * attention)
+            # # print("xx attentuated: ",x_attenuated.shape)
+            # x_attenuated = x_attenuated.reshape(-1, x_attenuated.shape[1]*x_attenuated.shape[2])
+            #
+            #
+            # output = torch.cat((output, x_attenuated), dim=1)
+            # # print("output concat with attenuated: ",output.shape)
+            # #output = self.fc1(output)
+            # #output = self.fc1_fn(output)
+            # #if self.train_mode:
+            #  #   output = self.dropout(output)
+            # #
+            # # output = self.fc2(output)
+            # # output = self.fc2_fn(output)
+            # # if self.train_mode:
+            # #     output = self.dropout(output)
+            # output = self.fc3(output)
 
 
-        return output
+            if n_output_length>1:
+                # print(xx.shape)
+                output = self.tcn(xx).transpose(1,2)
+                # print(output.shape)
+                output = self.linear(output).transpose(1,2)[:,:,:n_output_length] #unsure here if it should be [:,:,-n_output_length:]
+                # print(output.shape)
+            else:
+                output = self.tcn(xx)
+                output = self.linear(output[:,:,-1])
+
+
+            return output
 
 
 
@@ -517,8 +516,13 @@ def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
     # self.load_state_dict(torch.load('checkpoint.pt'))
     return losses, valid_losses
 
-def crps_score(outputs, target, alphas):
+def crps_score(outputs, target, alphas, post_process=False, lead = None):
     loss = []
+
+    if post_process:
+        outputs = outputs[2 * lead:]
+        target = target[2 * lead:]
+
     for i, alpha in enumerate(alphas):
         output = outputs[:, i].reshape((-1, 1))
         covered_flag = (output <= target).astype(np.float32)
@@ -529,6 +533,7 @@ def crps_score(outputs, target, alphas):
         else:
             loss.append(np.mean(
                 ((target - output) * alpha * covered_flag + (output - target) * (1 - alpha) * uncovered_flag)))
+
 
     return 2*np.mean(np.array(loss))
 

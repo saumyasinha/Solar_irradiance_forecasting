@@ -40,8 +40,34 @@ def normal_persistence_model(X, index_ghi, lead):
 
     return pred_ghi
 
+# def climatology_baseline(X_test, df_2017, col_to_indices_mapping, n_features):
+#
+#     index_month = -n_features+col_to_indices_mapping['month']
+#     index_hour = -n_features+col_to_indices_mapping['hour']
+#
+#     current_month_list = X_test[:,index_month]
+#     current_hour_list = X_test[:,index_hour]
+#
+#     climatology_baseline=[]
+#     for i in range(len(X_test)):
+#         current_month = current_month_list[i]
+#         current_hour = current_hour_list[i]
+#         # print(current_hour,current_month)
+#         X_2017_for_month_hour = df_2017[(df_2017.month == current_month) & (df_2017.hour == current_hour)]
+#
+#         climatology_baseline.append(np.average(X_2017_for_month_hour.dw_solar.values))
+#
+#     climatology_baseline = np.reshape(climatology_baseline,(len(climatology_baseline),1))
+#     print(np.sum(np.isnan(climatology_baseline)))
+#     return climatology_baseline
 
-def final_true_pred_sp_np(true, pred, np, sp, lead, X, index_zen, index_clearghi, zenith_threshold=85):
+
+
+
+
+
+
+def final_true_pred_sp_np(true, pred, np, sp, climatology,CH_PeEN, lead, X, index_zen, index_clearghi, zenith_threshold=85):
 
     # X = np.roll(X, lead, axis = 0)
     # X =  X_test[lead:]
@@ -49,6 +75,8 @@ def final_true_pred_sp_np(true, pred, np, sp, lead, X, index_zen, index_clearghi
     pred = pred[2*lead:]
     np = np[2 * lead:]
     sp = sp[2 * lead:]
+    climatology = climatology[2 * lead:]
+    CH_PeEN = CH_PeEN[2 * lead:]
     X = X[2 * lead:]
     #
     print((pred<0).sum())
@@ -73,11 +101,13 @@ def final_true_pred_sp_np(true, pred, np, sp, lead, X, index_zen, index_clearghi
     pred_day_final = pred #[(pred>=0)]
     np_day_final = np #[(pred>=0) ]
     sp_day_final = sp #[(pred>=0)]
+    climatology_final = climatology  # [(pred>=0)]
+    CH_PeEN_final = CH_PeEN  # [(pred>=0)]
 
 
-    print(true_day_final.shape, pred_day_final.shape, np_day_final.shape, sp_day_final.shape)
+    print(true_day_final.shape, pred_day_final.shape, np_day_final.shape, sp_day_final.shape, climatology_final.shape)
 
-    return true_day_final, pred_day_final, np_day_final, sp_day_final
+    return true_day_final, pred_day_final, np_day_final, sp_day_final, climatology_final, CH_PeEN_final
 
 
 

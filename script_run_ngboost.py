@@ -8,9 +8,11 @@ import matplotlib.pyplot as plt
 from SolarForecasting.ModulesProcessing import collect_data,clean_data
 from SolarForecasting.ModulesLearning import preprocessing as preprocess
 from SolarForecasting.ModulesLearning import postprocessing as postprocess
+from SolarForecasting.ModulesLearning import ml_models as models
 from ngboost.scores import CRPS, MLE
 import scipy as sp
 from scipy.stats import norm as dist
+from keras.models import load_model
 
 
 pd.set_option('display.max_rows', 500)
@@ -20,14 +22,14 @@ pd.set_option('display.width', 1000)
 # All the variables and hyper-parameters
 
 # city
-city =  'Fort_Peck_MT' #'Sioux_Falls_SD'
+city =  "Goodwin_Creek_MS" #"Boulder_CO"#'Bondville_IL'# 'Fort_Peck_MT' #'Penn_State_PA' #'Sioux_Falls_SD' #'Fort_Peck_MT' #
 
 # lead time i.e how much in advance you want to make a prediction (lead of 4 corresponds to 1 hour..since the data is at 15min resolution)
-lead_times = [24*12*7]#[12*12,12*24,12,12*2,12*3,12*4,12*5,12*6,8,4,2]
+lead_times = [24*7]#[24*4*7]#[24*12*7]#[12*12,12*24,12,12*2,12*3,12*4,12*5,12*6,8,4,2]
 
 # season
 seasons =['year'] #from ['fall', 'winter', 'spring', 'summer', 'year']
-res = '5min'
+res = '1hour'#'15min'
 
 # file locations
 # path_desktop = "C:\\Users\Shivendra\Desktop\SolarProject\solar_forecasting/"
@@ -46,16 +48,17 @@ features = ['year','month','day','hour','min','zen','dw_solar','uw_solar','direc
 # final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','dw_ir','temp','rh','windspd','winddir','pressure','clear_ghi']
 
 # ## selected features for the study
-final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
+# final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
 
 ## selected features for the study
-# final_features = ['year','month','day','hour','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
+final_features = ['year','month','day','hour','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
 
+# final_features = ['year','month','day','hour','MinFlag','dw_solar','clear_ghi']
 # target or Y
 target_feature = ['clearness_index']
 
 # start and end month+year
-startyear = 2016 #2005
+startyear = 2016 #2016 #2005
 endyear = 2018 #2009
 startmonth = 1
 endmonth = 12
@@ -65,9 +68,9 @@ endmonth = 12
 testyear = 2018
 
 # hyperparameters
-n_timesteps = 0 #6hours
+n_timesteps = 24*2 #24*4*1
 n_features = 15 #(after including month and hour)
-
+quantile = False
 
 def get_data():
 
@@ -94,18 +97,19 @@ def include_previous_features(X, index_ghi):
 
     for l in previous_time_periods:
         # print("rolling by: ", l)
-        X_train_shifted = np.roll(X, l)
+        X_train_shifted = np.roll(X, l, axis=0)
         y_list.append(X_train_shifted)
         # y_list.append(dw_solar_rolled)
     y_list = y_list[::-1]
     # print(y_list)
     previous_time_periods_columns = np.column_stack(y_list)
-    X = np.column_stack([previous_time_periods_columns, X])
+    X_final = np.column_stack([previous_time_periods_columns, X])
+
     # X = np.transpose(np.array(y_list), ((1, 0, 2)))
     # max_lead = np.max(previous_time_periods)
     # X = X[max_lead:]
     print("X shape after adding prev features: ", X.shape)
-    return X
+    return X_final
 
 
 def get_crps_for_ngboost(model, X, y):
@@ -129,218 +133,224 @@ def get_crps_for_ngboost(model, X, y):
 
 def main():
 
-    ## pre-processing steps
-
-    # extract the input data files (SURFAD data)
-    processed_file_path = path + 'processed/' + city
-    if not os.path.isdir(processed_file_path):
-        get_data()
-    combined_csv = preprocess.extract_frame(processed_file_path)
-    print("The columns of the initial data file: ", combined_csv.columns)
-
-    # extract the features from the input
-    dataset = combined_csv[features]
-    print('dataset size: ',len(dataset))
-    print(dataset.head())
-     #15 mins resolution
-    dataset['MinFlag'] = dataset['min'].apply(preprocess.generateFlag)
-    dataset = dataset.groupby(['year', 'month', 'day', 'hour', 'MinFlag']).mean()
-
+    # # # ## pre-processing steps
+    # #
+    # # extract the input data files (SURFAD data)
+    # processed_file_path = path + 'processed/' + city
+    # if not os.path.isdir(processed_file_path):
+    #     get_data()
+    # combined_csv = preprocess.extract_frame(processed_file_path)
+    # print("The columns of the initial data file: ", combined_csv.columns)
+    # #
+    # # extract the features from the input
+    # dataset = combined_csv[features]
+    # print('dataset size: ',len(dataset))
+    # print(dataset.head())
+    #  #15 mins resolution
+    # # dataset['MinFlag'] = dataset['min'].apply(preprocess.generateFlag)
+    # # dataset = dataset.groupby(['year', 'month', 'day', 'hour', 'MinFlag']).mean()
+    #
     # dataset = dataset.groupby(['year', 'month', 'day', 'hour']).mean()
-    dataset.reset_index(inplace=True)
-    print('dataset size : ',len(dataset))
-
-    print(dataset.isnull().values.any())
-
-    # read the clear-sky values
-    clearsky = pd.read_csv(clearsky_file_path, skiprows=37, delimiter=';')
-    print("The columns of the clear sky file: ", clearsky.columns)
-
-    # divide the observation period in form of year, month, day, hour, min (adding them as variables)
-    clearsky[['year', 'month', 'day', 'hour', 'min']] = clearsky['# Observation period'].apply(preprocess.extract_time)
+    # dataset.reset_index(inplace=True)
+    # print('dataset size : ',len(dataset))
+    #
+    # print(dataset.isnull().values.any())
+    #
+    # # read the clear-sky values
+    # clearsky = pd.read_csv(clearsky_file_path, skiprows=37, delimiter=';')
+    # print("The columns of the clear sky file: ", clearsky.columns)
+    #
+    # # divide the observation period in form of year, month, day, hour, min (adding them as variables)
+    # clearsky[['year', 'month', 'day', 'hour', 'min']] = clearsky['# Observation period'].apply(preprocess.extract_time)
     # print("clearsky before converting to 1hour res", len(clearsky))
     # clearsky = clearsky.groupby(['year', 'month', 'day', 'hour']).mean()
-    clearsky['MinFlag'] = clearsky['min'].apply(preprocess.generateFlag)
-
-    clearsky = clearsky.groupby(['year', 'month', 'day', 'hour', 'MinFlag']).mean()
-    print("clearsky rows before merging: ", len(clearsky))
-
-    # merging the clear sky values with SURFAD input dataset
-    df = dataset.merge(clearsky, on=['year', 'month', 'day', 'hour', 'MinFlag'], how='inner')
+    # # clearsky['MinFlag'] = clearsky['min'].apply(preprocess.generateFlag)
+    # #
+    # # clearsky = clearsky.groupby(['year', 'month', 'day', 'hour', 'MinFlag']).mean()
+    # print("clearsky rows before merging: ", len(clearsky))
+    #
+    # # merging the clear sky values with SURFAD input dataset
+    # # df = dataset.merge(clearsky, on=['year', 'month', 'day', 'hour', 'MinFlag'], how='inner')
     # df = dataset.merge(clearsky, on=['year', 'month', 'day', 'hour'], how='inner')
+    #
+    # # renaming the clear sky GHI
+    # df = df.rename(columns={'Clear sky GHI': 'clear_ghi'})
+    # print("stats of all raw features/columns")
+    # print(df.describe())
+    #
+    #
+    # # selecting only the required columns
+    # df = df[final_features]
+    #
+    # # get dataset for the study period
+    # df = preprocess.extract_study_period(df,startmonth, startyear, endmonth, endyear)
+    # print("\n\n after extracting study period")
+    # df.reset_index(drop=True, inplace=True)
+    # print(df.tail)
+    #
+    #
+    # ## convert negatives to 0 for all features
+    # df[df<0] = 0
+    # print("stats of selected features/columns after converting all negatives to 0")
+    # print(df.describe())
+    #
+    #
+    # # adding the clearness index and dropping rows with 0 clear_ghi and taking only daytimes
+    # df = df[df['clear_ghi'] > 0]
+    # df_final = df[df['zen']<85]
+    # df_final['clearness_index'] = df_final['dw_solar'] / df_final['clear_ghi']
+    # # df_final['clearness_index'] = df_final['dw_solar']
+    # df_final.reset_index(drop=True, inplace=True)
+    # print("after removing data points with 0 clear_ghi and selecting daytimes",len(df_final))
+    # # print(df_final.describe())
+    # # #
+    processed_file_path = path + 'processed/' + city + "/"
+    # df_final.to_pickle(processed_file_path + "data_At_" + res + "_resolution_2016-2018.pkl")
+    df_final = pd.read_pickle(processed_file_path + "data_At_" + res + "_resolution_2016-2018.pkl")
+    #
+    # # Plotting time series
+    # # x = np.asarray(range(df_final.shape[0]))
+    # # plt.figure(figsize=(20, 10))
+    # # plt.plot(x, df_final.dw_solar.values, label="GHI values")
+    # # plt.plot(x, df_final.clear_ghi.values, label="clearGHI index")
+    # # plt.legend(loc="upper left")
+    # # plt.savefig("time series of clearGHI and GHI")
+    # # plt.clf()
+    # # x = np.asarray(range(60))
+    # # plt.figure(figsize=(20, 10))
+    # # plt.plot(x, df_final.dw_solar.values[:60], label="GHI values")
+    # # plt.plot(x, df_final.clear_ghi.values[:60], label="clearGHI index")
+    # # plt.legend(loc="upper left")
+    # # plt.savefig("time series of clearGHI and GHI zoomed")
+    # # plt.clf()
+    # # x = np.asarray(range(60))
+    # # plt.figure(figsize=(20, 10))
+    # # plt.plot(x, df_final.clearness_index.values[:60], label="Clearness Index values")
+    # # plt.legend(loc="upper left")
+    # # plt.savefig("time series of clearness index zoomed")
+    # # plt.clf()
+    # #
+    reg = "ngboost_with_2day_lag_week_ahead"  ## giving a name to the regression models -- useful when saving results
+    #
+    for season_flag in seasons:
+        os.makedirs(folder_saving + season_flag + "/ML_models_"+str(testyear)+"/probabilistic/"+str(res)+"/"+reg+"/", exist_ok=True)
+        f = open(folder_saving + season_flag + "/ML_models_"+str(testyear)+"/probabilistic/"+str(res)+"/"+reg+"//results.txt", 'a')
 
-    # renaming the clear sky GHI
-    df = df.rename(columns={'Clear sky GHI': 'clear_ghi'})
-    print("stats of all raw features/columns")
-    print(df.describe())
+        for lead in lead_times:
+            # create dataset with lead
+            df_lead = preprocess.create_lead_dataset(df_final, lead, final_features, target_feature)
+            df_lead = df_lead[:len(df_lead) - lead]
+
+            # get the seasonal data you want
+            df, test_startdate, test_enddate = preprocess.get_yearly_or_season_data(df_lead, season_flag, testyear)
+            print("\n\n after getting seasonal data (test_startdate; test_enddate)", test_startdate, test_enddate)
+            print(df.tail)
+
+            # dividing into training and test set
+            df_train, df_heldout = preprocess.train_test_spilt(df, season_flag, testyear)
+            print("\n\n after dividing_training_test")
+            print("train_set\n", len(df_train))
+            print("test_set\n", len(df_heldout))
+
+            if len(df_train) > 0 and len(df_heldout) > 0:
+                # extract the X_train, y_train, X_test, y_test
+                X_train, y_train, X_heldout, y_heldout, index_clearghi, index_ghi, index_zen, col_to_indices_mapping = preprocess.get_train_test_data(
+                    df_train, df_heldout, final_features, target_feature, lead)
+                print("\n\n train and test df shapes ")
+                print(X_train.shape, y_train.shape, X_heldout.shape, y_heldout.shape)
 
 
-    # selecting only the required columns
-    df = df[final_features]
+                # including features from prev imestamps - didn't need to do that for NgBoost
+                X_train = include_previous_features(X_train, index_ghi)
+                X_heldout = include_previous_features(X_heldout, index_ghi)
 
-    # get dataset for the study period
-    df = preprocess.extract_study_period(df,startmonth, startyear, endmonth, endyear)
-    print("\n\n after extracting study period")
-    df.reset_index(drop=True, inplace=True)
-    print(df.tail)
+                X_train = X_train[n_timesteps:, :]
+                X_heldout = X_heldout[n_timesteps:, :]
+                y_train = y_train[n_timesteps:, :]
+                y_heldout = y_heldout[n_timesteps:, :]
+
+                print("Final train size: ", X_train.shape, y_train.shape)
+                print("Final heldout size: ", X_heldout.shape, y_heldout.shape)
+
+                ## dividing the X_train data into train(70%)/valid(20%)/test(10%), the heldout data is kept hidden
+                X_train, X_valid, y_train, y_valid = train_test_split(
+                    X_train, y_train, test_size=0.3, random_state=42)
+                # X_valid, X_test, y_valid, y_test = train_test_split(
+                #     X_test, y_test, test_size=0.3, random_state=42)
+
+                print("train/valid: ",len(X_train)," ",len(X_valid))
+
+                # normalizing the Xtrain, Xvalid and Xtest data and saving the mean,std of train to normalize the heldout data later
+                X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, None, index_ghi, index_clearghi, len(col_to_indices_mapping), folder_saving+season_flag + "/ML_models_"+str(testyear)+"/probabilistic/"+str(res)+"/"+reg+"/",lead)
 
 
-    ## convert negatives to 0 for all features
-    df[df<0] = 0
-    print("stats of selected features/columns after converting all negatives to 0")
-    print(df.describe())
+                y_train = np.reshape(y_train, -1)
+                # y_test = np.reshape(y_test, -1)
+                y_valid = np.reshape(y_valid, -1)
+
+                ## model built and saved (commented if it's already built and just being loaded as below)
+                model = NGBRegressor(n_estimators=2000).fit(X_train, y_train)
+                # model = models.rfGridSearch_model(X_train, y_train)
+                pickle.dump(model, open(
+                    folder_saving + season_flag + "/ML_models_"+str(testyear)+"/probabilistic/"+str(res)+"/"+reg+"/model_at_lead_" + str(lead) + ".pkl",
+                    "wb"))
+
+                # with open(folder_saving + season_flag + "/ML_models_"+str(testyear)+"/probabilistic/"+str(res)+"/"+reg+"//model_at_lead_" + str(lead) + ".pkl", 'rb') as file:
+                #     model = pickle.load(file)
+                # model = models.lstm_model(quantile, X_train, y_train, X_valid, y_valid,
+                #                           folder_saving + season_flag + "/ML_models_" + str(
+                #                               testyear) + "/probabilistic/" + str(
+                #                               res) + "/" + reg + "/model_at_lead_" + str(lead),
+                #                           timesteps=n_timesteps + 1, n_features=n_features)
+                print(model)
+                f.write("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
+
+                ## making predictions
+                # y_pred = model.predict(X_test)
+                y_valid_pred = model.predict(X_valid) #.reshape(X_valid.shape[0], n_timesteps + 1, n_features))
+
+                # y_pred = np.reshape(y_pred, -1)
+                y_valid_pred = np.reshape(y_valid_pred, -1)
+
+                print("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
 
 
-    # adding the clearness index and dropping rows with 0 clear_ghi and taking only daytimes
-    df = df[df['clear_ghi'] > 0]
-    df_final = df[df['zen']<85]
-    df_final['clearness_index'] = df_final['dw_solar'] / df_final['clear_ghi']
-    # df_final['clearness_index'] = df_final['dw_solar']
-    df_final.reset_index(drop=True, inplace=True)
-    print("after removing data points with 0 clear_ghi and selecting daytimes",len(df_final))
-    # print(df_final.describe())
+                ## Obtain the evaluation metrics (other than crps, in case it can be used later)
+                print("##########VALID##########")
+                rmse_our, mae_our, mean_our, std_our, r2_our = postprocess.evaluation_metrics(y_valid,
+                                                                                              y_valid_pred)
+                print("Performance of our model (rmse, mae, mb,sd, r2): \n\n", round(rmse_our, 2), round(mae_our, 2),
+                      round(mean_our, 2), round(std_our, 2), round(r2_our, 2))
+                f.write('\n evaluation metrics (rmse, mae, mb,sd, r2) on valid data for ' + reg + '=' + str(
+                    round(rmse_our, 2)) + "," + str(round(mae_our, 2)) + "," +
+                        str(round(mean_our, 2)) + "," + str(round(std_our, 2)) + "," + str(round(r2_our, 2)) + '\n')
 
-    df_final.to_pickle("data_At_5min_resolution_2016-2018.pkl")
+                # print("##########Test##########")
+                # rmse_our, mae_our, mean_our, std_our, r2_our = postprocess.evaluation_metrics(y_test,
+                #                                                                               y_pred)
+                # print("Performance of our model (rmse, mae, mb,sd, r2): \n\n", round(rmse_our, 2), round(mae_our, 2),
+                #       round(mean_our, 2), round(std_our, 2), round(r2_our, 2))
+                # f.write('\n evaluation metrics (rmse, mae, mb,sd, r2) on test data for ' + reg + '=' + str(
+                #     round(rmse_our, 2)) + "," + str(round(mae_our, 2)) + "," +
+                #         str(round(mean_our, 2)) + "," + str(round(std_our, 2)) + "," + str(round(r2_our, 2)) + '\n')
+                #
 
-    # Plotting time series
-    # x = np.asarray(range(df_final.shape[0]))
-    # plt.figure(figsize=(20, 10))
-    # plt.plot(x, df_final.dw_solar.values, label="GHI values")
-    # plt.plot(x, df_final.clear_ghi.values, label="clearGHI index")
-    # plt.legend(loc="upper left")
-    # plt.savefig("time series of clearGHI and GHI")
-    # plt.clf()
-    # x = np.asarray(range(60))
-    # plt.figure(figsize=(20, 10))
-    # plt.plot(x, df_final.dw_solar.values[:60], label="GHI values")
-    # plt.plot(x, df_final.clear_ghi.values[:60], label="clearGHI index")
-    # plt.legend(loc="upper left")
-    # plt.savefig("time series of clearGHI and GHI zoomed")
-    # plt.clf()
-    # x = np.asarray(range(60))
-    # plt.figure(figsize=(20, 10))
-    # plt.plot(x, df_final.clearness_index.values[:60], label="Clearness Index values")
-    # plt.legend(loc="upper left")
-    # plt.savefig("time series of clearness index zoomed")
-    # plt.clf()
-    #
-    # reg = "ngboost_without_lag_week_ahead"  ## giving a name to the regression models -- useful when saving results
-    #
-    # for season_flag in seasons:
-    #     os.makedirs(folder_saving + season_flag + "/ML_models_"+str(testyear)+"/probabilistic/"+str(res)+"/"+reg+"/", exist_ok=True)
-    #     f = open(folder_saving + season_flag + "/ML_models_"+str(testyear)+"/probabilistic/"+str(res)+"/"+reg+"//results.txt", 'a')
-    #
-    #     for lead in lead_times:
-    #         # create dataset with lead
-    #         df_lead = preprocess.create_lead_dataset(df_final, lead, final_features, target_feature)
-    #         df_lead = df_lead[:len(df_lead) - lead]
-    #
-    #         # get the seasonal data you want
-    #         df, test_startdate, test_enddate = preprocess.get_yearly_or_season_data(df_lead, season_flag, testyear)
-    #         print("\n\n after getting seasonal data (test_startdate; test_enddate)", test_startdate, test_enddate)
-    #         print(df.tail)
-    #
-    #         # dividing into training and test set
-    #         df_train, df_heldout = preprocess.train_test_spilt(df, season_flag, testyear)
-    #         print("\n\n after dividing_training_test")
-    #         print("train_set\n", len(df_train))
-    #         print("test_set\n", len(df_heldout))
-    #
-    #         if len(df_train) > 0 and len(df_heldout) > 0:
-    #             # extract the X_train, y_train, X_test, y_test
-    #             X_train, y_train, X_heldout, y_heldout, index_clearghi, index_ghi, index_zen, col_to_indices_mapping = preprocess.get_train_test_data(
-    #                 df_train, df_heldout, final_features, target_feature, lead)
-    #             print("\n\n train and test df shapes ")
-    #             print(X_train.shape, y_train.shape, X_heldout.shape, y_heldout.shape)
-    #
-    #
-    #             # including features from prev imestamps - didn't need to do that for NgBoost
-    #             # X_train = include_previous_features(X_train, index_ghi)
-    #             # X_heldout = include_previous_features(X_heldout, index_ghi)
-    #             #
-    #             # X_train = X_train[n_timesteps:, :]
-    #             # X_heldout = X_heldout[n_timesteps:, :]
-    #             # y_train = y_train[n_timesteps:, :]
-    #             # y_heldout = y_heldout[n_timesteps:, :]
-    #
-    #             print("Final train size: ", X_train.shape, y_train.shape)
-    #             print("Final heldout size: ", X_heldout.shape, y_heldout.shape)
-    #
-    #             ## dividing the X_train data into train(70%)/valid(20%)/test(10%), the heldout data is kept hidden
-    #             X_train, X_valid, y_train, y_valid = train_test_split(
-    #                 X_train, y_train, test_size=0.3, random_state=42)
-    #             # X_valid, X_test, y_valid, y_test = train_test_split(
-    #             #     X_test, y_test, test_size=0.3, random_state=42)
-    #
-    #             print("train/valid: ",len(X_train)," ",len(X_valid))
-    #
-    #             # normalizing the Xtrain, Xvalid and Xtest data and saving the mean,std of train to normalize the heldout data later
-    #             X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, None, index_ghi, index_clearghi, len(col_to_indices_mapping), folder_saving+season_flag + "/ML_models_"+str(testyear)+"/probabilistic/"+str(res)+"/"+reg+"/",lead)
-    #
-    #
-    #             y_train = np.reshape(y_train, -1)
-    #             # y_test = np.reshape(y_test, -1)
-    #             y_valid = np.reshape(y_valid, -1)
-    #
-    #             ## model built and saved (commented if it's already built and just being loaded as below)
-    #             model = NGBRegressor(n_estimators=2000).fit(X_train, y_train)
-    #
-    #             pickle.dump(model, open(
-    #                 folder_saving + season_flag + "/ML_models_"+str(testyear)+"/probabilistic/"+str(res)+"/"+reg+"/model_at_lead_" + str(lead) + ".pkl",
-    #                 "wb"))
-    #
-    #             # with open(folder_saving + season_flag + "/ML_models_"+str(testyear)+"/probabilistic/"+str(res)+"/"+reg+"//model_at_lead_" + str(lead) + ".pkl", 'rb') as file:
-    #             #     model = pickle.load(file)
-    #
-    #             print(model)
-    #             f.write("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
-    #
-    #             ## making predictions
-    #             # y_pred = model.predict(X_test)
-    #             y_valid_pred = model.predict(X_valid)
-    #
-    #             # y_pred = np.reshape(y_pred, -1)
-    #             y_valid_pred = np.reshape(y_valid_pred, -1)
-    #
-    #             print("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
-    #
-    #
-    #             ## Obtain the evaluation metrics (other than crps, in case it can be used later)
-    #             print("##########VALID##########")
-    #             rmse_our, mae_our, mean_our, std_our, r2_our = postprocess.evaluation_metrics(y_valid,
-    #                                                                                           y_valid_pred)
-    #             print("Performance of our model (rmse, mae, mb,sd, r2): \n\n", round(rmse_our, 2), round(mae_our, 2),
-    #                   round(mean_our, 2), round(std_our, 2), round(r2_our, 2))
-    #             f.write('\n evaluation metrics (rmse, mae, mb,sd, r2) on valid data for ' + reg + '=' + str(
-    #                 round(rmse_our, 2)) + "," + str(round(mae_our, 2)) + "," +
-    #                     str(round(mean_our, 2)) + "," + str(round(std_our, 2)) + "," + str(round(r2_our, 2)) + '\n')
-    #
-    #             # print("##########Test##########")
-    #             # rmse_our, mae_our, mean_our, std_our, r2_our = postprocess.evaluation_metrics(y_test,
-    #             #                                                                               y_pred)
-    #             # print("Performance of our model (rmse, mae, mb,sd, r2): \n\n", round(rmse_our, 2), round(mae_our, 2),
-    #             #       round(mean_our, 2), round(std_our, 2), round(r2_our, 2))
-    #             # f.write('\n evaluation metrics (rmse, mae, mb,sd, r2) on test data for ' + reg + '=' + str(
-    #             #     round(rmse_our, 2)) + "," + str(round(mae_our, 2)) + "," +
-    #             #         str(round(mean_our, 2)) + "," + str(round(std_our, 2)) + "," + str(round(r2_our, 2)) + '\n')
-    #             #
-    #
-    #             ## get CRPS score
-    #             crps_valid = get_crps_for_ngboost(model, X_valid, y_valid)
-    #             # crps_test = get_crps_for_ngboost(model, X_test, y_test)
-    #
-    #             f.write('\n CRPS score on valid data for lead ' + str(lead) + '=' + str(
-    #                 round(crps_valid, 2)) + '\n')
-    #             # f.write('\n CRPS score on test data for lead ' + str(lead) + '=' + str(
-    #             #     round(crps_test, 2)) + '\n')
-    #
-    #
-    #
-    #
-    #         else:
-    #                 print("not enough data for the season: ", season_flag, "and lead: ", lead)
-    #
-    #     f.close()
+                # # get CRPS score
+                crps_valid = get_crps_for_ngboost(model, X_valid, y_valid)
+                # # # crps_test = get_crps_for_ngboost(model, X_test, y_test)
+                # #
+                f.write('\n CRPS score on valid data for lead ' + str(lead) + '=' + str(
+                    round(crps_valid, 2)) + '\n')
+                # # # f.write('\n CRPS score on test data for lead ' + str(lead) + '=' + str(
+                # # #     round(crps_test, 2)) + '\n')
+
+
+
+
+            else:
+                    print("not enough data for the season: ", season_flag, "and lead: ", lead)
+
+        f.close()
 
 if __name__=='__main__':
     main()

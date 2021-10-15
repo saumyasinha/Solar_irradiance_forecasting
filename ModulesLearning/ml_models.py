@@ -1,7 +1,8 @@
 import numpy as np
 import time
+
 from sklearn.linear_model import LinearRegression, LassoCV
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestRegressor,BaggingRegressor
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.model_selection import GridSearchCV
 
@@ -17,16 +18,18 @@ import torch.nn.functional as F
 import torch.optim as optim
 import math
 import skorch
+from sklearn.neural_network import MLPRegressor
 from skorch import NeuralNetRegressor
 from sklearn.model_selection import RandomizedSearchCV
 from torch.autograd import Variable
 from SolarForecasting.ModulesLearning import preprocessing as preprocess
 from keras.models import Sequential
 from keras.layers import RNN,Dense, LSTM, Dropout,Bidirectional,RepeatVector,TimeDistributed, Flatten
-from keras.layers.convolutional import Conv1D, MaxPooling1D
-from keras.callbacks import EarlyStopping
+from keras.layers.convolutional import Conv1D, MaxPooling1D,AveragePooling1D,Conv2D, AveragePooling2D
+from keras.callbacks import EarlyStopping,ModelCheckpoint
 from keras import optimizers
 from keras.models import load_model
+from keras import backend as K
 
 
 
@@ -290,7 +293,7 @@ def rfGridSearch_model(X, y):
     param_grid = {
         'bootstrap': [True],
         'max_depth': [80, 100, 120],
-        'max_features': [3, 5, 7],
+        'max_features':['sqrt'], # [3, 5, 7],
         'min_samples_leaf': [8, 10, 15],
         'min_samples_split': [8, 10, 15],
         'n_estimators': [100, 200, 300]
@@ -320,63 +323,132 @@ def rfGridSearch_model(X, y):
 #     print("params:", grid_search.best_params_)
 #     return grid_search
 
+def bagged_mlp_searchmodel(X,y):
+    # param_grid = {
+    #     'hidden_layer_sizes': [[256],[128,64]],
+    #
+    # }
+    reg = MLPRegressor(hidden_layer_sizes=[128,64],batch_size=16, max_iter=300, verbose = True)
+    # Create a based model
+    # reg = BaggingRegressor(base_estimator=MLPRegressor(hidden_layer_sizes=[256,64], batch_size=16, verbose = True, max_iter =300, learning_rate_init=1e-4),n_estimators=5) #[256,64]
+    # Instantiate the grid search model
+    # grid_search = RandomizedSearchCV(estimator=reg, param_distributions=param_grid, scoring='neg_mean_squared_error')
+    # grid_search.fit(X, y)
+    # print("params:", grid_search.best_params_)
+    # return grid_search
+    reg.fit(X,y)
+    return reg
+
+
+
 
 ### LSTM/RNN method
-def lstm_model(X_train, y_train, folder_saving, model_saved,timesteps=1, n_features = 1, n_outputs = 1):
+def lstm_model(quantile, X_train, y_train, X_valid, y_valid, folder_saving,timesteps=1, n_features = 1, n_outputs = 1):
+
+    if quantile:
+        alphas = np.arange(0.05, 1.0, 0.05)
+        n_outputs = len(alphas)
 
 
     ##why giving nans??
     print("before: ",X_train.shape)
-    X_train = X_train.reshape((X_train.shape[0], timesteps,n_features))
+    X_train = X_train.reshape((X_train.shape[0], timesteps, n_features))
+    X_valid = X_valid.reshape((X_valid.shape[0], timesteps, n_features))
+
+    # X_train = X_train.reshape((X_train.shape[0], timesteps, n_features, 1))
+    # X_valid = X_valid.reshape((X_valid.shape[0], timesteps, n_features, 1))
+
     # y_train = y_train.reshape((y_train.shape[0], y_train.shape[1], 1))
     print("after: ",X_train.shape)
 
-    epochs_ = 150
-    batch_size_ = 32
+    epochs_ = 300
+    batch_size_ = 16
     dropout_ = .3
+    optimizer = optimizers.Adam(lr=1e-4,clipnorm=1)
 
-    # design network                                                            #
+    checkpoint = ModelCheckpoint(filepath=folder_saving,
+                                 monitor="val_loss",verbose = 1,save_best_only = True, mode ="min")
+
     model = Sequential()  #
-    model.add(LSTM(15,activation="relu",input_shape=(X_train.shape[1], X_train.shape[2])))  #
+    model.add(LSTM(25,activation="relu",input_shape=(X_train.shape[1], X_train.shape[2])))  #
     model.add(Dropout(dropout_))  #
+    # model.add(Dense(100, activation='relu'))
+    # model.add(Dropout(dropout_))
     model.add(Dense(n_outputs))  #
-    model.compile(loss='mean_squared_error', optimizer='adam')  #
+    if quantile:
+        model.compile(loss=quantile_loss, optimizer=optimizer)
+    else:
+        model.compile(loss='mean_squared_error', optimizer=optimizer)  #
+
 
     # model = Sequential()
-    # model.add(LSTM(25, activation='relu', input_shape=(X_train.shape[1], X_train.shape[2])))
+    # model.add(Conv1D(filters=30, kernel_size=8, activation='relu', padding="same",input_shape=(timesteps,n_features)))
     # model.add(Dropout(dropout_))
-    # model.add(Conv1D(filters=3, kernel_size=5, activation='relu', input_shape=(X_train.shape[1], X_train.shape[2])))
-    # model.add(Dropout(dropout_))
-    # model.add(MaxPooling1D(pool_size=2))
+    # # # model.add(AveragePooling2D(pool_size=2))
+    # # # model.add(Conv1D(filters=48, kernel_size=3, activation='relu'))
+    # # # model.add(Dropout(dropout_))
+    # # # model.add(AveragePooling1D(pool_size=2))
+    # # # model.add(Conv1D(filters=96, kernel_size=3, activation='relu', dilation_rate=4))
+    # # # model.add(Dropout(dropout_))
+    # # # model.add(AveragePooling1D(pool_size=2))
     # model.add(Flatten())
-    # model.add(RepeatVector(n_outputs))
-    # model.add(LSTM(15, activation='relu', return_sequences=True))
+    # model.add(Dense(100, activation='relu'))
     # model.add(Dropout(dropout_))
-    # model.add(TimeDistributed(Dense(1)))
-    # optimizer = optimizers.Adam(lr=0.0001)
+    # model.add(Dense(1))
     # model.compile(optimizer=optimizer, loss='mse')
 
+    # filter_feature = 3 #3
+    # filter_timestep = 4 #12
+    # model = Sequential()
+    # model.add(Conv2D(filters=30, kernel_size=(1,filter_feature), activation='linear', padding="same",input_shape=(timesteps,n_features,1)))
+    # model.add(Dropout(dropout_))
+    # model.add(Conv2D(filters=30, kernel_size=(filter_timestep,1), activation='relu', padding="same"))
+    # model.add(Dropout(dropout_))
+    # model.add(Flatten())
+    # model.add(Dense(100, activation='relu'))
+    # model.add(Dropout(dropout_))
+    # model.add(Dense(1))
+    # model.compile(optimizer=optimizer, loss='mse')
+
+
+
+    callbacks = [checkpoint]
     # fit network                                                               #
     history = model.fit(X_train,  #
                         y_train,  #
                         epochs=epochs_,  #
                         batch_size=batch_size_,  #
-                        # validation_data=(X_valid, y_valid),
-                        validation_split=0.2,
+                        validation_data=(X_valid, y_valid),
+                        # validation_split=0.2,
+                        callbacks=callbacks,
                         verbose=2)  #
     #
     # Save model for later                                                      #
-    model.save(folder_saving + model_saved)  #
+    # model.save(folder_saving)  #
 
     # plot history
     plt.plot(history.history['loss'], label='train')
     plt.plot(history.history['val_loss'], label='valid')
     plt.legend()
     plt.title("loss plots")
-    plt.savefig(folder_saving+model_saved+"_loss_plots")
+    plt.savefig(folder_saving+"_loss_plots")
     plt.clf()
 
-    return model
+    load_model = Sequential()  #
+    load_model.add(LSTM(25, activation="relu", input_shape=(X_train.shape[1], X_train.shape[2])))  #
+    load_model.add(Dropout(dropout_))  #
+    # model.add(Dense(100, activation='relu'))
+    # model.add(Dropout(dropout_))
+    load_model.add(Dense(n_outputs))  #
+
+    load_model.load_weights(folder_saving)
+
+    if quantile:
+        model.compile(loss=quantile_loss, optimizer=optimizer)
+    else:
+        model.compile(loss='mean_squared_error', optimizer=optimizer)
+
+    return load_model
 
 
 
