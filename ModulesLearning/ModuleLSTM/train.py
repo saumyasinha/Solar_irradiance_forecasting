@@ -1,5 +1,5 @@
 import torch
-from ModulesLearning.ModuleLSTM.Model import TransAm,trainBatchwise,crps_score
+from ModulesLearning.ModuleLSTM.Model import TransAm,trainBatchwise,crps_score, quantileLSTM
 import numpy as np
 import torch.nn as nn
 import matplotlib.pyplot as plt
@@ -19,7 +19,7 @@ def loss_plots(train_loss, valid_loss, folder_saving, loss_type=""):
     plt.close()
 
 
-def train_LSTM(quantile, X_train, y_train, X_valid, y_valid, n_timesteps, n_features, folder_saving, model_saved, n_outputs = 1):
+def train_LSTM(quantile, X_train, y_train, X_valid, y_valid, n_timesteps, n_features, hidden_size, batch_size, epochs, lr, alphas, q50, folder_saving, model_saved, n_outputs = 1):
 
     valid = True
 
@@ -39,45 +39,44 @@ def train_LSTM(quantile, X_train, y_train, X_valid, y_valid, n_timesteps, n_feat
 
     print(X_train.shape, y_train.shape)
 
-    train_on_gpu = torch.cuda.is_available()
-    print(train_on_gpu)
+    outputs = len(alphas)
 
-    # point_foreaster = ConvForecasterDilationLowRes(n_features, n_timesteps, folder_saving, model_saved, quantile, outputs=n_outputs, valid=valid)
-    quantile_forecaster = quantileLSTM(n_features, n_timesteps, folder_saving, model_saved, quantile, hidden_size=25,alphas = np.arange(0.05, 1.0, 0.05), outputs=19, valid=valid)
-    if train_on_gpu:
-        quantile_forecaster = quantile_forecaster.cuda()
-        # point_foreaster = point_foreaster.cuda()
+    learning_rate = lr
 
-    print(quantile_forecaster)
-    learning_rate = 1e-3
+    epochs = epochs
+    batch_size = batch_size
 
-    epochs = 300
-    batch_size = 32
-    train_loss, valid_loss = quantile_forecaster.trainBatchwise(X_train, y_train, epochs, batch_size,learning_rate, X_valid, y_valid, patience=1000)
-    loss_plots(train_loss,valid_loss,folder_saving,model_saved)
+    train_loss, valid_loss = trainBatchwise(X_train, y_train, epochs, batch_size, learning_rate, X_valid, y_valid,
+                                            n_outputs, n_features, n_timesteps, folder_saving, model_saved, quantile,
+                                            hidden_size, alphas=alphas, outputs=outputs, valid=valid,
+                                            patience=1000)
+
+    loss_plots(train_loss, valid_loss, folder_saving, model_saved)
 
 
-def test_LSTM(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_features, folder_saving, model_saved, n_outputs = 1):
+def test_LSTM(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_features, hidden_size, alphas, q50, folder_saving, model_saved, n_outputs = 1):
 
-
-    X_test, y_test = X_test.astype(np.float32), y_test.astype(np.float32)
-    X_test = torch.from_numpy(X_test).reshape(-1, n_timesteps, n_features)
+    if X_test is not None:
+        X_test, y_test = X_test.astype(np.float32), y_test.astype(np.float32)
+        X_test = torch.from_numpy(X_test).reshape(-1, n_timesteps, n_features)
 
     if X_valid is not None:
         X_valid, y_valid = X_valid.astype(np.float32), y_valid.astype(np.float32)
         X_valid = torch.from_numpy(X_valid).reshape(-1, n_timesteps, n_features)
 
+    outputs = len(alphas)
 
+    quantile_forecaster = quantileLSTM(n_features, n_timesteps, folder_saving, model_saved, quantile, hidden_size, alphas = alphas, outputs = outputs, valid=True)
 
-    quantile_forecaster = quantileLSTM(n_features, n_timesteps, folder_saving, model_saved, quantile,hidden_size=25,
-                                                      alphas=np.arange(0.05, 1.0, 0.05), outputs=19, valid=True)
-
-    quantile_forecaster.load_state_dict(torch.load(folder_saving + model_saved))
+    quantile_forecaster.load_state_dict(torch.load(folder_saving + model_saved, map_location=torch.device('cpu')))
 
     quantile_forecaster.eval()
 
-    y_pred = quantile_forecaster.forward(X_test)
-    y_pred = y_pred.cpu().detach().numpy()
+    y_pred = None
+    if X_test is not None:
+        y_pred = quantile_forecaster.forward(X_test)
+        y_pred = y_pred.cpu().detach().numpy()
+
     y_valid_pred = None
 
     if X_valid is not None:
@@ -86,11 +85,13 @@ def test_LSTM(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_feature
 
     valid_crps, test_crps = 0.0, 0.0
     if quantile:
-        test_crps = quantile_forecaster.crps_score(y_pred, y_test, np.arange(0.05, 1.0, 0.05))
-        y_pred = y_pred[:,9]
+
+        if X_test is not None:
+            test_crps = crps_score(y_pred, y_test, np.arange(0.05, 1.0, 0.05))
+            y_pred = y_pred[:,9]
 
         if X_valid is not None:
-            valid_crps = quantile_forecaster.crps_score(y_valid_pred, y_valid, np.arange(0.05, 1.0, 0.05))
+            valid_crps = crps_score(y_valid_pred, y_valid, np.arange(0.05, 1.0, 0.05))
             y_valid_pred = y_valid_pred[:,9]
 
     return y_pred, y_valid_pred, valid_crps, test_crps
@@ -150,7 +151,7 @@ def test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_
 
     if X_test is not None:
         X_test, y_test = X_test.astype(np.float32), y_test.astype(np.float32)
-        X_test = torch.from_numpy(X_test).reshape(-1, n_features, n_timesteps)
+        X_test = torch.from_numpy(X_test).reshape(-1, n_timesteps, n_features)
 
 
     if X_valid is not None:
@@ -181,12 +182,12 @@ def test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_
     y_pred = None
     if X_test is not None:
         y_pred = quantile_forecaster.forward(X_test)
-        # y_pred = y_pred.cpu().detach().numpy()
+        y_pred = y_pred.cpu().detach().numpy()
     y_valid_pred = None
 
     if X_valid is not None:
         y_valid_pred = quantile_forecaster.forward(X_valid)
-        # y_valid_pred = y_valid_pred.cpu().detach().numpy()
+        y_valid_pred = y_valid_pred.cpu().detach().numpy()
 
     valid_crps, test_crps = 0.0, 0.0
     if quantile:
@@ -203,7 +204,7 @@ def test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_
                 # y_pred = y_pred[:,:,q50]
 
             else:
-                y_pred = y_pred.cpu().detach().numpy()
+    #            y_pred = y_pred.cpu().detach().numpy()
                 test_crps = crps_score(y_pred, y_test, alphas)
                 y_pred = y_pred[:, q50]  # changed from 9
 
@@ -219,7 +220,7 @@ def test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_
                 # y_valid_pred = y_valid_pred[:, :, q50]
 
             else:
-                y_valid_pred = y_valid_pred.cpu().detach().numpy()
+     #           y_valid_pred = y_valid_pred.cpu().detach().numpy()
                 valid_crps = crps_score(y_valid_pred, y_valid, alphas)
                 y_valid_pred = y_valid_pred[:, q50]
 

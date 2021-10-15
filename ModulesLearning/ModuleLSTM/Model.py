@@ -60,42 +60,44 @@ class EarlyStopping:
 class quantileLSTM(nn.Module):
 
     # def __init__(self, num_classes, input_size, hidden_size, num_layers)
-    def __init__(self, input_dim, timesteps, folder_saving, model, quantile, hidden_size, num_layers=1, alphas=None, outputs=None, valid=False):
+    def __init__(self, input_dim, timesteps, folder_saving, model, quantile, hidden_size=25, alphas=None, outputs=None, valid=False, dropout = 0.3, num_layers=1):
         super(quantileLSTM, self).__init__()
-
         self.quantile = quantile
         if self.quantile:
             assert outputs == len(alphas), "The outputs and the quantiles should be of the same dimension"
+        else:
+            outputs = 1
 
-
-        self.outputs = outputs
-        self.num_layers = num_layers
         self.input_dim = input_dim
         self.hidden_size = hidden_size
+        self.num_layers = num_layers
         self.timesteps = timesteps
         self.alphas = alphas
+        self.outputs = outputs
         self.valid = valid
         self.train_mode = False
         self.saving_path = folder_saving + model
 
         self.lstm = nn.LSTM(input_size=self.input_dim, hidden_size=self.hidden_size,
-                            num_layers=self.num_layers, batch_first=True)
+                            num_layers=self.num_layers, batch_first=True, dropout = dropout)
+        self.relu = nn.ReLU()
 
-        self.fc = nn.Linear(hidden_size, self.outputs)
+
+        self.fc = nn.Linear(self.hidden_size, self.outputs)
 
     def forward(self, x):
         h_0 = Variable(torch.zeros(
-            self.num_layers, x.size(0), self.hidden_size))
+            self.num_layers, x.size(0), self.hidden_size,device=x.device))
 
         c_0 = Variable(torch.zeros(
-            self.num_layers, x.size(0), self.hidden_size))
+            self.num_layers, x.size(0), self.hidden_size,device=x.device))
 
         # Propagate input through LSTM
         ula, (h_out, _) = self.lstm(x, (h_0, c_0))
 
         h_out = h_out.view(-1, self.hidden_size)
 
-        out = self.fc(h_out)
+        out = self.fc(self.relu(h_out))
 
         return out
 
@@ -239,12 +241,13 @@ class TransAm(nn.Module):
         super(TransAm, self).__init__()
         self.model_type = 'Transformer'
 
+        self.quantile = quantile
         if self.quantile:
             assert outputs == len(alphas), "The outputs and the quantiles should be of the same dimension"
         else:
             outputs = 1
 
-        self.outouts = outputs
+        self.outputs = outputs
         self.num_layers = num_layers
         self.input_dim = input_dim
         self.d_model = d_model
@@ -254,7 +257,7 @@ class TransAm(nn.Module):
         self.valid = valid
         self.train_mode = False
         self.saving_path = folder_saving + model
-        self.quantile = quantile
+
 
         self.src_mask = None
 
@@ -403,28 +406,34 @@ class TransAm(nn.Module):
 #         # return pred_outputs
 
 
+#def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
+ #                 validY, n_output_length, n_features, n_timesteps, folder_saving, model_saved, quantile, n_layers, factor, alphas, outputs, valid, output_seq_len, num_heads, d_model, patience=None, verbose=None, reg_lamdba = 0):
 def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
-                   validY, n_output_length, n_features, n_timesteps, folder_saving, model_saved, quantile, n_layers, factor, alphas, outputs, valid, output_seq_len, num_heads, d_model, patience=None, verbose=None, reg_lamdba = 0):
-
+                   validY, n_output_length, n_features, n_timesteps, folder_saving, model_saved, quantile,hidden_size, alphas, outputs, valid, patience=None, verbose=None,
+                   reg_lamdba=0):
     train_on_gpu = torch.cuda.is_available()
     print(train_on_gpu)
     # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     parallel = False
-    quantile_forecaster = TransAm(n_features, n_timesteps, folder_saving, model_saved, quantile,  alphas = alphas, outputs = outputs, valid=valid, num_heads=num_heads, d_model=d_model, num_layers=n_layers)
-    # quantile_forecaster = MultiAttnHeadSimple(n_features, n_timesteps, folder_saving, model_saved, quantile, n_layers, factor, alphas = alphas, outputs = outputs, valid=valid, output_seq_len = output_seq_len, num_heads=num_heads, d_model=d_model)
+    quantile_forecaster = quantileLSTM(n_features, n_timesteps, folder_saving, model_saved, quantile, hidden_size, alphas = alphas, outputs = outputs, valid=valid)
+
+    #quantile_forecaster = MultiAttnHeadSimple(n_features, n_timesteps, folder_saving, model_saved, quantile, n_layers, factor, alphas = alphas, outputs = outputs, valid=valid, output_seq_len = output_seq_len, num_heads=num_heads, d_model=d_model)
+  #  quantile_forecaster = TransAm(n_features, n_timesteps, folder_saving, model_saved, quantile, alphas=alphas,
+   #                               outputs=outputs, valid=valid, num_heads=num_heads, d_model=d_model,
+    #                              num_layers=n_layers)
     if train_on_gpu:
-        if torch.cuda.device_count() > 1:
-            print("Let's use", torch.cuda.device_count(), "GPUs!")
-            quantile_forecaster = nn.DataParallel(quantile_forecaster)
-            parallel=True
+        # if torch.cuda.device_count() > 1:
+        #     print("Let's use", torch.cuda.device_count(), "GPUs!")
+        #     quantile_forecaster = nn.DataParallel(quantile_forecaster)
+        #     parallel=True
         quantile_forecaster = quantile_forecaster.cuda()
 
         # point_foreaster = point_foreaster.cuda()
 
     print(quantile_forecaster)
 
-    optimizer = torch.optim.Adam(quantile_forecaster.parameters(), lr=lr) #, betas = (0.9,0.98))
+    optimizer = torch.optim.Adam(quantile_forecaster.parameters(), lr=lr) #, betas = (0.9,0.98)) # clipnorm is here for LSTM
     # scheduler = StepLR(optimizer, step_size=25, gamma=0.1)
     criterion = torch.nn.MSELoss()
     # criterion = nn.L1Loss()
@@ -476,7 +485,7 @@ def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
             total_loss = loss + reg_lamdba / 2 * reg_loss
             # backward pass: compute gradient of the loss with respect to model parameters
             total_loss.backward()
-            torch.nn.utils.clip_grad_norm_(quantile_forecaster.parameters(), 0.7)
+            torch.nn.utils.clip_grad_norm_(quantile_forecaster.parameters(), 1)
             # perform a single optimization step (parameter update)
             optimizer.step()
             # scheduler.step()
