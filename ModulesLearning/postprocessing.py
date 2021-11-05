@@ -67,18 +67,16 @@ def normal_persistence_model(X, index_ghi, lead):
 
 
 
-def final_true_pred_sp_np(true, pred, np, sp, climatology,CH_PeEN, lead, X, index_zen, index_clearghi, zenith_threshold=85):
+def final_true_pred_sp_np(true, pred, np, sp, climatology,CH_PeEN, lead, index_zen, index_clearghi, zenith_threshold=85):
 
-    # X = np.roll(X, lead, axis = 0)
-    # X =  X_test[lead:]
+
     true = true[2*lead:]
     pred = pred[2*lead:]
     np = np[2 * lead:]
     sp = sp[2 * lead:]
     climatology = climatology[2 * lead:]
     CH_PeEN = CH_PeEN[2 * lead:]
-    X = X[2 * lead:]
-    #
+
     print((pred<0).sum())
     # print(true.shape, pred.shape, np.shape, sp.shape, X.shape)
     # #
@@ -111,7 +109,12 @@ def final_true_pred_sp_np(true, pred, np, sp, climatology,CH_PeEN, lead, X, inde
 
 
 
-def evaluation_metrics(true, pred):
+def evaluation_metrics(true_arr, pred):
+
+    # true_arr = true_arr[true_arr[:,1] > 0]
+    # true_arr = true_arr[true_arr[:,2] < 85]
+    true = true_arr[:,0]
+
     rmse = sqrt(mean_squared_error(true, pred))
     mae = mean_absolute_error(true, pred)
     squared_diff = (true - pred)**2
@@ -136,25 +139,25 @@ def skill_score(our, persis):
     return skill
 
 
-def plot_results(true_day, pred_day, sp_day, lead, season, folder_plots, model):
-    # t = np.reshape(true_day, (1, true_day.shape[0]))
-    # p = np.reshape(pred_day, (1, pred_day.shape[0]))
-    # s = np.reshape(sp_day, (1, sp_day.shape[0]))
-
-    t = true_day.flatten()
-    p = pred_day.flatten()
-    s = sp_day.flatten()
-    x = np.asarray(range(true_day.shape[0]))
-    # x = np.reshape(x, (1, x.shape[0]))
-
-    # print(x.shape, t.shape, p.shape, s.shape)
-    plt.figure(figsize=(20, 10))
-    # plt.plot(x[:, 150:250], t[:, 150:250], 'g<')
-    # plt.plot(x[:, 150:250], p[:, 150:250], 'b*')
-    # plt.plot(x[:, 150:250], s[:, 150:250], 'r.')
-    plt.plot(x, t, label="true values")
-    plt.plot(x, p, label="predicted values")
-    plt.plot(x, s, label="smart persistence values")
-    plt.legend(loc="upper left")
-    plt.savefig(folder_plots+"/final_comparison_plots_for_lead"+str(lead)+"_season"+str(season)+"_with_"+str(model))
-    return
+# def plot_results(true_day, pred_day, sp_day, lead, season, folder_plots, model):
+#     # t = np.reshape(true_day, (1, true_day.shape[0]))
+#     # p = np.reshape(pred_day, (1, pred_day.shape[0]))
+#     # s = np.reshape(sp_day, (1, sp_day.shape[0]))
+#
+#     t = true_day.flatten()
+#     p = pred_day.flatten()
+#     s = sp_day.flatten()
+#     x = np.asarray(range(true_day.shape[0]))
+#     # x = np.reshape(x, (1, x.shape[0]))
+#
+#     # print(x.shape, t.shape, p.shape, s.shape)
+#     plt.figure(figsize=(20, 10))
+#     # plt.plot(x[:, 150:250], t[:, 150:250], 'g<')
+#     # plt.plot(x[:, 150:250], p[:, 150:250], 'b*')
+#     # plt.plot(x[:, 150:250], s[:, 150:250], 'r.')
+#     plt.plot(x, t, label="true values")
+#     plt.plot(x, p, label="predicted values")
+#     plt.plot(x, s, label="smart persistence values")
+#     plt.legend(loc="upper left")
+#     plt.savefig(folder_plots+"/final_comparison_plots_for_lead"+str(lead)+"_season"+str(season)+"_with_"+str(model))
+#     return

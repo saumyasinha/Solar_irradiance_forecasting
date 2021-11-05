@@ -91,7 +91,7 @@ def get_site_array(site,year):
 
 def main():
 
-    for year in [2017]:
+    for year in [2016,2017,2018]:
         for site in site_names:
             get_site_array(site,year)
 

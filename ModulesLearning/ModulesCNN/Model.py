@@ -154,9 +154,9 @@ class ConvForecasterDilationLowRes(nn.Module):
         # # self.fc = nn.Linear(self.conv_output_size,self.outputs)
 
 
-        num_channels = [25] * 3  # 6#24/25 before and 6 num of channels, reduced for multihead
+        num_channels = [75] * 3  # 6#24/25 before and 6 num of channels, reduced for multihead
         self.tcn = TemporalConvNet(self.input_dim, num_channels, kernel_size=3, dropout=0.2,
-                                   attention=True)  # kernel size changed to 3 instead of 5
+                                   attention=False)  # kernel size changed to 3 instead of 5
 
 
         self.linear = nn.Linear(num_channels[-1], self.outputs)
@@ -390,7 +390,7 @@ def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
 
     print(quantile_forecaster)
 
-    optimizer = torch.optim.Adam(quantile_forecaster.parameters(), lr=lr)
+    optimizer = torch.optim.Adam(quantile_forecaster.parameters(), lr=lr,betas=(0.9, 0.999), eps=1e-08, weight_decay = 1e-5)
     # scheduler = StepLR(optimizer, step_size=25, gamma=0.1)
     criterion = torch.nn.MSELoss() #torch.nn.L1Loss()
     # criterion = nn.L1Loss()

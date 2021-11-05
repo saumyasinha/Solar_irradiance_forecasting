@@ -29,12 +29,14 @@ def train_LSTM(quantile, X_train, y_train, X_valid, y_valid, n_timesteps, n_feat
 
     # Size: [batch_size, seq_len, input_size]
     X_train, y_train = X_train.astype(np.float32), y_train.astype(np.float32)
-    X_train = torch.from_numpy(X_train).reshape(-1, n_timesteps, n_features)
+    X_train = torch.from_numpy(X_train)  # .reshape(-1, n_timesteps, n_features)
+    X_train = X_train.transpose(1, 2)
     y_train = torch.from_numpy(y_train).reshape(-1, n_outputs)
 
     if valid:
         X_valid, y_valid = X_valid.astype(np.float32), y_valid.astype(np.float32)
-        X_valid = torch.from_numpy(X_valid).reshape(-1, n_timesteps, n_features)
+        X_valid = torch.from_numpy(X_valid)#.reshape(-1, n_timesteps, n_features)
+        X_valid = X_valid.transpose(1, 2)
         y_valid = torch.from_numpy(y_valid).reshape(-1, n_outputs)
 
     print(X_train.shape, y_train.shape)
@@ -59,11 +61,13 @@ def test_LSTM(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_feature
 
     if X_test is not None:
         X_test, y_test = X_test.astype(np.float32), y_test.astype(np.float32)
-        X_test = torch.from_numpy(X_test).reshape(-1, n_timesteps, n_features)
+        X_test = torch.from_numpy(X_test) #.reshape(-1, n_timesteps, n_features)
+        X_test = X_test.transpose(1, 2)
 
     if X_valid is not None:
         X_valid, y_valid = X_valid.astype(np.float32), y_valid.astype(np.float32)
-        X_valid = torch.from_numpy(X_valid).reshape(-1, n_timesteps, n_features)
+        X_valid = torch.from_numpy(X_valid) #.reshape(-1, n_timesteps, n_features)
+        X_valid = X_valid.transpose(1, 2)
 
     outputs = len(alphas)
 
@@ -108,7 +112,7 @@ def test_LSTM(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_feature
     return y_pred, y_valid_pred, valid_crps, test_crps
 
 
-def train_transformer(quantile, X_train, y_train, X_valid, y_valid, n_timesteps, n_features, n_layers, factor, num_heads, d_model, batch_size, epochs, lr, alphas, q50, folder_saving, model_saved, n_outputs = 1):
+def train_transformer(quantile, X_train, y_train, X_valid, y_valid, n_timesteps, n_features, n_layers, num_heads, d_model, batch_size, epochs, lr, alphas, q50, folder_saving, model_saved, n_outputs = 1):
 
     valid = True
 
@@ -119,13 +123,15 @@ def train_transformer(quantile, X_train, y_train, X_valid, y_valid, n_timesteps,
     # Size: [batch_size, seq_len, input_size]
     X_train, y_train = X_train.astype(np.float32), y_train.astype(np.float32)
     # X_train = torch.from_numpy(X_train).reshape(-1, n_features, n_timesteps)
-    X_train = torch.from_numpy(X_train).reshape(-1, n_timesteps, n_features)
+    X_train = torch.from_numpy(X_train) #.reshape(-1, n_timesteps, n_features)
+    X_train = X_train.transpose(1,2)
     y_train = torch.from_numpy(y_train).reshape(-1,n_outputs)
 
     if valid:
         X_valid, y_valid = X_valid.astype(np.float32), y_valid.astype(np.float32)
         # X_valid = torch.from_numpy(X_valid).reshape(-1, n_features, n_timesteps)
-        X_valid = torch.from_numpy(X_valid).reshape(-1, n_timesteps, n_features)
+        X_valid = torch.from_numpy(X_valid) #.reshape(-1, n_timesteps, n_features)
+        X_valid = X_valid.transpose(1, 2)
         y_valid = torch.from_numpy(y_valid).reshape(-1,n_outputs)
 
     print(X_train.shape, y_train.shape)
@@ -153,22 +159,24 @@ def train_transformer(quantile, X_train, y_train, X_valid, y_valid, n_timesteps,
     epochs = epochs
     batch_size = batch_size
 
-    train_loss, valid_loss = trainBatchwise(X_train, y_train, epochs, batch_size,learning_rate, X_valid, y_valid, n_outputs,n_features, n_timesteps, folder_saving, model_saved, quantile, n_layers, factor, alphas = alphas, outputs = outputs, valid=valid, output_seq_len = n_outputs, num_heads=num_heads, d_model=d_model, patience=1000)
+    train_loss, valid_loss = trainBatchwise(X_train, y_train, epochs, batch_size,learning_rate, X_valid, y_valid, n_outputs,n_features, n_timesteps, folder_saving, model_saved, quantile, n_layers,  alphas = alphas, outputs = outputs, valid=valid, output_seq_len = n_outputs, num_heads=num_heads, d_model=d_model, patience=1000)
 
     loss_plots(train_loss,valid_loss,folder_saving,model_saved)
 
 
-def test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_features, n_layers, factor, num_heads, d_model, alphas, q50, folder_saving, model_saved, X_before_normalized=None, index_clearghi=None, lead=None, n_outputs = 1):
+def test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_features, n_layers,  num_heads, d_model, alphas, q50, folder_saving, model_saved, X_before_normalized=None, index_clearghi=None, lead=None, n_outputs = 1):
 
     if X_test is not None:
         X_test, y_test = X_test.astype(np.float32), y_test.astype(np.float32)
-        X_test = torch.from_numpy(X_test).reshape(-1, n_timesteps, n_features)
+        X_test = torch.from_numpy(X_test) #.reshape(-1, n_timesteps, n_features)
+        X_test = X_test.transpose(1, 2)
 
 
     if X_valid is not None:
         X_valid, y_valid = X_valid.astype(np.float32), y_valid.astype(np.float32)
         # X_valid = torch.from_numpy(X_valid).reshape(-1, n_features, n_timesteps)
-        X_valid = torch.from_numpy(X_valid).reshape(-1, n_timesteps, n_features)
+        X_valid = torch.from_numpy(X_valid) #.reshape(-1, n_timesteps, n_features)
+        X_valid = X_valid.transpose(1, 2)
 
 
     # point_foreaster = MultiAttnHeadSimple(n_features, n_timesteps, folder_saving, model_saved, quantile, outputs=n_outputs,

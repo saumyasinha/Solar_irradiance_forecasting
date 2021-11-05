@@ -15,7 +15,7 @@ from SolarForecasting.ModulesLearning import clustering as clustering
 from ngboost.scores import CRPS, MLE
 
 
-ppd.set_option('display.max_rows', 500)
+pd.set_option('display.max_rows', 500)
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.width', 1000)
 

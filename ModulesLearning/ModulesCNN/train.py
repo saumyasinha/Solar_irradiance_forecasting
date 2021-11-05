@@ -145,7 +145,7 @@ def train_DCNN_with_attention(quantile, X_train, y_train, X_valid, y_valid, n_ti
     #         X_train, y_train, test_size=0.15, random_state=42)
 
     X_train, y_train = X_train.astype(np.float32), y_train.astype(np.float32)
-    X_train = torch.from_numpy(X_train).reshape(-1, n_features, n_timesteps)
+    X_train = torch.from_numpy(X_train) #.reshape(-1, n_features, n_timesteps)
     y_train = torch.from_numpy(y_train).reshape(-1, n_outputs)
 
     # X_train.unsqueeze_(1)
@@ -155,7 +155,7 @@ def train_DCNN_with_attention(quantile, X_train, y_train, X_valid, y_valid, n_ti
     #
     if valid:
         X_valid, y_valid = X_valid.astype(np.float32), y_valid.astype(np.float32)
-        X_valid = torch.from_numpy(X_valid).reshape(-1, n_features, n_timesteps)
+        X_valid = torch.from_numpy(X_valid) #.reshape(-1, n_features, n_timesteps)
         y_valid = torch.from_numpy(y_valid).reshape(-1, n_outputs)
         # X_valid.unsqueeze_(1)
         # X_valid = X_valid.repeat(1, 3, 1, 1)
@@ -182,7 +182,7 @@ def test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_times
 
     if X_test is not None:
         X_test, y_test = X_test.astype(np.float32), y_test.astype(np.float32)
-        X_test = torch.from_numpy(X_test).reshape(-1, n_features, n_timesteps)
+        X_test = torch.from_numpy(X_test) #.reshape(-1, n_features, n_timesteps)
 
         # X_test.unsqueeze_(1)
         # X_test = X_test.repeat(1, 3, 1, 1)
@@ -191,7 +191,7 @@ def test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_times
 
     if X_valid is not None:
         X_valid, y_valid = X_valid.astype(np.float32), y_valid.astype(np.float32)
-        X_valid = torch.from_numpy(X_valid).reshape(-1, n_features, n_timesteps)
+        X_valid = torch.from_numpy(X_valid) #.reshape(-1, n_features, n_timesteps)
 
         # X_valid.unsqueeze_(1)
         # X_valid = X_valid.repeat(1, 3, 1, 1)

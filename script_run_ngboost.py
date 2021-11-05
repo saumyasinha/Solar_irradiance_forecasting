@@ -19,20 +19,17 @@ pd.set_option('display.max_rows', 500)
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.width', 1000)
 
-# All the variables and hyper-parameters
-
 # city
-city =  "Goodwin_Creek_MS" #"Boulder_CO"#'Bondville_IL'# 'Fort_Peck_MT' #'Penn_State_PA' #'Sioux_Falls_SD' #'Fort_Peck_MT' #
+city = 'Sioux_Falls_SD'#'Boulder_CO'#'Goodwin_Creek_MS'#'Desert_Rock_NV'
 
-# lead time i.e how much in advance you want to make a prediction (lead of 4 corresponds to 1 hour..since the data is at 15min resolution)
-lead_times = [24*7]#[24*4*7]#[24*12*7]#[12*12,12*24,12,12*2,12*3,12*4,12*5,12*6,8,4,2]
+# lead time
+lead_times = [24*7] #7days in advance
 
 # season
-seasons =['year'] #from ['fall', 'winter', 'spring', 'summer', 'year']
-res = '1hour'#'15min'
+seasons =['year']
+res = '1hour' #15min
 
 # file locations
-# path_desktop = "C:\\Users\Shivendra\Desktop\SolarProject\solar_forecasting/"
 path_local = "/Users/saumya/Desktop/SolarProject/"
 path_cluster = "/pl/active/machinelearning/Solar_forecasting_project/"
 path_project = path_local
@@ -41,36 +38,30 @@ folder_saving = path_project + city+"/Models/"
 folder_plots = path_project + city+"/Plots/"
 clearsky_file_path = path+'clear-sky/'+city+'_1min_original.csv'
 
+
 # scan all the features
 features = ['year','month','day','hour','min','zen','dw_solar','uw_solar','direct_n','diffuse','dw_ir','dw_casetemp','dw_dometemp','uw_ir','uw_casetemp','uw_dometemp','uvb','par','netsolar','netir','totalnet','temp','rh','windspd','winddir','pressure']
 
-# selected features for the study
-# final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','dw_ir','temp','rh','windspd','winddir','pressure','clear_ghi']
-
-# ## selected features for the study
-# final_features = ['year','month','day','hour','MinFlag','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
-
-## selected features for the study
+## ## selected features for the study
 final_features = ['year','month','day','hour','zen','dw_solar','uw_solar','direct_n','dw_ir','uw_ir','temp','rh','windspd','winddir','pressure', 'clear_ghi']
+ensmeble_col_list = ["ensemble_" + str(ensemble_num) for ensemble_num in range(51)]
 
-# final_features = ['year','month','day','hour','MinFlag','dw_solar','clear_ghi']
+
 # target or Y
-target_feature = ['clearness_index']
+target_feature = 'clearness_index'
 
 # start and end month+year
-startyear = 2016 #2016 #2005
-endyear = 2018 #2009
+startyear = 2016
+endyear = 2018
 startmonth = 1
 endmonth = 12
 
-# test year
-# testyear = 2008  # i.e all of Fall(Sep2008-Nov2008), Winter(Dec2008-Feb2009), Spring(Mar2009-May2009), Summer(June2009-Aug2009), year(Sep2008-Aug2009)
 testyear = 2018
 
 # hyperparameters
-n_timesteps = 24*2 #24*4*1
-n_features = 15 #(after including month and hour)
-quantile = False
+n_timesteps = 12 #1day (can be 12hrs or 48hrs for a few models)
+n_features = 15 + 51
+
 
 def get_data():
 
@@ -87,29 +78,104 @@ def get_data():
         object.process(path_to_column_names='ModulesProcessing/column_names.pkl')
 
 
-def include_previous_features(X, index_ghi):
+def include_previous_features(X, col_to_indices_mapping):
     '''
     Features at time t includes features from previous n_timesteps
     '''
-    y_list = []
-    previous_time_periods = list(range(1, n_timesteps+1))
-    # dw_solar = X[:, index_ghi]
+    # y_list = []
+    # previous_time_periods = list(range(1, n_timesteps+1))
+    # # indices_except_ensmebles = sorted([feature_ind for feature, feature_ind in col_to_indices_mapping.items() if not feature.startswith('ensemble')])
+    # # print(indices_except_ensmebles)
+    # # Xsub = X[:,indices_except_ensmebles]
+    #
+    # for l in previous_time_periods:
+    #     # print("rolling by: ", l)
+    #     X_train_shifted = np.roll(X, l, axis=0)
+    #
+    #     y_list.append(X_train_shifted)
+    #     # y_list.append(dw_solar_rolled)
+    # y_list = y_list[::-1]
+    #
+    # previous_time_periods_columns = np.column_stack(y_list)
+    # X = np.column_stack([previous_time_periods_columns, X])
+    #
+    # print("X shape after adding prev features: ", X.shape)
+    # return X
 
-    for l in previous_time_periods:
-        # print("rolling by: ", l)
-        X_train_shifted = np.roll(X, l, axis=0)
-        y_list.append(X_train_shifted)
-        # y_list.append(dw_solar_rolled)
-    y_list = y_list[::-1]
-    # print(y_list)
-    previous_time_periods_columns = np.column_stack(y_list)
-    X_final = np.column_stack([previous_time_periods_columns, X])
+    X = np.expand_dims(X, axis=2)
+    # indices_except_ensmebles = sorted(
+    #     [feature_ind for feature, feature_ind in col_to_indices_mapping.items() if not feature.startswith('ensemble')])
+    # # print(X.shape)
+    X_with_prev_timesteps = []
+    data_size = X.shape[0]
+    for i in range(n_timesteps,data_size):
+        prev_list =[]
+        for j in range(n_timesteps,0,-1):
+            prev = X[i-j,:,:]
+            # prev_sub = prev[indices_except_ensmebles,:]
+            # print(prev.shape)
+            prev_list.append(prev)
 
-    # X = np.transpose(np.array(y_list), ((1, 0, 2)))
-    # max_lead = np.max(previous_time_periods)
-    # X = X[max_lead:]
-    print("X shape after adding prev features: ", X.shape)
-    return X_final
+        curr = X[i,:,:]
+        prev_list.append(curr)
+        temp = np.concatenate(prev_list, axis=1)
+
+        # print(temp.shape)
+        X_with_prev_timesteps.append(temp)
+
+    # print(len(X_with_prev_timesteps))
+
+    X = np.array(X_with_prev_timesteps)
+    # print(X.shape)
+    return X
+
+
+def include_nwp_features(df):
+
+    missing_hour_dates = {2016:[263,265], 2017:[283], 2018:[144]}
+
+    fnwp = path + "NWP/" + city + "/"
+
+    #Alreadt sorted
+    # df = dfraw.sort_values(by=['year','month','day','hour'])
+    # print("inside nwp")
+    # print(dfraw.equals(df))
+
+
+
+    for ensemble in ensmeble_col_list:
+        df[ensemble] = ""
+
+    nwp_new_columns = []
+    for year in [2016,2017,2018]:
+        print(len(df[df['year'] == year]))
+        year_list = []
+        fnwp_yr = fnwp+"nwp_"+str(year)+".npy"
+        nwp_yr = np.load(fnwp_yr)
+        nwp_yr = nwp_yr/(168*3600)
+        days = nwp_yr.shape[0]
+        for day in range(days):
+            if day not in missing_hour_dates[year]:
+                nwp_day = nwp_yr[day]
+                print(nwp_day.shape)
+                x_1_12 = np.tile(nwp_day[0], (12,1))
+                x_13_24 = np.tile(nwp_day[1], (12,1))
+                x_day = np.concatenate((x_1_12, x_13_24), axis=0)
+                print(x_day.shape)
+                year_list.append(x_day)
+
+        year_nwp = np.concatenate(year_list)
+        print(year_nwp)
+        print(year_nwp.shape)
+        nwp_new_columns.append(year_nwp)
+
+    nwp_new_columns = np.concatenate(nwp_new_columns)
+    print(np.max(nwp_new_columns), np.min(nwp_new_columns))
+
+    df.loc[:,ensmeble_col_list] = nwp_new_columns
+
+
+    return df
 
 
 def get_crps_for_ngboost(model, X, y):
@@ -133,39 +199,58 @@ def get_crps_for_ngboost(model, X, y):
 
 def main():
 
-    # # # ## pre-processing steps
-    # #
+
+    # # pre-processing steps
+    #
     # # extract the input data files (SURFAD data)
     # processed_file_path = path + 'processed/' + city
     # if not os.path.isdir(processed_file_path):
     #     get_data()
     # combined_csv = preprocess.extract_frame(processed_file_path)
     # print("The columns of the initial data file: ", combined_csv.columns)
-    # #
+    #
     # # extract the features from the input
     # dataset = combined_csv[features]
     # print('dataset size: ',len(dataset))
-    # print(dataset.head())
-    #  #15 mins resolution
-    # # dataset['MinFlag'] = dataset['min'].apply(preprocess.generateFlag)
-    # # dataset = dataset.groupby(['year', 'month', 'day', 'hour', 'MinFlag']).mean()
     #
+    # #1hour resolution
+    # dataset['MinFlag'] = dataset['min'].apply(preprocess.generateFlag)
+    # # dataset = dataset.groupby(['year', 'month', 'day', 'hour', 'MinFlag']).mean()
     # dataset = dataset.groupby(['year', 'month', 'day', 'hour']).mean()
     # dataset.reset_index(inplace=True)
-    # print('dataset size : ',len(dataset))
+    # print('dataset size: ',len(dataset))
     #
     # print(dataset.isnull().values.any())
+    #
+    # ##checking month-wise hour counts per year (turns out we don't have every hour of every day!!
+    # # df = dataset[dataset['year']==2016]
+    # # print(df.groupby(['month', 'day'])['hour'].count())
+    # # (based on:
+    # # 2016: Sep 20: only 15 hrs (244+20)
+    # # Sep 22: only 9 hrs(244 + 22)
+    # # 2017:Oct 11: only 14 hours(273 + 11)
+    # # 2018: April 25: only 15 hours) we drop the follwoing indices
+    # dataset = dataset.drop(dataset[(dataset['year']==2016) & (dataset['month']==9) & (dataset['day']==20)].index)
+    # dataset = dataset.drop(
+    #     dataset[(dataset['year'] == 2016) & (dataset['month'] == 9) & (dataset['day'] == 22)].index)
+    # dataset = dataset.drop(
+    #     dataset[(dataset['year'] == 2017) & (dataset['month'] == 10) & (dataset['day'] == 11)].index)
+    # dataset = dataset.drop(
+    #     dataset[(dataset['year'] == 2018) & (dataset['month'] == 4) & (dataset['day'] == 25)].index)
+    #
+    # # df = dataset[dataset['year'] == 2016]
+    # # print(df.groupby(['month', 'day'])['hour'].count())
+    # dataset.reset_index(inplace=True)
+    # print('dataset size: ', len(dataset))
     #
     # # read the clear-sky values
     # clearsky = pd.read_csv(clearsky_file_path, skiprows=37, delimiter=';')
     # print("The columns of the clear sky file: ", clearsky.columns)
-    #
+    # #
     # # divide the observation period in form of year, month, day, hour, min (adding them as variables)
     # clearsky[['year', 'month', 'day', 'hour', 'min']] = clearsky['# Observation period'].apply(preprocess.extract_time)
-    # print("clearsky before converting to 1hour res", len(clearsky))
     # clearsky = clearsky.groupby(['year', 'month', 'day', 'hour']).mean()
     # # clearsky['MinFlag'] = clearsky['min'].apply(preprocess.generateFlag)
-    # #
     # # clearsky = clearsky.groupby(['year', 'month', 'day', 'hour', 'MinFlag']).mean()
     # print("clearsky rows before merging: ", len(clearsky))
     #
@@ -189,59 +274,54 @@ def main():
     # print(df.tail)
     #
     #
+    # ## Add NWP features
+    # df = include_nwp_features(df)
+    # # print("ssrd outliers: ", min(df), max(df))
+    # print(df.describe())
+    #
     # ## convert negatives to 0 for all features
     # df[df<0] = 0
     # print("stats of selected features/columns after converting all negatives to 0")
     # print(df.describe())
     #
-    #
-    # # adding the clearness index and dropping rows with 0 clear_ghi and taking only daytimes
-    # df = df[df['clear_ghi'] > 0]
-    # df_final = df[df['zen']<85]
-    # df_final['clearness_index'] = df_final['dw_solar'] / df_final['clear_ghi']
-    # # df_final['clearness_index'] = df_final['dw_solar']
-    # df_final.reset_index(drop=True, inplace=True)
-    # print("after removing data points with 0 clear_ghi and selecting daytimes",len(df_final))
-    # # print(df_final.describe())
-    # # #
+    # ## adding the clearness index (taking care of "dive-by-zero")
+    # print("0 clear GHIs or GHI", len(df[df.clear_ghi==0]), len(df[df.dw_solar==0]))
+    # # df['clearness_index'] = df['dw_solar'] / df['clear_ghi']
+    # df['clearness_index'] = df['dw_solar'].div(df['clear_ghi'])
+    # df[~np.isfinite(df)] = 0
+    # df[np.isnan(df)] = 0
+    # print("checking for infinity/nans")
+    # print(np.isinf(df).values.sum())
+    # print(np.isnan(df).values.sum())
+    # # # #
     processed_file_path = path + 'processed/' + city + "/"
-    # df_final.to_pickle(processed_file_path + "data_At_" + res + "_resolution_2016-2018.pkl")
-    df_final = pd.read_pickle(processed_file_path + "data_At_" + res + "_resolution_2016-2018.pkl")
-    #
-    # # Plotting time series
-    # # x = np.asarray(range(df_final.shape[0]))
-    # # plt.figure(figsize=(20, 10))
-    # # plt.plot(x, df_final.dw_solar.values, label="GHI values")
-    # # plt.plot(x, df_final.clear_ghi.values, label="clearGHI index")
-    # # plt.legend(loc="upper left")
-    # # plt.savefig("time series of clearGHI and GHI")
-    # # plt.clf()
-    # # x = np.asarray(range(60))
-    # # plt.figure(figsize=(20, 10))
-    # # plt.plot(x, df_final.dw_solar.values[:60], label="GHI values")
-    # # plt.plot(x, df_final.clear_ghi.values[:60], label="clearGHI index")
-    # # plt.legend(loc="upper left")
-    # # plt.savefig("time series of clearGHI and GHI zoomed")
-    # # plt.clf()
-    # # x = np.asarray(range(60))
-    # # plt.figure(figsize=(20, 10))
-    # # plt.plot(x, df_final.clearness_index.values[:60], label="Clearness Index values")
-    # # plt.legend(loc="upper left")
-    # # plt.savefig("time series of clearness index zoomed")
-    # # plt.clf()
-    # #
+    # df.to_pickle(processed_file_path + "final_data_At_" + res + "_resolution_2016-2018_updated.pkl")
+    df = pd.read_pickle(processed_file_path + "final_data_At_" + res + "_resolution_2016-2018_updated.pkl") ##this files inlcudes the day times - I'll be dropping them later!!
+
+    final_features.extend(ensmeble_col_list)
     reg = "ngboost_with_2day_lag_week_ahead"  ## giving a name to the regression models -- useful when saving results
     #
     for season_flag in seasons:
-        os.makedirs(folder_saving + season_flag + "/ML_models_"+str(testyear)+"/probabilistic/"+str(res)+"/"+reg+"/", exist_ok=True)
-        f = open(folder_saving + season_flag + "/ML_models_"+str(testyear)+"/probabilistic/"+str(res)+"/"+reg+"//results.txt", 'a')
+        ## ML_models_2018 is the folder to save results on testyear 2018
+        os.makedirs(
+            folder_saving + season_flag + "/final_ML_models_" + str(testyear) + "/cnn/" + str(res) + "/" + reg + "/",
+            exist_ok=True)
+        f = open(folder_saving + season_flag + "/final_ML_models_" + str(testyear) + "/cnn/" + str(
+            res) + "/" + reg + "/results.txt", 'a')
 
         for lead in lead_times:
             # create dataset with lead
-            df_lead = preprocess.create_lead_dataset(df_final, lead, final_features, target_feature)
+            df_lead = preprocess.create_lead_dataset(df, lead, final_features, target_feature)
             df_lead = df_lead[:len(df_lead) - lead]
+            print(df_lead.describe())
+            ## dropping rows with 0 clear_ghi and taking only daytimes
+            df_lead = df_lead[(df_lead['clear_ghi'] > 0) & (df_lead['clear_ghi_target'] > 0)]  # 0]
+            # print(len(df_lead))
+            df_lead = df_lead[(df_lead['zen'] < 85) & (df_lead['zen_target'] < 85)]
+            df_lead.reset_index(drop=True, inplace=True)
+            print("after removing data points with 0 clear_ghi and selecting daytimes", len(df_lead))
 
-            # get the seasonal data you want
+            ## get the yearly/seasonal data
             df, test_startdate, test_enddate = preprocess.get_yearly_or_season_data(df_lead, season_flag, testyear)
             print("\n\n after getting seasonal data (test_startdate; test_enddate)", test_startdate, test_enddate)
             print(df.tail)
@@ -254,42 +334,48 @@ def main():
 
             if len(df_train) > 0 and len(df_heldout) > 0:
                 # extract the X_train, y_train, X_test, y_test
-                X_train, y_train, X_heldout, y_heldout, index_clearghi, index_ghi, index_zen, col_to_indices_mapping = preprocess.get_train_test_data(
-                    df_train, df_heldout, final_features, target_feature, lead)
+                X_train, y_train, X_heldout, y_heldout, col_to_indices_mapping = preprocess.get_train_test_data(
+                    df_train, df_heldout, final_features, target_feature)
                 print("\n\n train and test df shapes ")
                 print(X_train.shape, y_train.shape, X_heldout.shape, y_heldout.shape)
 
+                ## explicitly setting these two indices for using later
+                index_ghi = col_to_indices_mapping['dw_solar']
+                index_clearghi = col_to_indices_mapping['clear_ghi']
 
-                # including features from prev imestamps - didn't need to do that for NgBoost
-                X_train = include_previous_features(X_train, index_ghi)
-                X_heldout = include_previous_features(X_heldout, index_ghi)
+                # including features from prev imestamps
+                X_train = include_previous_features(X_train, col_to_indices_mapping)
+                X_heldout = include_previous_features(X_heldout, col_to_indices_mapping)
 
-                X_train = X_train[n_timesteps:, :]
-                X_heldout = X_heldout[n_timesteps:, :]
+                # X_train = X_train[n_timesteps:,:]
+                # X_heldout = X_heldout[n_timesteps:, :]
                 y_train = y_train[n_timesteps:, :]
                 y_heldout = y_heldout[n_timesteps:, :]
 
                 print("Final train size: ", X_train.shape, y_train.shape)
                 print("Final heldout size: ", X_heldout.shape, y_heldout.shape)
 
-                ## dividing the X_train data into train(70%)/valid(20%)/test(10%), the heldout data is kept hidden
+                ## dividing the X_train data into train(70%)/valid(30%) the heldout data is kept hidden
                 X_train, X_valid, y_train, y_valid = train_test_split(
-                    X_train, y_train, test_size=0.3, random_state=42)
-                # X_valid, X_test, y_valid, y_test = train_test_split(
-                #     X_test, y_test, test_size=0.3, random_state=42)
+                    X_train, y_train, test_size=0.3, random_state=42)  # 42
 
-                print("train/valid: ",len(X_train)," ",len(X_valid))
+                print("train/valid sizes: ", X_train.shape, " ", X_valid.shape)
 
-                # normalizing the Xtrain, Xvalid and Xtest data and saving the mean,std of train to normalize the heldout data later
-                X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, None, index_ghi, index_clearghi, len(col_to_indices_mapping), folder_saving+season_flag + "/ML_models_"+str(testyear)+"/probabilistic/"+str(res)+"/"+reg+"/",lead)
+                # normalizing the Xtrain, Xvalid and Xtest data
+                X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, None)
+                # ,folder_saving + season_flag + "/final_ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/")
 
+                y_train_model = y_train[:, 0]
+                y_valid_model = y_valid[:, 0]
+                y_test_model = y_heldout[:, 0]
 
-                y_train = np.reshape(y_train, -1)
-                # y_test = np.reshape(y_test, -1)
-                y_valid = np.reshape(y_valid, -1)
+                print(y_train_model.shape)
+                # y_train = np.reshape(y_train, -1)
+                # # y_test = np.reshape(y_test, -1)
+                # y_valid = np.reshape(y_valid, -1)
 
                 ## model built and saved (commented if it's already built and just being loaded as below)
-                model = NGBRegressor(n_estimators=2000).fit(X_train, y_train)
+                model = NGBRegressor(n_estimators=2000).fit(X_train, y_train_model)
                 # model = models.rfGridSearch_model(X_train, y_train)
                 pickle.dump(model, open(
                     folder_saving + season_flag + "/ML_models_"+str(testyear)+"/probabilistic/"+str(res)+"/"+reg+"/model_at_lead_" + str(lead) + ".pkl",
@@ -307,7 +393,7 @@ def main():
 
                 ## making predictions
                 # y_pred = model.predict(X_test)
-                y_valid_pred = model.predict(X_valid) #.reshape(X_valid.shape[0], n_timesteps + 1, n_features))
+                y_valid_pred = model.predict(X_valid)
 
                 # y_pred = np.reshape(y_pred, -1)
                 y_valid_pred = np.reshape(y_valid_pred, -1)
@@ -336,7 +422,7 @@ def main():
                 #
 
                 # # get CRPS score
-                crps_valid = get_crps_for_ngboost(model, X_valid, y_valid)
+                crps_valid = get_crps_for_ngboost(model, X_valid, y_valid_model)
                 # # # crps_test = get_crps_for_ngboost(model, X_test, y_test)
                 # #
                 f.write('\n CRPS score on valid data for lead ' + str(lead) + '=' + str(

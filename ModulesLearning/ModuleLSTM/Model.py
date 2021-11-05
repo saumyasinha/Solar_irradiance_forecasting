@@ -407,7 +407,7 @@ class TransAm(nn.Module):
 
 
 #def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
- #                 validY, n_output_length, n_features, n_timesteps, folder_saving, model_saved, quantile, n_layers, factor, alphas, outputs, valid, output_seq_len, num_heads, d_model, patience=None, verbose=None, reg_lamdba = 0):
+ #                 validY, n_output_length, n_features, n_timesteps, folder_saving, model_saved, quantile, n_layers, alphas, outputs, valid, output_seq_len, num_heads, d_model, patience=None, verbose=None, reg_lamdba = 0):
 
 def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
                    validY, n_output_length, n_features, n_timesteps, folder_saving, model_saved, quantile,hidden_size, alphas, outputs, valid, patience=None, verbose=None,
@@ -435,7 +435,7 @@ def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
 
     print(quantile_forecaster)
 
-    optimizer = torch.optim.Adam(quantile_forecaster.parameters(), lr=lr) #, betas = (0.9,0.98)) # clipnorm is here for LSTM
+    optimizer = torch.optim.Adam(quantile_forecaster.parameters(), lr=lr,betas=(0.9, 0.999), eps=1e-08, weight_decay = 1e-5) #, betas = (0.9,0.98)) # clipnorm is here for LSTM
     # scheduler = StepLR(optimizer, step_size=25, gamma=0.1)
     criterion = torch.nn.MSELoss()
     # criterion = nn.L1Loss()

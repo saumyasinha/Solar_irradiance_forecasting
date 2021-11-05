@@ -32,18 +32,7 @@ def extract_time(x):
     return pd.Series((dt.year, dt.month, dt.day, dt.hour, dt.minute))
 
 
-## not used anymore
-def adjust_boundary_values(dataframe):
-    '''
-    adjust outlier values, precisely negative solar and negative clear_ghi
-    '''
 
-    dataframe.loc[(dataframe.dw_solar < 0), 'dw_solar'] = 0.0
-    dataframe.loc[(dataframe.clear_ghi <= 0), 'clear_ghi'] = 1.0  #or 4.0
-
-
-    ## plot the clear ghi and remove the outliers, doesn't need to be normalized between 0 and 1 (4 might be better)
-    return dataframe
 
 
 def extract_study_period(dataframe,startmonth, startyear, endmonth, endyear):
@@ -63,33 +52,28 @@ def extract_study_period(dataframe,startmonth, startyear, endmonth, endyear):
     return df_yearly
 
 
-# not used anymore
-def adjust_outlier_clearness_index(dataframe):
-    # print(len(dataframe.loc[(dataframe.clearness_index < 0.0)]))
-    # print(len(dataframe.loc[(dataframe.clearness_index >= 5)]))
-    dataframe.loc[(dataframe.clearness_index < 0.0), 'clearness_index'] = 0.0
-    dataframe.loc[(dataframe.clearness_index >= 4), 'clearness_index'] = 4.0 # is 4.0 arbitrary here?
-
-    ## look at the outlier again by plotting
-    return dataframe
-
-
-def create_lead_dataset(dataframe, lead, final_set_of_features, target):
-    '''
-    create dataset for the given lead by adjusting the lead between the input features and target irradiance
-    '''
-    dataframe_lead = dataframe[final_set_of_features]
-    target = np.asarray(dataframe[target])
-    print("for target, it is rolled by lead (Y var) \n")
-    target = np.roll(target, -lead)
-    # target[-lead:] = np.nan
-    dataframe_lead['clearness_index'] = target
-
-    # remove rows which have any value as NaN
-    # dataframe_lead = dataframe_lead.dropna()
-    print("*****************")
-    print("dataframe with lead size: ",len(dataframe_lead))
-    return dataframe_lead
+# # not used anymore
+# def adjust_outlier_clearness_index(dataframe):
+#     # print(len(dataframe.loc[(dataframe.clearness_index < 0.0)]))
+#     # print(len(dataframe.loc[(dataframe.clearness_index >= 5)]))
+#     dataframe.loc[(dataframe.clearness_index < 0.0), 'clearness_index'] = 0.0
+#     dataframe.loc[(dataframe.clearness_index >= 4), 'clearness_index'] = 4.0 # is 4.0 arbitrary here?
+#
+#     ## look at the outlier again by plotting
+#     return dataframe
+#
+# ## not used anymore
+# def adjust_boundary_values(dataframe):
+#     '''
+#     adjust outlier values, precisely negative solar and negative clear_ghi
+#     '''
+#
+#     dataframe.loc[(dataframe.dw_solar < 0), 'dw_solar'] = 0.0
+#     dataframe.loc[(dataframe.clear_ghi <= 0), 'clear_ghi'] = 1.0  #or 4.0
+#
+#
+#     ## plot the clear ghi and remove the outliers, doesn't need to be normalized between 0 and 1 (4 might be better)
+#     return dataframe
 
 #
 # def get_df_for_all_seasons(dataframe):
@@ -115,6 +99,27 @@ def create_lead_dataset(dataframe, lead, final_set_of_features, target):
 #     df_spring = pd.concat([df_mar, df_apr, df_may])
 #     df_summer = pd.concat([df_jun, df_jul, df_aug])
 #     return df_fall, df_winter, df_spring, df_summer
+
+def create_lead_dataset(dataframe, lead, final_set_of_features, target):
+    '''
+    create dataset for the given lead by adjusting the lead between the input features and target irradiance
+    '''
+    dataframe_lead = dataframe[final_set_of_features]
+    target = np.asarray(dataframe[target])
+    print("for target, it is rolled by lead (Y var) \n")
+    target = np.roll(target, -lead)
+    # target[-lead:] = np.nan
+    dataframe_lead['clearness_index'] = target
+    dataframe_lead['clear_ghi_target'] = np.roll(np.asarray(dataframe['clear_ghi']), -lead)
+    dataframe_lead['zen_target'] = np.roll(np.asarray(dataframe['zen']), -lead)
+
+    # remove rows which have any value as NaN
+    # dataframe_lead = dataframe_lead.dropna()
+    print("*****************")
+    print("dataframe with lead size: ",len(dataframe_lead))
+    return dataframe_lead
+
+
 
 
 def get_yearly_or_season_data(df_lead, season_flag, testyear):
@@ -179,7 +184,7 @@ def train_test_spilt(dataframe, season_flag, testyear):
     return dataframe_train, dataframe_test
 
 
-def get_train_test_data(dataframe_train, dataframe_test, final_set_of_features, target, lead=""):
+def get_train_test_data(dataframe_train, dataframe_test, final_set_of_features, target):
     '''
     Get X_train, y_train, X_test, y_test
     '''
@@ -191,26 +196,19 @@ def get_train_test_data(dataframe_train, dataframe_test, final_set_of_features, 
 
     final_features.extend(['clearness_index_input'])#,'smart_persistence'])
 
-    index_zen=-1
-    # storing the position/indices of clear_ghi, ghi, and zen
-    for ind in range(len(final_features)):
-        if final_features[ind] == 'clear_ghi':
-            index_clearghi = ind
-        if final_features[ind] == 'dw_solar':
-            index_ghi =  ind
-        if final_features[ind] == 'zen':
-            index_zen = ind
+    # index_zen=-1
+    # # storing the position/indices of clear_ghi, ghi, and zen
+    # for ind in range(len(final_features)):
+    #     if final_features[ind] == 'clear_ghi':
+    #         index_clearghi = ind
+    #     if final_features[ind] == 'dw_solar':
+    #         index_ghi =  ind
+    #     if final_features[ind] == 'zen':
+    #         index_zen = ind
 
-
+    print("total features: ", len(final_features))
     dataframe_train['clearness_index_input'] = dataframe_train['dw_solar']/dataframe_train['clear_ghi']
     dataframe_test['clearness_index_input'] = dataframe_test['dw_solar'] / dataframe_test['clear_ghi']
-
-    # shifted_clearghi_train = np.roll(dataframe_train['clear_ghi'].values, -lead)
-    # shifted_clearghi_test = np.roll(dataframe_test['clear_ghi'].values, -lead)
-    #
-    #
-    # dataframe_train['smart_persistence'] = dataframe_train['clearness_index_input']* shifted_clearghi_train
-    # dataframe_test['smart_persistence'] = dataframe_test['clearness_index_input']* shifted_clearghi_test
 
     col_to_indices_mapping = {k: v for v, k in enumerate(final_features)}
     print(col_to_indices_mapping)
@@ -218,18 +216,17 @@ def get_train_test_data(dataframe_train, dataframe_test, final_set_of_features, 
     X_train = np.asarray(dataframe_train[final_features]).astype(np.float)
     X_test = np.asarray(dataframe_test[final_features]).astype(np.float)
 
-
-    y_train = np.asarray(np.vstack(dataframe_train[target].values.tolist())).astype(np.float)
-    y_test = np.asarray(np.vstack(dataframe_test[target].values.tolist())).astype(np.float)
+    print(list(dataframe_train.columns))
+    # y_train = np.asarray(np.vstack(dataframe_train[target].values.tolist())).astype(np.float)
+    # y_test = np.asarray(np.vstack(dataframe_test[target].values.tolist())).astype(np.float)
+    target_columns = [target, 'clear_ghi_target', 'zen_target']
+    y_train = np.asarray(dataframe_train[target_columns]).astype(np.float)
     print(y_train)
+    y_test = np.asarray(dataframe_test[target_columns]).astype(np.float)
 
-    # add clearness_index beyond lead as a feature input (important) -- are we adding the current time clearness index here?
-    # y_train_roll = np.roll(y_train, lead)
-    # y_test_roll = np.roll(y_test, lead)
-    # X_train = np.concatenate((X_train, y_train_roll), axis=1)
-    # X_test = np.concatenate((X_test, y_test_roll), axis=1)
 
-    return X_train, y_train, X_test, y_test, index_clearghi, index_ghi, index_zen, col_to_indices_mapping
+
+    return X_train, y_train, X_test, y_test, col_to_indices_mapping
 
 
 # ## Don't need this anymore
@@ -291,59 +288,54 @@ def filter_dayvalues_and_zero_clearghi(X_all, y_all, index_zen, index_clearghi, 
 
 
 
-def standardize_from_train(X_train, X_valid, X_test, index_ghi, index_clearghi, total_features, folder_saving, lead=""):
+def standardize_from_train(X_train, X_valid, X_test):
 
     '''
     Standardize (or 'normalize') the feature matrices.
     '''
 
-    diff = index_clearghi-index_ghi
-    print("total features: ", total_features)
-    print("diff between ghi and clear ghi: ", diff)
 
     if X_train is not None:
         cols = X_train.shape[1]
         # print(cols)
         standarize_dict = {}
         for i in range(cols):
+            # if i%total_features==index_ghi:
+            #     # print("here")
+            #     index_clearghi = i+diff
+            #     ## normalizing of dw_solar wrt clearGHI (to take the cloud factor into account)
+            #     mean_clear = np.mean(X_train[:, index_clearghi])
+            #     std_clear = np.std(X_train[:, index_clearghi])
+            #     X_train[:, index_ghi] = (X_train[:, index_ghi] - mean_clear) / std_clear
+            #     X_valid[:, index_ghi] = (X_valid[:, index_ghi] - mean_clear) / std_clear
+            #
+            #     if X_test is not None:
+            #         X_test[:, index_ghi] = (X_test[:, index_ghi] - mean_clear) / std_clear
+            #     standarize_dict[i] = (mean_clear, std_clear)
+            #     # max_clear = np.max(X_train[:, index_clearghi])
+            #     # min_clear = np.min(X_train[:, index_clearghi])
+            #     # X_train[:, index_ghi] = (X_train[:, index_ghi] - min_clear) / (max_clear - min_clear)
+            #     # X_valid[:, index_ghi] = (X_valid[:, index_ghi] - min_clear) / (max_clear - min_clear)
+            #     # X_test[:, index_ghi] = (X_test[:, index_ghi] - min_clear) / (max_clear - min_clear)
+            #     # standarize_dict[i] = (max_clear, min_clear)
 
-            if i%total_features==index_ghi:
-                # print("here")
-                index_clearghi = i+diff
-                ## normalizing of dw_solar wrt clearGHI (to take the cloud factor into account)
-                mean_clear = np.mean(X_train[:, index_clearghi])
-                std_clear = np.std(X_train[:, index_clearghi])
-                X_train[:, index_ghi] = (X_train[:, index_ghi] - mean_clear) / std_clear
-                X_valid[:, index_ghi] = (X_valid[:, index_ghi] - mean_clear) / std_clear
+            mean = np.mean(X_train[:,i])
+            std = np.std(X_train[:,i])
+            max = np.max(X_train[:,i])
+            min = np.min(X_train[:,i])
+            # print(min,max)
+            ##normalize or standarize ?
+            X_train[:,i] = (X_train[:,i] - mean)/std
+            X_valid[:, i] = (X_valid[:, i] - mean) / std
+            if X_test is not None:
+                X_test[:,i] = (X_test[:,i] - mean)/std
+            standarize_dict[i] = (mean,std)
+            # X_train[:,i] = (X_train[:,i] - min)/(max-min)
+            # X_valid[:, i] = (X_valid[:, i] - min) / (max-min)
+            # X_test[:,i] = (X_test[:,i] - min)/(max-min)
+            # standarize_dict[i] = (max,min)
 
-                if X_test is not None:
-                    X_test[:, index_ghi] = (X_test[:, index_ghi] - mean_clear) / std_clear
-                standarize_dict[i] = (mean_clear, std_clear)
-                # max_clear = np.max(X_train[:, index_clearghi])
-                # min_clear = np.min(X_train[:, index_clearghi])
-                # X_train[:, index_ghi] = (X_train[:, index_ghi] - min_clear) / (max_clear - min_clear)
-                # X_valid[:, index_ghi] = (X_valid[:, index_ghi] - min_clear) / (max_clear - min_clear)
-                # X_test[:, index_ghi] = (X_test[:, index_ghi] - min_clear) / (max_clear - min_clear)
-                # standarize_dict[i] = (max_clear, min_clear)
 
-            else:
-                mean = np.mean(X_train[:,i])
-                std = np.std(X_train[:,i])
-                max = np.max(X_train[:,i])
-                min = np.min(X_train[:,i])
-                # print(min,max)
-                ##normalize or standarize ?
-                X_train[:,i] = (X_train[:,i] - mean)/std
-                X_valid[:, i] = (X_valid[:, i] - mean) / std
-                if X_test is not None:
-                    X_test[:,i] = (X_test[:,i] - mean)/std
-                standarize_dict[i] = (mean,std)
-                # X_train[:,i] = (X_train[:,i] - min)/(max-min)
-                # X_valid[:, i] = (X_valid[:, i] - min) / (max-min)
-                # X_test[:,i] = (X_test[:,i] - min)/(max-min)
-                # standarize_dict[i] = (max,min)
-
-            # print("when not using the saved file", i, standarize_dict[i])
 
         # with open(folder_saving+"standarize_data_for_lead_"+str(lead)+".pickle", 'wb') as handle:
         #     pickle.dump(standarize_dict, handle)
