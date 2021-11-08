@@ -191,6 +191,7 @@ def get_train_test_data(dataframe_train, dataframe_test, final_set_of_features, 
     final_features = []
     for feature in final_set_of_features:
         # if feature not in ['year', 'month', 'day', 'hour', 'MinFlag']:
+
         if feature not in ['year', 'MinFlag']: #['year', 'day', 'MinFlag']:
             final_features.append(feature)
 
