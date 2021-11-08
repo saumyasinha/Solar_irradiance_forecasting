@@ -59,8 +59,8 @@ endmonth = 12
 testyear = 2018
 
 # hyperparameters
-n_timesteps = 12 #1day (can be 12hrs or 48hrs for a few models)
-n_features = 15 + 51
+n_timesteps = 24 #1day (can be 12hrs or 48hrs for a few models)
+n_features = 16 + 51
 
 
 def get_data():
@@ -299,14 +299,14 @@ def main():
     df = pd.read_pickle(processed_file_path + "final_data_At_" + res + "_resolution_2016-2018_updated.pkl") ##this files inlcudes the day times - I'll be dropping them later!!
 
     final_features.extend(ensmeble_col_list)
-    reg = "ngboost_with_2day_lag_week_ahead"  ## giving a name to the regression models -- useful when saving results
+    reg = "ngboost_with_24_seq_lag_week_ahead"  ## giving a name to the regression models -- useful when saving results
     #
     for season_flag in seasons:
         ## ML_models_2018 is the folder to save results on testyear 2018
         os.makedirs(
-            folder_saving + season_flag + "/final_ML_models_" + str(testyear) + "/cnn/" + str(res) + "/" + reg + "/",
+            folder_saving + season_flag + "/final_ML_models_" + str(testyear) + "/probabilistic/" + str(res) + "/" + reg + "/",
             exist_ok=True)
-        f = open(folder_saving + season_flag + "/final_ML_models_" + str(testyear) + "/cnn/" + str(
+        f = open(folder_saving + season_flag + "/final_ML_models_" + str(testyear) + "/probabilistic/" + str(
             res) + "/" + reg + "/results.txt", 'a')
 
         for lead in lead_times:
@@ -314,6 +314,8 @@ def main():
             df_lead = preprocess.create_lead_dataset(df, lead, final_features, target_feature)
             df_lead = df_lead[:len(df_lead) - lead]
             print(df_lead.describe())
+            df_lead_2018 = df_lead[df_lead.year == 2018]
+            print("len 2018 df lead", len(df_lead_2018))
             ## dropping rows with 0 clear_ghi and taking only daytimes
             df_lead = df_lead[(df_lead['clear_ghi'] > 0) & (df_lead['clear_ghi_target'] > 0)]  # 0]
             # print(len(df_lead))
@@ -352,6 +354,9 @@ def main():
                 y_train = y_train[n_timesteps:, :]
                 y_heldout = y_heldout[n_timesteps:, :]
 
+                X_train = X_train.reshape(X_train.shape[0],-1)  ##it gives f1-1,f1-2...f1-12,f2-1,f2-2...f2-12
+                X_heldout = X_heldout.reshape(X_heldout.shape[0],-1)
+
                 print("Final train size: ", X_train.shape, y_train.shape)
                 print("Final heldout size: ", X_heldout.shape, y_heldout.shape)
 
@@ -378,7 +383,7 @@ def main():
                 model = NGBRegressor(n_estimators=2000).fit(X_train, y_train_model)
                 # model = models.rfGridSearch_model(X_train, y_train)
                 pickle.dump(model, open(
-                    folder_saving + season_flag + "/ML_models_"+str(testyear)+"/probabilistic/"+str(res)+"/"+reg+"/model_at_lead_" + str(lead) + ".pkl",
+                    folder_saving + season_flag + "/final_ML_models_"+str(testyear)+"/probabilistic/"+str(res)+"/"+reg+"/model_at_lead_" + str(lead) + ".pkl",
                     "wb"))
 
                 # with open(folder_saving + season_flag + "/ML_models_"+str(testyear)+"/probabilistic/"+str(res)+"/"+reg+"//model_at_lead_" + str(lead) + ".pkl", 'rb') as file:

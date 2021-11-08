@@ -518,12 +518,12 @@ def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
     # self.load_state_dict(torch.load('checkpoint.pt'))
     return losses, valid_losses
 
-def crps_score(outputs, target, alphas, post_process=False, lead = None):
+def crps_score(outputs, target, alphas): #, post_process=False, lead = None):
     loss = []
 
-    if post_process:
-        outputs = outputs[2 * lead:]
-        target = target[2 * lead:]
+    # if post_process:
+    #     outputs = outputs[2 * lead:]
+    #     target = target[2 * lead:]
 
     for i, alpha in enumerate(alphas):
         output = outputs[:, i].reshape((-1, 1))

@@ -3,42 +3,44 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from math import sqrt
 import matplotlib.pyplot as plt
 
-def postprocessing_target(pred, true, X, index_ghi, index_clearghi, lead):
+def postprocessing_target(pred, true): #, X, index_ghi, index_clearghi, lead):
     '''
     postprocess the target clearness index to solar irradiance (unit should be watt/m2)
     '''
     # Calculating the predicted dw_solar by multiplying the predicted clearness index with GHi clear of current time
-    true = np.roll(true, lead)
-    true = np.reshape(true, (true.shape[0], 1))
-    pred = np.roll(pred, lead)
+    true_clearness= true[:,0] #np.roll(true, lead)
+    true_clearness = np.reshape(true_clearness, (true_clearness.shape[0], 1))
+    pred = pred #np.roll(pred, lead)
     pred = np.reshape(pred, (pred.shape[0], 1))
-    clearsky = np.reshape(X[:, index_clearghi], (X[:, index_clearghi].shape[0], 1))  # clear sky GHI
-    y_true = np.multiply(true, clearsky)
+    clearsky = true[:,1]#np.reshape(X[:, index_clearghi], (X[:, index_clearghi].shape[0], 1))  # clear sky GHI
+    clearsky = np.reshape(clearsky, (clearsky.shape[0], 1))
+    y_true = np.multiply(true_clearness, clearsky)
     y_pred = np.multiply(pred, clearsky)
     return y_true, y_pred
 
 
-def smart_persistence_model(X, y, index_clearghi, lead):
+def smart_persistence_model(X, true, index_clearness, lead):
 
-    clearness_index = np.asarray(y)
-    clearness_index = np.roll(clearness_index, 2*lead) # should be lead*2 since S(t) = clearness_index(t-lead)*clear_ghi(t)
+    clearness_index = X[:,index_clearness,-1]
+    print(clearness_index.shape,clearness_index.shape[0] )
+    # clearness_index = np.roll(clearness_index, lead) #since S(t) = clearness_index(t-lead)*clear_ghi(t)
     clearness_index = np.reshape(clearness_index, (clearness_index.shape[0], 1))
-    clearghi = np.asarray(X[:, index_clearghi])
-    clearghi = np.reshape(clearghi, (clearghi.shape[0], 1))
+    clearsky = true[:, 1]  # np.reshape(X[:, index_clearghi], (X[:, index_clearghi].shape[0], 1))  # clear sky GHI
+    clearsky = np.reshape(clearsky, (clearsky.shape[0], 1))
 
-    y_persistance = np.multiply(clearness_index, clearghi)
-    y_persistance = np.reshape(y_persistance, (y_persistance.shape[0], 1))
+    y_persistance = np.multiply(clearness_index, clearsky)
+    # y_persistance = np.reshape(y_persistance, (y_persistance.shape[0], 1))
 
     return y_persistance
 
 
-def normal_persistence_model(X, index_ghi, lead):
-    ## index_ghi is dw_solar's index
-    ghi = X[:,index_ghi]
-    pred_ghi = np.roll(ghi, lead)
-    pred_ghi = np.reshape(pred_ghi, (pred_ghi.shape[0], 1))
-
-    return pred_ghi
+# def normal_persistence_model(X, index_ghi, lead):
+#     ## index_ghi is dw_solar's index
+#     ghi = X[:,index_ghi]
+#     pred_ghi = np.roll(ghi, lead)
+#     pred_ghi = np.reshape(pred_ghi, (pred_ghi.shape[0], 1))
+#
+#     return pred_ghi
 
 # def climatology_baseline(X_test, df_2017, col_to_indices_mapping, n_features):
 #
@@ -65,8 +67,7 @@ def normal_persistence_model(X, index_ghi, lead):
 
 
 
-
-
+## This function is not needed anymore
 def final_true_pred_sp_np(true, pred, np, sp, climatology,CH_PeEN, lead, index_zen, index_clearghi, zenith_threshold=85):
 
 

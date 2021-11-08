@@ -178,7 +178,7 @@ def train_DCNN_with_attention(quantile, X_train, y_train, X_valid, y_valid, n_ti
 
 
 
-def test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_features, folder_saving, model_saved, X_before_normalized=None, index_clearghi=None, lead=None, n_outputs = 1):
+def test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_features, folder_saving, model_saved, X_before_normalized=None, lead=None, n_outputs = 1):
 
     if X_test is not None:
         X_test, y_test = X_test.astype(np.float32), y_test.astype(np.float32)
@@ -227,39 +227,44 @@ def test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_times
 
     if quantile:
         if X_test is not None:
-            if n_outputs>1:
-                test_crps=[]
-                for n in range(n_outputs):
-                    print(y_pred.shape)
-                    y_pred_n = y_pred[:, :, n]
-                    test_crps.append(crps_score(y_pred_n, y_test[:,n], np.arange(0.05, 1.0, 0.05)))
+            # if n_outputs>1:
+            #     test_crps=[]
+            #     for n in range(n_outputs):
+            #         print(y_pred.shape)
+            #         y_pred_n = y_pred[:, :, n]
+            #         test_crps.append(crps_score(y_pred_n, y_test[:,n], np.arange(0.05, 1.0, 0.05)))
+            #
+            #     y_pred = y_pred[:,9,:]
+            #
+            # else:
+            if X_before_normalized is not None:
+                clearsky = y_test[:,1].reshape(y_test.shape[0],1)
+                true = y_test[:0].reshape(y_test.shape[0],1) #np.roll(y_test, lead)
+                y_test = np.multiply(true, clearsky)
+                pred = y_pred #np.roll(y_pred, lead,axis=0)
+                y_pred = np.multiply(pred, clearsky)
 
-                y_pred = y_pred[:,9,:]
 
+                test_crps=crps_score(y_pred, y_test, np.arange(0.05, 1.0, 0.05))
+            # y_pred = y_pred[:,9]#changed from 9
             else:
-                if X_before_normalized is not None:
-                    clearsky = np.reshape(X_before_normalized[:, index_clearghi], (X_before_normalized[:, index_clearghi].shape[0], 1))
-                    true = np.roll(y_test, lead)
-                    y_test = np.multiply(true, clearsky)
-                    pred = np.roll(y_pred, lead,axis=0)
-                    y_pred = np.multiply(pred, clearsky)
-
-
-                test_crps=crps_score(y_pred, y_test, np.arange(0.05, 1.0, 0.05), post_process = True, lead=lead)
-                # y_pred = y_pred[:,9]#changed from 9
+                y_test = y_test[:0].reshape(y_test.shape[0], 1)
+                test_crps = crps_score(y_pred, y_test, np.arange(0.05, 1.0, 0.05))
 
         if X_valid is not None:
-
-            if n_outputs > 1:
-                valid_crps = []
-                for n in range(n_outputs):
-                    y_valid_pred_n = y_valid_pred[:, :, n]
-                    valid_crps.append(crps_score(y_valid_pred_n, y_valid[:, n], np.arange(0.05, 1.0, 0.05)))
-
-                y_valid_pred = y_valid_pred[:, 9, :]
-
-            else:
-                valid_crps = crps_score(y_valid_pred, y_valid, np.arange(0.05, 1.0, 0.05))
+            ## not calling valid at test time, so didn't input X_before_normalized for it
+            #
+            # if n_outputs > 1:
+            #     valid_crps = []
+            #     for n in range(n_outputs):
+            #         y_valid_pred_n = y_valid_pred[:, :, n]
+            #         valid_crps.append(crps_score(y_valid_pred_n, y_valid[:, n], np.arange(0.05, 1.0, 0.05)))
+            #
+            #     y_valid_pred = y_valid_pred[:, 9, :]
+            #
+            # else:
+            y_valid = y_valid[:0].reshape(y_valid.shape[0], 1)
+            valid_crps = crps_score(y_valid_pred, y_valid, np.arange(0.05, 1.0, 0.05))
                 # y_valid_pred = y_valid_pred[:, 9]
 
     # print(valid_crps)

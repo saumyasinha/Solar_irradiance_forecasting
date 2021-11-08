@@ -63,7 +63,7 @@ testyear = 2018
 
 # hyperparameters
 n_timesteps = 12 #1day (can be 12hrs or 48hrs for a few models)
-n_features = 15 + 51
+n_features = 16 + 51
 quantile =False #False
 
 #hyperparameters for LSTM/Transformer/CNNs
@@ -345,6 +345,8 @@ def main():
             df_lead = preprocess.create_lead_dataset(df, lead, final_features, target_feature)
             df_lead = df_lead[:len(df_lead)-lead]
             print(df_lead.describe())
+            df_lead_2018 = df_lead[df_lead.year == 2018]
+            print("len 2018 df lead", len(df_lead_2018))
             ## dropping rows with 0 clear_ghi and taking only daytimes
             df_lead = df_lead[(df_lead['clear_ghi'] > 0) & (df_lead['clear_ghi_target'] > 0) ] #0]
             # print(len(df_lead))
@@ -418,7 +420,7 @@ def main():
                                                                                               res) + "/" + reg + "/",
                                                                                           model_saved="dcnn_lag_for_lead_" + str(
                                                                                               lead))
-                y_pred, y_valid_pred, valid_crps, test_crps = cnn.test_DCNN_with_attention(quantile, X_valid, y_valid_model,
+                y_pred, y_valid_pred, valid_crps, test_crps, y_test = cnn.test_DCNN_with_attention(quantile, X_valid, y_valid,
                                                                                           None, None,
                                                                                           n_timesteps + 1, n_features,
                                                                                           folder_saving + season_flag + "/final_ML_models_" + str(
