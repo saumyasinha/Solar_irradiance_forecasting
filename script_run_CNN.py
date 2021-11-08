@@ -62,8 +62,8 @@ endmonth = 12
 testyear = 2018
 
 # hyperparameters
-n_timesteps = 12 #1day (can be 12hrs or 48hrs for a few models)
-n_features = 15 + 51
+n_timesteps = 48 #1day (can be 12hrs or 48hrs for a few models)
+n_features = 16 + 51
 quantile =False #False
 
 #hyperparameters for LSTM/Transformer/CNNs
@@ -75,7 +75,7 @@ hidden_size= 50
 batch_size = 16 #32 #16 #16 
 
 epochs = 300 #250
-lr = 1e-4 #1e-5 #1e-4
+lr = 1e-5 #1e-5 #1e-4
 
 alphas = np.arange(0.05, 1.0, 0.05) #range of alpha (for quantile forecast)
 q50 = 9  #median index in 'alphas'
@@ -329,7 +329,7 @@ def main():
 
     final_features.extend(ensmeble_col_list)
     ## name of the regression model (this helps to distinguish the models within a "CNN"/"LSTM"/"Transformer" super-folder)
-    reg = "tcn_week_ahead_1days_lag_small_kernel_1hr_res"
+    reg = "tcn_week_ahead_48_seq_lag_large_kernel_1hr_res"
     #reg = "lstm_50_week_ahead_2day_lag_1hr_res_quantile"
     #reg = "transformers_2day_2heads_less_dmodel_lag_week_ahead_1hr_res"
 
@@ -344,6 +344,7 @@ def main():
             # create dataset with lead
             df_lead = preprocess.create_lead_dataset(df, lead, final_features, target_feature)
             df_lead = df_lead[:len(df_lead)-lead]
+            df_lead_2018 = df_lead[df_lead.year == 2018]
             print(df_lead.describe())
             ## dropping rows with 0 clear_ghi and taking only daytimes
             df_lead = df_lead[(df_lead['clear_ghi'] > 0) & (df_lead['clear_ghi_target'] > 0) ] #0]
@@ -418,7 +419,7 @@ def main():
                                                                                               res) + "/" + reg + "/",
                                                                                           model_saved="dcnn_lag_for_lead_" + str(
                                                                                               lead))
-                y_pred, y_valid_pred, valid_crps, test_crps = cnn.test_DCNN_with_attention(quantile, X_valid, y_valid_model,
+                y_pred, y_valid_pred, valid_crps, test_crps,y_test = cnn.test_DCNN_with_attention(quantile, X_valid, y_valid_model,
                                                                                           None, None,
                                                                                           n_timesteps + 1, n_features,
                                                                                           folder_saving + season_flag + "/final_ML_models_" + str(

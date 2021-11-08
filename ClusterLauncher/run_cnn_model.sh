@@ -1,14 +1,14 @@
 #!/bin/bash
 
 # === 2. List of SBATCH arguements ===
-#SBATCH --job-name=correct_goodwin_quantile_tcn__1hr_1days_lag_small_kernel
-#SBATCH --nodelist=bgpu-casa1
+#SBATCH --job-name=sioux_new_tcn_48_Seq_lag_large_kernel
+#SBATCH --nodelist=bgpu-dhl1
 #SBATCH --account=blanca-kann
 #SBATCH --gres=gpu
 #SBATCH --qos=preemptable
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --output=/pl/active/machinelearning/Solar_forecasting_project/job_outputs/correct_goodwin_qunatile_tcn_1hr_1days_lag_small_kernel.%j.out
+#SBATCH --output=/pl/active/machinelearning/Solar_forecasting_project/job_outputs/sioux_new_tcn_48_large_kernel.%j.out
 
 # === 3. Purge and load needed modules ===
 module purge
