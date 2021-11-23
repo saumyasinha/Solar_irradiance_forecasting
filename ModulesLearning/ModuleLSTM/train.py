@@ -90,23 +90,24 @@ def test_LSTM(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_feature
 
     valid_crps, test_crps = 0.0, 0.0
     if quantile:
-
         if X_test is not None:
-
             if X_before_normalized is not None:
-                clearsky = np.reshape(X_before_normalized[:, index_clearghi],
-                                      (X_before_normalized[:, index_clearghi].shape[0], 1))
-                true = np.roll(y_test, lead)
+                clearsky = y_test[:, 1].reshape(y_test.shape[0], 1)
+                true = y_test[:0].reshape(y_test.shape[0], 1)  # np.roll(y_test, lead)
                 y_test = np.multiply(true, clearsky)
-                pred = np.roll(y_pred, lead, axis=0)
+                pred = y_pred  # np.roll(y_pred, lead,axis=0)
                 y_pred = np.multiply(pred, clearsky)
 
-            test_crps = crps_score(y_pred, y_test, np.arange(0.05, 1.0, 0.05))
-            # y_pred = y_pred[:,9]
+                test_crps = crps_score(y_pred, y_test, np.arange(0.05, 1.0, 0.05))
+                y_pred = y_pred[:, 9]  # changed from 9
+            else:
+                y_test = y_test[:0].reshape(y_test.shape[0], 1)
+                test_crps = crps_score(y_pred, y_test, np.arange(0.05, 1.0, 0.05))
 
         if X_valid is not None:
+            y_valid = y_valid[:0].reshape(y_valid.shape[0], 1)
             valid_crps = crps_score(y_valid_pred, y_valid, np.arange(0.05, 1.0, 0.05))
-            # y_valid_pred = y_valid_pred[:,9]
+            y_valid_pred = y_valid_pred[:, 9]  # changed from 9
 
 
     return y_pred, y_valid_pred, valid_crps, test_crps
