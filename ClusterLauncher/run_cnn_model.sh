@@ -1,14 +1,14 @@
 #!/bin/bash
 
 # === 2. List of SBATCH arguements ===
-#SBATCH --job-name=sioux_new_tcn_48_Seq_lag_large_kernel
+#SBATCH --job-name=sioux_new_lstm_24_lag_25_hidden
 #SBATCH --nodelist=bgpu-dhl1
 #SBATCH --account=blanca-kann
 #SBATCH --gres=gpu
 #SBATCH --qos=preemptable
 #SBATCH --nodes=1
-#SBATCH --ntasks=1
-#SBATCH --output=/pl/active/machinelearning/Solar_forecasting_project/job_outputs/sioux_new_tcn_48_large_kernel.%j.out
+#SBATCH --ntasks=12
+#SBATCH --output=/pl/active/machinelearning/Solar_forecasting_project/job_outputs/sioux_new_lstm_24_lag_25_hidden.%j.out
 
 # === 3. Purge and load needed modules ===
 module purge
