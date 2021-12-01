@@ -62,14 +62,14 @@ endmonth = 12
 testyear = 2018
 
 # hyperparameters
-n_timesteps = 12 #1day (can be 12hrs or 48hrs for a few models)
+n_timesteps = 24 #1day (can be 12hrs or 48hrs for a few models)
 n_features = 16 + 51
-quantile =False #False
+quantile = True #False
 
 #hyperparameters for LSTM/Transformer/CNNs
 n_layers = 1 #2 #3
 num_heads = 2 #4
-d_model = 64 #128
+d_model = 96 #128
 
 hidden_size= 50
 batch_size = 16 #32 #16 #16
@@ -612,7 +612,7 @@ def main():
 
     final_features.extend(ensmeble_col_list)
     ## name of the regression model (this helps to distinguish the models within a "CNN"/"LSTM"/"Transformer" super-folder)
-    reg = "tcn_week_ahead_12_seq_lag_small_kernel_1hr_res"
+    reg = "lstm_50_week_ahead_24_lag_1hr_res_quantile"
     #reg = "lstm_50_week_ahead_2day_lag_1hr_res_quantile"
     #reg = "transformers_2day_2heads_less_dmodel_lag_week_ahead_1hr_res"
 
@@ -707,28 +707,28 @@ def main():
 
                 ## If doing probabilsitic prediction, just use the test function to scale the ys and crps score too
                 ## In case of deterministic use the postprocessing modules
-                y_pred, y_valid_pred, valid_crps, test_crps_scaled, y_test = cnn.test_DCNN_with_attention(quantile, X_valid,y_valid,
-                                                                                           X_test, y_test,
-                                                                                           n_timesteps + 1, n_features,
-                                                                                           folder_saving + season_flag + "/final_ML_models_" + str(
-                                                                                               testyear) + "/cnn/" + str(
-                                                                                               res) + "/" + reg + "/",
-                                                                                           "dcnn_lag_for_lead_" + str(
-                                                                                               lead),  X_test_before_normalized, lead)  # "multi_horizon_dcnn", n_outputs=n_output_steps)
+                # y_pred, y_valid_pred, valid_crps, test_crps_scaled = cnn.test_DCNN_with_attention(quantile, X_valid,y_valid,
+                #                                                                            X_test, y_test,
+                #                                                                            n_timesteps + 1, n_features,
+                #                                                                            folder_saving + season_flag + "/final_ML_models_" + str(
+                #                                                                                testyear) + "/cnn/" + str(
+                #                                                                                res) + "/" + reg + "/",
+                #                                                                            "dcnn_lag_for_lead_" + str(
+                #                                                                                lead),  X_test_before_normalized, lead)  # "multi_horizon_dcnn", n_outputs=n_output_steps)
 
-                # y_pred, y_valid_pred, valid_crps, test_crps_scaled  = tranformers.test_LSTM(quantile, X_valid, y_valid,X_test, y_test, n_timesteps+1, n_features,hidden_size,alphas, q50,
-                #                                folder_saving + season_flag + "/final_ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/","model_lag_for_lead_" + str(lead),X_test_before_normalized, index_clearghi, lead)#"multi_horizon_dcnn", n_outputs=n_output_steps)
+                y_pred, y_valid_pred, valid_crps, test_crps_scaled  = tranformers.test_LSTM(quantile, X_valid, y_valid,X_test, y_test, n_timesteps+1, n_features,hidden_size,alphas, q50,
+                                               folder_saving + season_flag + "/final_ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/","model_lag_for_lead_" + str(lead),X_test_before_normalized, lead)#"multi_horizon_dcnn", n_outputs=n_output_steps)
 
-                # y_pred, y_valid_pred, valid_crps, test_crps_scaled, y_test = tranformers.test_transformer(quantile, X_valid, y_valid,
+                # y_pred, y_valid_pred, valid_crps, test_crps_scaled = tranformers.test_transformer(quantile, X_valid, y_valid,
                 #                                                                           X_test, y_test, n_timesteps + 1,
-                #                                                                            n_features, n_layers, factor,
+                #                                                                            n_features, n_layers,
                 #                                                                            num_heads, d_model, alphas,
                 #                                                                            q50,
                 #                                                                            folder_saving + season_flag + "/final_ML_models_" + str(
                 #                                                                                testyear) + "/cnn/" + str(
                 #                                                                                res) + "/" + reg + "/",
                 #                                                                           "dcnn_lag_for_lead_" + str(
-                #                                                                                lead),X_test_before_normalized, index_clearghi, lead)  # "multi_horizon_dcnn", n_outputs=n_output_steps)
+                #                                                                                lead),X_test_before_normalized, lead)  # "multi_horizon_dcnn", n_outputs=n_output_steps)
                 #
                 #
 
@@ -736,7 +736,7 @@ def main():
                 # probabilistic_prediction_plots(X_test_before_normalized,y_pred, y_test, col_to_indices_mapping, folder_saving + season_flag + "/ML_models_" + str(
                  #                                                                              testyear) + "/cnn/" + str(
                   #                                                                             res) + "/" )
-            # # # #
+            # # #
             #     y_CH_PeEN, CH_PeEN_baseline_quantiles, crps_CH_PeEN = get_CH_PeEN_baseline_crps(X_test_before_normalized, X_train_before_normalized, col_to_indices_mapping, y_test, lead)
             #     y_climatology, climatology_probabilistic_baseline, crps_climatology = get_climatology_baseline_crps(X_test_before_normalized, X_train_before_normalized, col_to_indices_mapping, y_test, lead)
 
@@ -850,15 +850,15 @@ def main():
             # #     # print("before crps",y_test.shape)
             #     test_crps_scaled = get_crps_for_ngboost_scaled(model, X_test, y_test, X_test_before_normalized, index_clearghi, lead)
             # #
-            #     print('CRPS score on valid data for lead' + str(lead) + '=' + str(
-            #         round(valid_crps, 2)) + '\n')
-            # # #     # # # # print('CRPS score on heldout data for year 2018 for lead' + str(lead) + '=' + str(round(test_crps, 2)) + '\n')
-            # # #     # # # # f.write('CRPS score on heldout data for year 2018 for lead' + str(lead) + '=' + str(round(test_crps, 2)) + '\n')
-            # #     # # #
-            #     print('CRPS scaled score on heldout data for year 2018 for lead' + str(lead) + '=' + str(
-            #         round(test_crps_scaled, 2)) + '\n')
-            #     f.write('CRPS scaled score on heldout data for year 2018 for lead' + str(lead) + '=' + str(
-            #         round(test_crps_scaled, 2)) + '\n')
+                print('CRPS score on valid data for lead' + str(lead) + '=' + str(
+                    round(valid_crps, 2)) + '\n')
+            # #     # # # # print('CRPS score on heldout data for year 2018 for lead' + str(lead) + '=' + str(round(test_crps, 2)) + '\n')
+            # #     # # # # f.write('CRPS score on heldout data for year 2018 for lead' + str(lead) + '=' + str(round(test_crps, 2)) + '\n')
+            #     # # #
+                print('CRPS scaled score on heldout data for year 2018 for lead' + str(lead) + '=' + str(
+                    round(test_crps_scaled, 2)) + '\n')
+                f.write('CRPS scaled score on heldout data for year 2018 for lead' + str(lead) + '=' + str(
+                    round(test_crps_scaled, 2)) + '\n')
             #     #
                 # print('CRPS CH_PeEN scaled score on heldout data for year 2018 for lead' + str(lead) + '=' + str(
                 #     round(crps_CH_PeEN, 2)) + '\n')
