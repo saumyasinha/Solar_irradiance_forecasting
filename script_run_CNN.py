@@ -62,15 +62,15 @@ endmonth = 12
 testyear = 2018
 
 # hyperparameters
-n_timesteps = 72 #24 #48 # (can be 12hrs or 48hrs for a few models)
+n_timesteps = 24 #24 #48 # (can be 12hrs or 48hrs for a few models)
 
 n_features = 16 + 51
-quantile =False
+quantile =True
 
 #hyperparameters for LSTM/Transformer/CNNs
-n_layers = 1 #2 #3
+n_layers = 2 #1
 num_heads = 2 #2 #4
-d_model = 96 #128 #64
+d_model = 64#96 #128 #64
 
 hidden_size= 50#50
 batch_size = 16 #16 #32 #16 #16 
@@ -332,7 +332,7 @@ def main():
     final_features.extend(ensmeble_col_list)
     ## name of the regression model (this helps to distinguish the models within a "CNN"/"LSTM"/"Transformer" super-folder)
     #reg = "tcn_week_ahead_24_seq_lag_small_kernel_with_attn_quantile_1hr_res"
-    reg = "transformers_d96_week_ahead_72_lag_1hr_res"
+    reg = "transformers_d64_week_ahead_24_lag_1hr_res_2layers_qunatile"
     #reg = "transformers_2day_2heads_less_dmodel_lag_week_ahead_1hr_res"
 
     for season_flag in seasons:
