@@ -3,17 +3,17 @@ import pandas as pd
 import os
 from sklearn.model_selection import train_test_split
 #
-from SolarForecasting.ModulesProcessing import collect_data, clean_data
-from SolarForecasting.ModulesLearning import preprocessing as preprocess
-from SolarForecasting.ModulesLearning import postprocessing as postprocess
-from SolarForecasting.ModulesLearning.ModulesCNN import train as cnn
-from SolarForecasting.ModulesLearning.ModuleLSTM import train as tranformers
+# from SolarForecasting.ModulesProcessing import collect_data, clean_data
+# from SolarForecasting.ModulesLearning import preprocessing as preprocess
+# from SolarForecasting.ModulesLearning import postprocessing as postprocess
+# from SolarForecasting.ModulesLearning.ModulesCNN import train as cnn
+# from SolarForecasting.ModulesLearning.ModuleLSTM import train as tranformers
 
-# from ModulesProcessing import collect_data, clean_data
-# from ModulesLearning import preprocessing as preprocess
-# from ModulesLearning import postprocessing as postprocess
-# from ModulesLearning.ModulesCNN import train as cnn
-# from ModulesLearning.ModuleLSTM import train as tranformers
+from ModulesProcessing import collect_data, clean_data
+from ModulesLearning import preprocessing as preprocess
+from ModulesLearning import postprocessing as postprocess
+from ModulesLearning.ModulesCNN import train as cnn
+from ModulesLearning.ModuleLSTM import train as tranformers
 
 
 
@@ -23,7 +23,7 @@ pd.set_option('display.width', 1000)
 
 
 # city
-city = 'Sioux_Falls_SD'#'Boulder_CO'#'Goodwin_Creek_MS'#'Desert_Rock_NV'
+city = 'Penn_State_PA'#'Sioux_Falls_SD'#'Boulder_CO'#'Goodwin_Creek_MS'#'Desert_Rock_NV'
 
 # lead time
 lead_times = [24*7] #7days in advance
@@ -62,22 +62,24 @@ endmonth = 12
 testyear = 2018
 
 # hyperparameters
-n_timesteps = 24 #48 # (can be 12hrs or 48hrs for a few models)
+n_timesteps = 24 #24 #48 # (can be 12hrs or 48hrs for a few models)
+
 
 n_features = 16 + 51
-quantile =False
+quantile =True
 
 #hyperparameters for LSTM/Transformer/CNNs
 n_layers = 1 #2 #3
 num_heads = 2 #2 #4
 d_model = 96 #128 #64
 
-hidden_size= 25#50
-batch_size = 16 #32 #16 #16
+hidden_size= 50#25
+batch_size = 16 #32
 
-epochs = 300 #300 #250
 
-lr = 1e-4  #1e-4
+epochs = 300 #250
+
+lr = 1e-4  #1e-5
 
 alphas = np.arange(0.05, 1.0, 0.05) #range of alpha (for quantile forecast)
 q50 = 9  #median index in 'alphas'
@@ -152,7 +154,7 @@ def include_previous_features(X, col_to_indices_mapping):
 
 def include_nwp_features(df):
 
-    missing_hour_dates = {2016:[263,265], 2017:[283], 2018:[144]}
+    missing_hour_dates ={2016:[194], 2017:[205,206], 2018:[253]}  #Sioux falls: {2016:[263,265], 2017:[283], 2018:[144]}
 
     fnwp = path + "NWP/" + city + "/"
 
@@ -200,34 +202,6 @@ def include_nwp_features(df):
 
 
 
-# def create_mulitple_lead_dataset(dataframe, final_set_of_features, target):
-#     dataframe_lead = dataframe[final_set_of_features]
-#     target = np.asarray(dataframe[target])
-#
-#     y_list = []
-#     for lead in lead_times:
-#     # for lead in range(1,n_output_steps+1):
-#         print("rolling by: ",lead)
-#         target = np.roll(target, -lead)
-#         y_list.append(target)
-#
-#     dataframe_lead['clearness_index'] = np.column_stack(y_list).tolist()
-#     dataframe_lead['clearness_index'] = dataframe_lead['clearness_index'].apply(tuple)
-#     max_lead = np.max(lead_times)
-#     dataframe_lead = dataframe_lead[:len(dataframe_lead) - max_lead]
-#
-#     # dataframe_lead['clearness_index'].values[-max_lead:] = np.nan
-#     print(dataframe_lead['clearness_index'])
-#
-#     # remove rows which have any value as NaN
-#     # dataframe_lead = dataframe_lead.dropna()
-#     print("*****************")
-#     print("dataframe with lead size: ", len(dataframe_lead))
-#     return dataframe_lead
-
-
-
-
 def main():
 
 
@@ -255,19 +229,41 @@ def main():
     #
     # ##checking month-wise hour counts per year (turns out we don't have every hour of every day!!
     # # df = dataset[dataset['year']==2016]
+    # # print("2016",len(df))
     # # print(df.groupby(['month', 'day'])['hour'].count())
-    # # (based on:
+    # #
+    # # df = dataset[dataset['year'] == 2017]
+    # # print("2017", len(df))
+    # # print(df.groupby(['month', 'day'])['hour'].count())
+    # #
+    # # df = dataset[dataset['year'] == 2018]
+    # # print("2018", len(df))
+    # # print(df.groupby(['month', 'day'])['hour'].count())
+    # # Sioux falls (based on:
     # # 2016: Sep 20: only 15 hrs (244+20)
     # # Sep 22: only 9 hrs(244 + 22)
     # # 2017:Oct 11: only 14 hours(273 + 11)
     # # 2018: April 25: only 15 hours) we drop the follwoing indices
-    # dataset = dataset.drop(dataset[(dataset['year']==2016) & (dataset['month']==9) & (dataset['day']==20)].index)
+    # # dataset = dataset.drop(dataset[(dataset['year']==2016) & (dataset['month']==9) & (dataset['day']==20)].index)
+    # # dataset = dataset.drop(
+    # #     dataset[(dataset['year'] == 2016) & (dataset['month'] == 9) & (dataset['day'] == 22)].index)
+    # # dataset = dataset.drop(
+    # #     dataset[(dataset['year'] == 2017) & (dataset['month'] == 10) & (dataset['day'] == 11)].index)
+    # # dataset = dataset.drop(
+    # #     dataset[(dataset['year'] == 2018) & (dataset['month'] == 4) & (dataset['day'] == 25)].index)
+    # #Penn state
+    # # (based on:
+    # # 2016: July 13: only 17 hrs (182+13)
+    # # 2017:July 25: only 13 hours (181+25)
+    # # 2017: July 26: only 2 hours (181+26)
+    # # 2018: Sept 11: only 14 hours) (243+11) we drop the follwoing indices
+    # dataset = dataset.drop(dataset[(dataset['year']==2016) & (dataset['month']==7) & (dataset['day']==13)].index)
     # dataset = dataset.drop(
-    #     dataset[(dataset['year'] == 2016) & (dataset['month'] == 9) & (dataset['day'] == 22)].index)
+    #     dataset[(dataset['year'] == 2017) & (dataset['month'] == 7) & (dataset['day'] == 25)].index)
     # dataset = dataset.drop(
-    #     dataset[(dataset['year'] == 2017) & (dataset['month'] == 10) & (dataset['day'] == 11)].index)
+    #     dataset[(dataset['year'] == 2017) & (dataset['month'] == 7) & (dataset['day'] == 26)].index)
     # dataset = dataset.drop(
-    #     dataset[(dataset['year'] == 2018) & (dataset['month'] == 4) & (dataset['day'] == 25)].index)
+    #     dataset[(dataset['year'] == 2018) & (dataset['month'] == 9) & (dataset['day'] == 11)].index)
     #
     # # df = dataset[dataset['year'] == 2016]
     # # print(df.groupby(['month', 'day'])['hour'].count())
@@ -331,9 +327,8 @@ def main():
 
     final_features.extend(ensmeble_col_list)
     ## name of the regression model (this helps to distinguish the models within a "CNN"/"LSTM"/"Transformer" super-folder)
-    #reg = "tcn_week_ahead_24_seq_lag_small_kernel_with_attn_quantile_1hr_res"
+    # reg = "tcn_week_ahead_24_seq_lag_small_kernel_quantile_1hr_res"
     reg = "transformers_d96_week_ahead_24_lag_1hr_res"
-    #reg = "transformers_2day_2heads_less_dmodel_lag_week_ahead_1hr_res"
 
     for season_flag in seasons:
         ## ML_models_2018 is the folder to save results on testyear 2018
@@ -403,60 +398,40 @@ def main():
                 X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, None)
                                                                              # ,folder_saving + season_flag + "/final_ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/")
 
-                # f.write("epochs = " + str(epochs) + '\n')
-                # f.write("batch_size = " + str(batch_size) + '\n')
-                # f.write("learning rate = " + str(lr) + '\n')
-                # # f.write("n_layers = " + str(n_layers) + '\n')
-                # # f.write("factor = " + str(factor) + '\n')
-                # # f.write("num_heads = " + str(num_heads) + '\n')
-                # # f.write("d_model = " + str(d_model) + '\n')
-                # f.write("seq_len = " + str(n_timesteps) + '\n')
-                # f.write("total features = " + str(n_features)+ '\n')
-                # f.write("alphas = " + str(len((alphas))) + '\n')
                 #
                 y_train_model = y_train[:,0]
                 y_valid_model = y_valid[:,0]
                 y_test_model = y_heldout[:, 0]
+                #
+                # cnn.train_DCNN_with_attention(quantile,X_train, y_train_model, X_valid, y_valid_model, n_timesteps+1, n_features,
+                #                                                                          folder_saving + season_flag + "/final_ML_models_" + str(
+                #                                                                              testyear) + "/cnn/" + str(
+                #                                                                              res) + "/" + reg + "/",
+                #                                                                          model_saved="dcnn_lag_for_lead_" + str(
+                #                                                                              lead))
+                #
+                # y_pred, y_valid_pred, valid_crps, test_crps = cnn.test_DCNN_with_attention(quantile, X_valid,y_valid,
+                #                                                                          None, None,
+                #                                                                          n_timesteps + 1, n_features,
+                #                                                                          folder_saving + season_flag + "/final_ML_models_" + str(
+                #                                                                              testyear) + "/cnn/" + str(
+                #                                                                              res) + "/" + reg + "/",
+                #                                                                          "dcnn_lag_for_lead_" + str(
+                #                                                                              lead))  # "multi_horizon_dcnn", n_outputs=n_output_steps)
 
-                #cnn.train_DCNN_with_attention(quantile,X_train, y_train_model, X_valid, y_valid_model, n_timesteps+1, n_features,
-                 #                                                                         folder_saving + season_flag + "/final_ML_models_" + str(
-                  #                                                                            testyear) + "/cnn/" + str(
-                   #                                                                           res) + "/" + reg + "/",
-                    #                                                                      model_saved="dcnn_lag_for_lead_" + str(
-                     #                                                                         lead))
 
-                #y_pred, y_valid_pred, valid_crps, test_crps,y_test = cnn.test_DCNN_with_attention(quantile, X_valid,
-                 #                                                                         None, None,
-                  #                                                                        n_timesteps + 1, n_features,
-                   #                                                                       folder_saving + season_flag + "/final_ML_models_" + str(
-                    #                                                                          testyear) + "/cnn/" + str(
-                     #                                                                         res) + "/" + reg + "/",
-                      #                                                                    model_saved="dcnn_lag_for_lead_" + str(
-                       #                                                                       lead))  # "multi_horizon_dcnn", n_outputs=n_output_steps)
-                # tranformers.train_LSTM(quantile, X_train, y_train_model, X_valid, y_valid_model, n_timesteps+1, n_features,hidden_size , batch_size, epochs, lr,alphas, q50,
-                #                         folder_saving + season_flag + "/final_ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved ="model_lag_for_lead_" + str(lead)) #"multi_horizon_dcnn", n_outputs=n_output_steps)
+           #     tranformers.train_LSTM(quantile, X_train, y_train_model, X_valid, y_valid_model, n_timesteps+1, n_features,hidden_size , batch_size, epochs, lr,alphas, q50,
+            #                              folder_saving + season_flag + "/final_ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved ="model_lag_for_lead_" + str(lead)) #"multi_horizon_dcnn", n_outputs=n_output_steps)
 
-                # y_pred, y_valid_pred, valid_crps, test_crps  = tranformers.test_LSTM(quantile, X_valid, y_valid,None,None, n_timesteps+1, n_features,hidden_size,alphas, q50,
-                #                              folder_saving + season_flag + "/final_ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved = "model_lag_for_lead_" + str(lead))#"multi_horizon_dcnn", n_outputs=n_output_steps)
+             #   y_pred, y_valid_pred, valid_crps, test_crps  = tranformers.test_LSTM(quantile, X_valid, y_valid,None,None, n_timesteps+1, n_features,hidden_size,alphas, q50,
+              #                                 folder_saving + season_flag + "/final_ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved = "model_lag_for_lead_" + str(lead))#"multi_horizon_dcnn", n_outputs=n_output_steps)
 
-                # tranformers.train_transformer(quantile, X_train, y_train_model, X_valid, y_valid_model, n_timesteps + 1,
-                #                               n_features, n_layers, num_heads, d_model, batch_size, epochs, lr, alphas,
-                #                               q50,
-                #                               folder_saving + season_flag + "/final_ML_models_" + str(
-                #                                   testyear) + "/cnn/" + str(res) + "/" + reg + "/",
-                #                               model_saved="dcnn_lag_for_lead_" + str(
-                #                                   lead))  # "multi_horizon_dcnn", n_outputs=n_output_steps)
+                tranformers.train_transformer(quantile, X_train, y_train_model, X_valid, y_valid_model, n_timesteps+1, n_features, n_layers, num_heads, d_model, batch_size, epochs, lr,alphas, q50,
+                                           folder_saving + season_flag + "/final_ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved ="dcnn_lag_for_lead_" + str(lead)) #"multi_horizon_dcnn", n_outputs=n_output_steps)
 
-                y_pred, y_valid_pred, valid_crps, test_crps = tranformers.test_transformer(quantile, X_valid,
-                                                                                           y_valid_model, None, None,
-                                                                                           n_timesteps + 1, n_features,
-                                                                                           n_layers, num_heads, d_model,
-                                                                                           alphas, q50,
-                                                                                           folder_saving + season_flag + "/final_ML_models_" + str(
-                                                                                               testyear) + "/cnn/" + str(
-                                                                                               res) + "/" + reg + "/",
-                                                                                           model_saved="dcnn_lag_for_lead_" + str(
-                                                                                               lead))  # "multi_horizon_dcnn", n_outputs=n_output_steps)
+                y_pred, y_valid_pred, valid_crps, test_crps  = tranformers.test_transformer(quantile, X_valid, y_valid,None,None, n_timesteps+1, n_features,n_layers,  num_heads, d_model,alphas, q50,
+                                              folder_saving + season_flag + "/final_ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved = "dcnn_lag_for_lead_" + str(lead))#"multi_horizon_dcnn", n_outputs=n_output_steps)
+
 
                 f.write("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
                 print("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
@@ -475,11 +450,11 @@ def main():
                 print("not enough data for the season: ", season_flag, "and lead: ", lead)
 
         f.close()
-
+#
 
 if __name__ == '__main__':
     main()
 
-
-
-
+#
+#
+#

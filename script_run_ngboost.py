@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 from SolarForecasting.ModulesProcessing import collect_data,clean_data
 from SolarForecasting.ModulesLearning import preprocessing as preprocess
 from SolarForecasting.ModulesLearning import postprocessing as postprocess
-from SolarForecasting.ModulesLearning import ml_models as models
 from ngboost.scores import CRPS, MLE
 import scipy as sp
 from scipy.stats import norm as dist
@@ -20,7 +19,7 @@ pd.set_option('display.max_columns', 500)
 pd.set_option('display.width', 1000)
 
 # city
-city = 'Sioux_Falls_SD'#'Boulder_CO'#'Goodwin_Creek_MS'#'Desert_Rock_NV'
+city = 'Penn_State_PA'#'Sioux_Falls_SD'#'Boulder_CO'#'Goodwin_Creek_MS'#'Desert_Rock_NV'
 
 # lead time
 lead_times = [24*7] #7days in advance
@@ -199,101 +198,6 @@ def get_crps_for_ngboost(model, X, y):
 
 def main():
 
-
-    # # pre-processing steps
-    #
-    # # extract the input data files (SURFAD data)
-    # processed_file_path = path + 'processed/' + city
-    # if not os.path.isdir(processed_file_path):
-    #     get_data()
-    # combined_csv = preprocess.extract_frame(processed_file_path)
-    # print("The columns of the initial data file: ", combined_csv.columns)
-    #
-    # # extract the features from the input
-    # dataset = combined_csv[features]
-    # print('dataset size: ',len(dataset))
-    #
-    # #1hour resolution
-    # dataset['MinFlag'] = dataset['min'].apply(preprocess.generateFlag)
-    # # dataset = dataset.groupby(['year', 'month', 'day', 'hour', 'MinFlag']).mean()
-    # dataset = dataset.groupby(['year', 'month', 'day', 'hour']).mean()
-    # dataset.reset_index(inplace=True)
-    # print('dataset size: ',len(dataset))
-    #
-    # print(dataset.isnull().values.any())
-    #
-    # ##checking month-wise hour counts per year (turns out we don't have every hour of every day!!
-    # # df = dataset[dataset['year']==2016]
-    # # print(df.groupby(['month', 'day'])['hour'].count())
-    # # (based on:
-    # # 2016: Sep 20: only 15 hrs (244+20)
-    # # Sep 22: only 9 hrs(244 + 22)
-    # # 2017:Oct 11: only 14 hours(273 + 11)
-    # # 2018: April 25: only 15 hours) we drop the follwoing indices
-    # dataset = dataset.drop(dataset[(dataset['year']==2016) & (dataset['month']==9) & (dataset['day']==20)].index)
-    # dataset = dataset.drop(
-    #     dataset[(dataset['year'] == 2016) & (dataset['month'] == 9) & (dataset['day'] == 22)].index)
-    # dataset = dataset.drop(
-    #     dataset[(dataset['year'] == 2017) & (dataset['month'] == 10) & (dataset['day'] == 11)].index)
-    # dataset = dataset.drop(
-    #     dataset[(dataset['year'] == 2018) & (dataset['month'] == 4) & (dataset['day'] == 25)].index)
-    #
-    # # df = dataset[dataset['year'] == 2016]
-    # # print(df.groupby(['month', 'day'])['hour'].count())
-    # dataset.reset_index(inplace=True)
-    # print('dataset size: ', len(dataset))
-    #
-    # # read the clear-sky values
-    # clearsky = pd.read_csv(clearsky_file_path, skiprows=37, delimiter=';')
-    # print("The columns of the clear sky file: ", clearsky.columns)
-    # #
-    # # divide the observation period in form of year, month, day, hour, min (adding them as variables)
-    # clearsky[['year', 'month', 'day', 'hour', 'min']] = clearsky['# Observation period'].apply(preprocess.extract_time)
-    # clearsky = clearsky.groupby(['year', 'month', 'day', 'hour']).mean()
-    # # clearsky['MinFlag'] = clearsky['min'].apply(preprocess.generateFlag)
-    # # clearsky = clearsky.groupby(['year', 'month', 'day', 'hour', 'MinFlag']).mean()
-    # print("clearsky rows before merging: ", len(clearsky))
-    #
-    # # merging the clear sky values with SURFAD input dataset
-    # # df = dataset.merge(clearsky, on=['year', 'month', 'day', 'hour', 'MinFlag'], how='inner')
-    # df = dataset.merge(clearsky, on=['year', 'month', 'day', 'hour'], how='inner')
-    #
-    # # renaming the clear sky GHI
-    # df = df.rename(columns={'Clear sky GHI': 'clear_ghi'})
-    # print("stats of all raw features/columns")
-    # print(df.describe())
-    #
-    #
-    # # selecting only the required columns
-    # df = df[final_features]
-    #
-    # # get dataset for the study period
-    # df = preprocess.extract_study_period(df,startmonth, startyear, endmonth, endyear)
-    # print("\n\n after extracting study period")
-    # df.reset_index(drop=True, inplace=True)
-    # print(df.tail)
-    #
-    #
-    # ## Add NWP features
-    # df = include_nwp_features(df)
-    # # print("ssrd outliers: ", min(df), max(df))
-    # print(df.describe())
-    #
-    # ## convert negatives to 0 for all features
-    # df[df<0] = 0
-    # print("stats of selected features/columns after converting all negatives to 0")
-    # print(df.describe())
-    #
-    # ## adding the clearness index (taking care of "dive-by-zero")
-    # print("0 clear GHIs or GHI", len(df[df.clear_ghi==0]), len(df[df.dw_solar==0]))
-    # # df['clearness_index'] = df['dw_solar'] / df['clear_ghi']
-    # df['clearness_index'] = df['dw_solar'].div(df['clear_ghi'])
-    # df[~np.isfinite(df)] = 0
-    # df[np.isnan(df)] = 0
-    # print("checking for infinity/nans")
-    # print(np.isinf(df).values.sum())
-    # print(np.isnan(df).values.sum())
-    # # # #
     processed_file_path = path + 'processed/' + city + "/"
     # df.to_pickle(processed_file_path + "final_data_At_" + res + "_resolution_2016-2018_updated.pkl")
     df = pd.read_pickle(processed_file_path + "final_data_At_" + res + "_resolution_2016-2018_updated.pkl") ##this files inlcudes the day times - I'll be dropping them later!!
