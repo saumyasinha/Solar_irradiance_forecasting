@@ -406,23 +406,23 @@ class TransAm(nn.Module):
 #         # return pred_outputs
 
 
-#def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
- #                 validY, n_output_length, n_features, n_timesteps, folder_saving, model_saved, quantile, n_layers, alphas, outputs, valid, output_seq_len, num_heads, d_model, patience=None, verbose=None, reg_lamdba = 0):
-
 def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
-                   validY, n_output_length, n_features, n_timesteps, folder_saving, model_saved, quantile,hidden_size, alphas, outputs, valid, patience=None, verbose=None,
-                   reg_lamdba=0):
+                  validY, n_output_length, n_features, n_timesteps, folder_saving, model_saved, quantile, n_layers, alphas, outputs, valid, output_seq_len, num_heads, d_model, patience=None, verbose=None, reg_lamdba = 0):
+
+#def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
+ #                  validY, n_output_length, n_features, n_timesteps, folder_saving, model_saved, quantile,hidden_size, alphas, outputs, valid, patience=None, verbose=None,
+  #                 reg_lamdba=0):
     train_on_gpu = torch.cuda.is_available()
     print(train_on_gpu)
     # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     parallel = False
-    quantile_forecaster = quantileLSTM(n_features, n_timesteps, folder_saving, model_saved, quantile, hidden_size, alphas = alphas, outputs = outputs, valid=valid)
+ #   quantile_forecaster = quantileLSTM(n_features, n_timesteps, folder_saving, model_saved, quantile, hidden_size, alphas = alphas, outputs = outputs, valid=valid)
 
     #quantile_forecaster = MultiAttnHeadSimple(n_features, n_timesteps, folder_saving, model_saved, quantile, n_layers, factor, alphas = alphas, outputs = outputs, valid=valid, output_seq_len = output_seq_len, num_heads=num_heads, d_model=d_model)
-  #  quantile_forecaster = TransAm(n_features, n_timesteps, folder_saving, model_saved, quantile, alphas=alphas,
-   #                               outputs=outputs, valid=valid, num_heads=num_heads, d_model=d_model,
-    #                              num_layers=n_layers)
+    quantile_forecaster = TransAm(n_features, n_timesteps, folder_saving, model_saved, quantile, alphas=alphas,
+                                  outputs=outputs, valid=valid, num_heads=num_heads, d_model=d_model,
+                                  num_layers=n_layers)
 
     if train_on_gpu:
         # if torch.cuda.device_count() > 1:
@@ -487,7 +487,7 @@ def trainBatchwise(trainX, trainY, epochs, batch_size, lr, validX,
             total_loss = loss + reg_lamdba / 2 * reg_loss
             # backward pass: compute gradient of the loss with respect to model parameters
             total_loss.backward()
-            torch.nn.utils.clip_grad_norm_(quantile_forecaster.parameters(), 1)
+    #        torch.nn.utils.clip_grad_norm_(quantile_forecaster.parameters(), 1)
             # perform a single optimization step (parameter update)
             optimizer.step()
             # scheduler.step()
