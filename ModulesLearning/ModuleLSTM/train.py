@@ -57,7 +57,7 @@ def train_LSTM(quantile, X_train, y_train, X_valid, y_valid, n_timesteps, n_feat
 
 
 
-def test_LSTM(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_features, hidden_size, alphas, q50, folder_saving, model_saved, X_before_normalized=None, index_clearghi=None, lead=None, n_outputs = 1):
+def test_LSTM(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_features, hidden_size, alphas, q50, folder_saving, model_saved, X_before_normalized=None, lead=None, n_outputs = 1):
 
     if X_test is not None:
         X_test, y_test = X_test.astype(np.float32), y_test.astype(np.float32)
@@ -93,7 +93,7 @@ def test_LSTM(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_feature
         if X_test is not None:
             if X_before_normalized is not None:
                 clearsky = y_test[:, 1].reshape(y_test.shape[0], 1)
-                true = y_test[:0].reshape(y_test.shape[0], 1)  # np.roll(y_test, lead)
+                true = y_test[:,0].reshape(y_test.shape[0], 1)  # np.roll(y_test, lead)
                 y_test = np.multiply(true, clearsky)
                 pred = y_pred  # np.roll(y_pred, lead,axis=0)
                 y_pred = np.multiply(pred, clearsky)
@@ -101,11 +101,11 @@ def test_LSTM(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_feature
                 test_crps = crps_score(y_pred, y_test, np.arange(0.05, 1.0, 0.05))
                 y_pred = y_pred[:, 9]  # changed from 9
             else:
-                y_test = y_test[:0].reshape(y_test.shape[0], 1)
+                y_test = y_test[:,0].reshape(y_test.shape[0], 1)
                 test_crps = crps_score(y_pred, y_test, np.arange(0.05, 1.0, 0.05))
 
         if X_valid is not None:
-            y_valid = y_valid[:0].reshape(y_valid.shape[0], 1)
+            y_valid = y_valid[:,0].reshape(y_valid.shape[0], 1)
             valid_crps = crps_score(y_valid_pred, y_valid, np.arange(0.05, 1.0, 0.05))
             y_valid_pred = y_valid_pred[:, 9]  # changed from 9
 
@@ -165,7 +165,7 @@ def train_transformer(quantile, X_train, y_train, X_valid, y_valid, n_timesteps,
     loss_plots(train_loss,valid_loss,folder_saving,model_saved)
 
 
-def test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_features, n_layers,  num_heads, d_model, alphas, q50, folder_saving, model_saved, X_before_normalized=None, index_clearghi=None, lead=None, n_outputs = 1):
+def test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_features, n_layers,  num_heads, d_model, alphas, q50, folder_saving, model_saved, X_before_normalized=None, lead=None, n_outputs = 1):
 
     if X_test is not None:
         X_test, y_test = X_test.astype(np.float32), y_test.astype(np.float32)
@@ -215,7 +215,7 @@ def test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_
         if X_test is not None:
             if X_before_normalized is not None:
                 clearsky = y_test[:, 1].reshape(y_test.shape[0], 1)
-                true = y_test[:0].reshape(y_test.shape[0], 1)  # np.roll(y_test, lead)
+                true = y_test[:,0].reshape(y_test.shape[0], 1)  # np.roll(y_test, lead)
                 y_test = np.multiply(true, clearsky)
                 pred = y_pred  # np.roll(y_pred, lead,axis=0)
                 y_pred = np.multiply(pred, clearsky)
@@ -223,15 +223,15 @@ def test_transformer(quantile, X_valid, y_valid, X_test, y_test, n_timesteps, n_
                 test_crps = crps_score(y_pred, y_test, np.arange(0.05, 1.0, 0.05))
                 y_pred = y_pred[:, 9]  # changed from 9
             else:
-                y_test = y_test[:0].reshape(y_test.shape[0], 1)
+                y_test = y_test[:,0].reshape(y_test.shape[0], 1)
                 test_crps = crps_score(y_pred, y_test, np.arange(0.05, 1.0, 0.05))
 
         if X_valid is not None:
-            y_valid = y_valid[:0].reshape(y_valid.shape[0], 1)
+            y_valid = y_valid[:,0].reshape(y_valid.shape[0], 1)
             valid_crps = crps_score(y_valid_pred, y_valid, np.arange(0.05, 1.0, 0.05))
             y_valid_pred = y_valid_pred[:, 9]  # changed from 9
 
-    return y_pred, y_valid_pred, valid_crps, test_crps, y_test
+    return y_pred, y_valid_pred, valid_crps, test_crps
 
 
 

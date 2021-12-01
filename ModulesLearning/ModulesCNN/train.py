@@ -167,7 +167,7 @@ def train_DCNN_with_attention(quantile, X_train, y_train, X_valid, y_valid, n_ti
     # point_forecaster = ConvForecasterDilationLowRes(n_features, n_timesteps, folder_saving, model_saved, quantile, outputs=n_outputs, valid=valid)
     learning_rate =1e-4 #1e-5 # 1e-4#1e-5#changed from 1e-5
 
-    epochs = 300 #350 #400 #300#400 
+    epochs = 300 #300 #350 #400
     batch_size = 16#4  #32
 
 
@@ -217,8 +217,8 @@ def test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_times
     if X_test is not None:
         y_pred = quantile_forecaster.forward(X_test, n_outputs)
         y_pred = y_pred.cpu().detach().numpy()
-    y_valid_pred = None
 
+    y_valid_pred = None
     if X_valid is not None:
         y_valid_pred = quantile_forecaster.forward(X_valid, n_outputs)
         y_valid_pred = y_valid_pred.cpu().detach().numpy()
@@ -229,7 +229,7 @@ def test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_times
         if X_test is not None:
             if X_before_normalized is not None:
                 clearsky = y_test[:,1].reshape(y_test.shape[0],1)
-                true = y_test[:0].reshape(y_test.shape[0],1) #np.roll(y_test, lead)
+                true = y_test[:,0].reshape(y_test.shape[0],1) #np.roll(y_test, lead)
                 y_test = np.multiply(true, clearsky)
                 pred = y_pred #np.roll(y_pred, lead,axis=0)
                 y_pred = np.multiply(pred, clearsky)
@@ -237,17 +237,17 @@ def test_DCNN_with_attention(quantile, X_valid, y_valid, X_test, y_test, n_times
                 test_crps=crps_score(y_pred, y_test, np.arange(0.05, 1.0, 0.05))
                 y_pred = y_pred[:,9]#changed from 9
             else:
-                y_test = y_test[:0].reshape(y_test.shape[0], 1)
+                y_test = y_test[:,0].reshape(y_test.shape[0], 1)
                 test_crps = crps_score(y_pred, y_test, np.arange(0.05, 1.0, 0.05))
 
         if X_valid is not None:
-            y_valid = y_valid[:0].reshape(y_valid.shape[0], 1)
+            y_valid = y_valid[:,0].reshape(y_valid.shape[0], 1)
             valid_crps = crps_score(y_valid_pred, y_valid, np.arange(0.05, 1.0, 0.05))
             y_valid_pred = y_valid_pred[:, 9]  # changed from 9
 
 
     # print(valid_crps)
-    return y_pred, y_valid_pred, valid_crps, test_crps, y_test
+    return y_pred, y_valid_pred, valid_crps, test_crps
 
 
 

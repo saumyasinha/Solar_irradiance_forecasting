@@ -8,7 +8,6 @@ from collections import Counter
 from sklearn.model_selection import train_test_split
 from datetime import timedelta
 import scipy as sp
-from SolarForecasting.ModulesLearning import ml_models as models
 from SolarForecasting.ModulesProcessing import collect_data, clean_data
 from SolarForecasting.ModulesLearning import preprocessing as preprocess
 from SolarForecasting.ModulesLearning import postprocessing as postprocess
@@ -62,12 +61,12 @@ endmonth = 12
 testyear = 2018
 
 # hyperparameters
-n_timesteps = 12 #1day (can be 12hrs or 48hrs for a few models)
+n_timesteps = 24 #1day (can be 12hrs or 48hrs for a few models)
 n_features = 16 + 51
-quantile =False #False
+quantile = False #False
 
 #hyperparameters for LSTM/Transformer/CNNs
-n_layers = 1 #2 #3
+n_layers = 2 #1 #3
 num_heads = 2 #4
 d_model = 64 #128
 
@@ -511,110 +510,14 @@ def probabilistic_prediction_plots(X_test,outputs,y_test, col_to_indices_mapping
 
 def main():
 
-
-    # # pre-processing steps
-    #
-    # # extract the input data files (SURFAD data)
-    # processed_file_path = path + 'processed/' + city
-    # if not os.path.isdir(processed_file_path):
-    #     get_data()
-    # combined_csv = preprocess.extract_frame(processed_file_path)
-    # print("The columns of the initial data file: ", combined_csv.columns)
-    #
-    # # extract the features from the input
-    # dataset = combined_csv[features]
-    # print('dataset size: ',len(dataset))
-    #
-    # #1hour resolution
-    # dataset['MinFlag'] = dataset['min'].apply(preprocess.generateFlag)
-    # # dataset = dataset.groupby(['year', 'month', 'day', 'hour', 'MinFlag']).mean()
-    # dataset = dataset.groupby(['year', 'month', 'day', 'hour']).mean()
-    # dataset.reset_index(inplace=True)
-    # print('dataset size: ',len(dataset))
-    #
-    # print(dataset.isnull().values.any())
-    #
-    # ##checking month-wise hour counts per year (turns out we don't have every hour of every day!!
-    # # df = dataset[dataset['year']==2016]
-    # # print(df.groupby(['month', 'day'])['hour'].count())
-    # # (based on:
-    # # 2016: Sep 20: only 15 hrs (244+20)
-    # # Sep 22: only 9 hrs(244 + 22)
-    # # 2017:Oct 11: only 14 hours(273 + 11)
-    # # 2018: April 25: only 15 hours) we drop the follwoing indices
-    # dataset = dataset.drop(dataset[(dataset['year']==2016) & (dataset['month']==9) & (dataset['day']==20)].index)
-    # dataset = dataset.drop(
-    #     dataset[(dataset['year'] == 2016) & (dataset['month'] == 9) & (dataset['day'] == 22)].index)
-    # dataset = dataset.drop(
-    #     dataset[(dataset['year'] == 2017) & (dataset['month'] == 10) & (dataset['day'] == 11)].index)
-    # dataset = dataset.drop(
-    #     dataset[(dataset['year'] == 2018) & (dataset['month'] == 4) & (dataset['day'] == 25)].index)
-    #
-    # # df = dataset[dataset['year'] == 2016]
-    # # print(df.groupby(['month', 'day'])['hour'].count())
-    # dataset.reset_index(inplace=True)
-    # print('dataset size: ', len(dataset))
-    #
-    # # read the clear-sky values
-    # clearsky = pd.read_csv(clearsky_file_path, skiprows=37, delimiter=';')
-    # print("The columns of the clear sky file: ", clearsky.columns)
-    # #
-    # # divide the observation period in form of year, month, day, hour, min (adding them as variables)
-    # clearsky[['year', 'month', 'day', 'hour', 'min']] = clearsky['# Observation period'].apply(preprocess.extract_time)
-    # clearsky = clearsky.groupby(['year', 'month', 'day', 'hour']).mean()
-    # # clearsky['MinFlag'] = clearsky['min'].apply(preprocess.generateFlag)
-    # # clearsky = clearsky.groupby(['year', 'month', 'day', 'hour', 'MinFlag']).mean()
-    # print("clearsky rows before merging: ", len(clearsky))
-    #
-    # # merging the clear sky values with SURFAD input dataset
-    # # df = dataset.merge(clearsky, on=['year', 'month', 'day', 'hour', 'MinFlag'], how='inner')
-    # df = dataset.merge(clearsky, on=['year', 'month', 'day', 'hour'], how='inner')
-    #
-    # # renaming the clear sky GHI
-    # df = df.rename(columns={'Clear sky GHI': 'clear_ghi'})
-    # print("stats of all raw features/columns")
-    # print(df.describe())
-    #
-    #
-    # # selecting only the required columns
-    # df = df[final_features]
-    #
-    # # get dataset for the study period
-    # df = preprocess.extract_study_period(df,startmonth, startyear, endmonth, endyear)
-    # print("\n\n after extracting study period")
-    # df.reset_index(drop=True, inplace=True)
-    # print(df.tail)
-    #
-    #
-    # ## Add NWP features
-    # df = include_nwp_features(df)
-    # # print("ssrd outliers: ", min(df), max(df))
-    # print(df.describe())
-    #
-    # ## convert negatives to 0 for all features
-    # df[df<0] = 0
-    # print("stats of selected features/columns after converting all negatives to 0")
-    # print(df.describe())
-    #
-    # ## adding the clearness index (taking care of "dive-by-zero")
-    # print("0 clear GHIs or GHI", len(df[df.clear_ghi==0]), len(df[df.dw_solar==0]))
-    # # df['clearness_index'] = df['dw_solar'] / df['clear_ghi']
-    # df['clearness_index'] = df['dw_solar'].div(df['clear_ghi'])
-    # df[~np.isfinite(df)] = 0
-    # df[np.isnan(df)] = 0
-    # print("checking for infinity/nans")
-    # print(np.isinf(df).values.sum())
-    # print(np.isnan(df).values.sum())
-    # # # #
     processed_file_path = path + 'processed/' + city + "/"
     # df.to_pickle(processed_file_path + "final_data_At_" + res + "_resolution_2016-2018_updated.pkl")
     df = pd.read_pickle(processed_file_path + "final_data_At_" + res + "_resolution_2016-2018_updated.pkl") ##this files inlcudes the day times - I'll be dropping them later!!
 
     final_features.extend(ensmeble_col_list)
     ## name of the regression model (this helps to distinguish the models within a "CNN"/"LSTM"/"Transformer" super-folder)
-    reg = "tcn_week_ahead_12_seq_lag_small_kernel_1hr_res"
-    #reg = "lstm_50_week_ahead_2day_lag_1hr_res_quantile"
-    #reg = "transformers_2day_2heads_less_dmodel_lag_week_ahead_1hr_res"
+    reg = "final_transformers_d64_week_ahead_24_lag_1hr_res_2layers"
+
 
     for season_flag in seasons:
         ## ML_models_2018 is the folder to save results on testyear 2018
@@ -707,36 +610,36 @@ def main():
 
                 ## If doing probabilsitic prediction, just use the test function to scale the ys and crps score too
                 ## In case of deterministic use the postprocessing modules
-                y_pred, y_valid_pred, valid_crps, test_crps_scaled, y_test = cnn.test_DCNN_with_attention(quantile, X_valid,y_valid,
-                                                                                           X_test, y_test,
-                                                                                           n_timesteps + 1, n_features,
-                                                                                           folder_saving + season_flag + "/final_ML_models_" + str(
-                                                                                               testyear) + "/cnn/" + str(
-                                                                                               res) + "/" + reg + "/",
-                                                                                           "dcnn_lag_for_lead_" + str(
-                                                                                               lead),  X_test_before_normalized, lead)  # "multi_horizon_dcnn", n_outputs=n_output_steps)
-
-                # y_pred, y_valid_pred, valid_crps, test_crps_scaled  = tranformers.test_LSTM(quantile, X_valid, y_valid,X_test, y_test, n_timesteps+1, n_features,hidden_size,alphas, q50,
-                #                                folder_saving + season_flag + "/final_ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/","model_lag_for_lead_" + str(lead),X_test_before_normalized, index_clearghi, lead)#"multi_horizon_dcnn", n_outputs=n_output_steps)
-
-                # y_pred, y_valid_pred, valid_crps, test_crps_scaled, y_test = tranformers.test_transformer(quantile, X_valid, y_valid,
-                #                                                                           X_test, y_test, n_timesteps + 1,
-                #                                                                            n_features, n_layers, factor,
-                #                                                                            num_heads, d_model, alphas,
-                #                                                                            q50,
+                # y_pred, y_valid_pred, valid_crps, test_crps_scaled = cnn.test_DCNN_with_attention(quantile, X_valid,y_valid,
+                #                                                                            X_test, y_test,
+                #                                                                            n_timesteps + 1, n_features,
                 #                                                                            folder_saving + season_flag + "/final_ML_models_" + str(
                 #                                                                                testyear) + "/cnn/" + str(
                 #                                                                                res) + "/" + reg + "/",
-                #                                                                           "dcnn_lag_for_lead_" + str(
-                #                                                                                lead),X_test_before_normalized, index_clearghi, lead)  # "multi_horizon_dcnn", n_outputs=n_output_steps)
-                #
-                #
+                #                                                                            "dcnn_lag_for_lead_" + str(
+                #                                                                                lead),  X_test_before_normalized, lead)  # "multi_horizon_dcnn", n_outputs=n_output_steps)
+
+                # y_pred, y_valid_pred, valid_crps, test_crps_scaled  = tranformers.test_LSTM(quantile, X_valid, y_valid,X_test, y_test, n_timesteps+1, n_features,hidden_size,alphas, q50,
+                #                                folder_saving + season_flag + "/final_ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/","model_lag_for_lead_" + str(lead),X_test_before_normalized, lead)#"multi_horizon_dcnn", n_outputs=n_output_steps)
+
+                y_pred, y_valid_pred, valid_crps, test_crps_scaled = tranformers.test_transformer(quantile, X_valid, y_valid,
+                                                                                          X_test, y_test, n_timesteps + 1,
+                                                                                           n_features, n_layers,
+                                                                                           num_heads, d_model, alphas,
+                                                                                           q50,
+                                                                                           folder_saving + season_flag + "/final_ML_models_" + str(
+                                                                                               testyear) + "/cnn/" + str(
+                                                                                               res) + "/" + reg + "/",
+                                                                                          "dcnn_lag_for_lead_" + str(
+                                                                                               lead),X_test_before_normalized, lead)  # "multi_horizon_dcnn", n_outputs=n_output_steps)
+
 
             #
+            # #
                 # probabilistic_prediction_plots(X_test_before_normalized,y_pred, y_test, col_to_indices_mapping, folder_saving + season_flag + "/ML_models_" + str(
                  #                                                                              testyear) + "/cnn/" + str(
                   #                                                                             res) + "/" )
-            # # # #
+            # # #
             #     y_CH_PeEN, CH_PeEN_baseline_quantiles, crps_CH_PeEN = get_CH_PeEN_baseline_crps(X_test_before_normalized, X_train_before_normalized, col_to_indices_mapping, y_test, lead)
             #     y_climatology, climatology_probabilistic_baseline, crps_climatology = get_climatology_baseline_crps(X_test_before_normalized, X_train_before_normalized, col_to_indices_mapping, y_test, lead)
 
@@ -859,7 +762,7 @@ def main():
             #         round(test_crps_scaled, 2)) + '\n')
             #     f.write('CRPS scaled score on heldout data for year 2018 for lead' + str(lead) + '=' + str(
             #         round(test_crps_scaled, 2)) + '\n')
-            #     #
+            # #     #
                 # print('CRPS CH_PeEN scaled score on heldout data for year 2018 for lead' + str(lead) + '=' + str(
                 #     round(crps_CH_PeEN, 2)) + '\n')
                 # f.write('CRPS CH_PeEN scaled score on heldout data for year 2018 for lead' + str(lead) + '=' + str(
