@@ -23,7 +23,7 @@ pd.set_option('display.width', 1000)
 
 
 # city
-city = 'Penn_State_PA'#'Sioux_Falls_SD'#'Boulder_CO'#'Goodwin_Creek_MS'#'Desert_Rock_NV'
+city = 'Penn_State_PA'#"Sioux_Falls_SD"#'Penn_State_PA'#'Boulder_CO'#'Goodwin_Creek_MS'#'Desert_Rock_NV'
 
 # lead time
 lead_times = [24*7] #7days in advance
@@ -62,15 +62,15 @@ endmonth = 12
 testyear = 2018
 
 # hyperparameters
-n_timesteps = 24 #24 #48 # (can be 12hrs or 48hrs for a few models)
+n_timesteps = 48 #24 #48 # (can be 12hrs or 48hrs for a few models)
 
-n_features = 16 + 51
-quantile =False
+n_features =16+51 #16 + 1
+quantile=True
 
 #hyperparameters for LSTM/Transformer/CNNs
 n_layers = 1 #2
 num_heads = 2 #2 #4
-d_model = 96#96 #128 #64
+d_model = 64 #128 #64
 
 hidden_size= 50#25
 batch_size = 16 #32
@@ -326,9 +326,9 @@ def main():
 
     final_features.extend(ensmeble_col_list)
     ## name of the regression model (this helps to distinguish the models within a "CNN"/"LSTM"/"Transformer" super-folder)
-    # reg = "tcn_week_ahead_24_seq_lag_small_kernel_quantile_1hr_res"
-    reg = "transformers_d96_week_ahead_24_lag_1hr_res"
-
+    #reg = "tcn_no_nwp_week_ahead_24_seq_lag_small_kernel_1hr_res"
+    reg ="transformers_no_nwp_d64_week_ahead_48_lag_1hr_res_qunatile" #"transformers_no_nwp_d64_week_ahead_48_lag_1hr_res_quantile"
+    #reg = "lstm_48hr_lag_50_week_ahead_quantile"
     for season_flag in seasons:
         ## ML_models_2018 is the folder to save results on testyear 2018
         os.makedirs(
@@ -402,32 +402,32 @@ def main():
                 y_valid_model = y_valid[:,0]
                 y_test_model = y_heldout[:, 0]
                 #
-                # cnn.train_DCNN_with_attention(quantile,X_train, y_train_model, X_valid, y_valid_model, n_timesteps+1, n_features,
-                #                                                                          folder_saving + season_flag + "/final_ML_models_" + str(
-                #                                                                              testyear) + "/cnn/" + str(
-                #                                                                              res) + "/" + reg + "/",
-                #                                                                          model_saved="dcnn_lag_for_lead_" + str(
-                #                                                                              lead))
-                #
-                # y_pred, y_valid_pred, valid_crps, test_crps = cnn.test_DCNN_with_attention(quantile, X_valid,y_valid,
-                #                                                                          None, None,
-                #                                                                          n_timesteps + 1, n_features,
-                #                                                                          folder_saving + season_flag + "/final_ML_models_" + str(
-                #                                                                              testyear) + "/cnn/" + str(
-                #                                                                              res) + "/" + reg + "/",
-                #                                                                          "dcnn_lag_for_lead_" + str(
-                #                                                                              lead))  # "multi_horizon_dcnn", n_outputs=n_output_steps)
+                #cnn.train_DCNN_with_attention(quantile,X_train, y_train_model, X_valid, y_valid_model, n_timesteps+1, n_features,
+                 #                                                                         folder_saving + season_flag + "/final_ML_models_" + str(
+                  #                                                                            testyear) + "/cnn/" + str(
+                   #                                                                           res) + "/" + reg + "/",
+                    #                                                                      model_saved="dcnn_lag_for_lead_" + str(
+                     #                                                                         lead))
+                
+                #y_pred, y_valid_pred, valid_crps, test_crps = cnn.test_DCNN_with_attention(quantile, X_valid,y_valid,
+                 #                                                                         None, None,
+                  #                                                                        n_timesteps + 1, n_features,
+                   #                                                                       folder_saving + season_flag + "/final_ML_models_" + str(
+                    #                                                                          testyear) + "/cnn/" + str(
+                     #                                                                         res) + "/" + reg + "/",
+                      #                                                                    "dcnn_lag_for_lead_" + str(
+                       #                                                                       lead))  # "multi_horizon_dcnn", n_outputs=n_output_steps)
 
 
-           #     tranformers.train_LSTM(quantile, X_train, y_train_model, X_valid, y_valid_model, n_timesteps+1, n_features,hidden_size , batch_size, epochs, lr,alphas, q50,
-            #                              folder_saving + season_flag + "/final_ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved ="model_lag_for_lead_" + str(lead)) #"multi_horizon_dcnn", n_outputs=n_output_steps)
+                #tranformers.train_LSTM(quantile, X_train, y_train_model, X_valid, y_valid_model, n_timesteps+1, n_features,hidden_size , batch_size, epochs, lr,alphas, q50,
+                 #                         folder_saving + season_flag + "/final_ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved ="model_lag_for_lead_" + str(lead)) #"multi_horizon_dcnn", n_outputs=n_output_steps)
 
-             #   y_pred, y_valid_pred, valid_crps, test_crps  = tranformers.test_LSTM(quantile, X_valid, y_valid,None,None, n_timesteps+1, n_features,hidden_size,alphas, q50,
-              #                                 folder_saving + season_flag + "/final_ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved = "model_lag_for_lead_" + str(lead))#"multi_horizon_dcnn", n_outputs=n_output_steps)
+                #y_pred, y_valid_pred, valid_crps, test_crps  = tranformers.test_LSTM(quantile, X_valid, y_valid,None,None, n_timesteps+1, n_features,hidden_size,alphas, q50,
+                 #                              folder_saving + season_flag + "/final_ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved = "model_lag_for_lead_" + str(lead))#"multi_horizon_dcnn", n_outputs=n_output_steps)
 
                 tranformers.train_transformer(quantile, X_train, y_train_model, X_valid, y_valid_model, n_timesteps+1, n_features, n_layers, num_heads, d_model, batch_size, epochs, lr,alphas, q50,
                                            folder_saving + season_flag + "/final_ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved ="dcnn_lag_for_lead_" + str(lead)) #"multi_horizon_dcnn", n_outputs=n_output_steps)
-
+#
                 y_pred, y_valid_pred, valid_crps, test_crps  = tranformers.test_transformer(quantile, X_valid, y_valid,None,None, n_timesteps+1, n_features,n_layers,  num_heads, d_model,alphas, q50,
                                               folder_saving + season_flag + "/final_ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved = "dcnn_lag_for_lead_" + str(lead))#"multi_horizon_dcnn", n_outputs=n_output_steps)
 
