@@ -154,7 +154,7 @@ class ConvForecasterDilationLowRes(nn.Module):
         # # self.fc = nn.Linear(self.conv_output_size,self.outputs)
 
 
-        num_channels = [75]*3 #[75] * 3  # 6#24/25 before and 6 num of channels, reduced for multihead
+        num_channels = [75]*3  # 6#24/25 before and 6 num of channels, reduced for multihead
         self.tcn = TemporalConvNet(self.input_dim, num_channels, kernel_size=3, dropout=0.2,
                                    attention=False)  # kernel size changed to 3 instead of 5
 
