@@ -58,7 +58,7 @@ endmonth = 12
 testyear = 2018
 
 # hyperparameters
-n_timesteps = 24 #1day (can be 12hrs or 48hrs for a few models)
+n_timesteps = 12 #1day (can be 12hrs or 48hrs for a few models)
 n_features = 16 + 51
 
 
@@ -203,7 +203,7 @@ def main():
     df = pd.read_pickle(processed_file_path + "final_data_At_" + res + "_resolution_2016-2018_updated.pkl") ##this files inlcudes the day times - I'll be dropping them later!!
 
     final_features.extend(ensmeble_col_list)
-    reg = "ngboost_with_24_seq_lag_week_ahead"  ## giving a name to the regression models -- useful when saving results
+    reg = "ngboost_with_12_seq_lag_week_ahead"  ## giving a name to the regression models -- useful when saving results
     #
     for season_flag in seasons:
         ## ML_models_2018 is the folder to save results on testyear 2018

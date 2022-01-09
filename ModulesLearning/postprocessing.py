@@ -10,18 +10,21 @@ def postprocessing_target(pred, true): #, X, index_ghi, index_clearghi, lead):
     # Calculating the predicted dw_solar by multiplying the predicted clearness index with GHi clear of current time
     true_clearness= true[:,0] #np.roll(true, lead)
     true_clearness = np.reshape(true_clearness, (true_clearness.shape[0], 1))
-    pred = pred #np.roll(pred, lead)
-    pred = np.reshape(pred, (pred.shape[0], 1))
     clearsky = true[:,1]#np.reshape(X[:, index_clearghi], (X[:, index_clearghi].shape[0], 1))  # clear sky GHI
     clearsky = np.reshape(clearsky, (clearsky.shape[0], 1))
     y_true = np.multiply(true_clearness, clearsky)
-    y_pred = np.multiply(pred, clearsky)
+
+    y_pred = None
+    if pred is not None:
+        pred = pred  # np.roll(pred, lead)
+        pred = np.reshape(pred, (pred.shape[0], 1))
+        y_pred = np.multiply(pred, clearsky)
     return y_true, y_pred
 
 
 def smart_persistence_model(X, true, index_clearness, lead):
 
-    clearness_index = X[:,index_clearness,-1]
+    clearness_index = X[:,index_clearness] #X[:,index_clearness,-1]
     print(clearness_index.shape,clearness_index.shape[0] )
     # clearness_index = np.roll(clearness_index, lead) #since S(t) = clearness_index(t-lead)*clear_ghi(t)
     clearness_index = np.reshape(clearness_index, (clearness_index.shape[0], 1))

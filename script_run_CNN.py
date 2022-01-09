@@ -3,17 +3,17 @@ import pandas as pd
 import os
 from sklearn.model_selection import train_test_split
 #
-# from SolarForecasting.ModulesProcessing import collect_data, clean_data
-# from SolarForecasting.ModulesLearning import preprocessing as preprocess
-# from SolarForecasting.ModulesLearning import postprocessing as postprocess
-# from SolarForecasting.ModulesLearning.ModulesCNN import train as cnn
-# from SolarForecasting.ModulesLearning.ModuleLSTM import train as tranformers
+from SolarForecasting.ModulesProcessing import collect_data, clean_data
+from SolarForecasting.ModulesLearning import preprocessing as preprocess
+from SolarForecasting.ModulesLearning import postprocessing as postprocess
+from SolarForecasting.ModulesLearning.ModulesCNN import train as cnn
+from SolarForecasting.ModulesLearning.ModuleLSTM import train as transformers
 
-from ModulesProcessing import collect_data, clean_data
-from ModulesLearning import preprocessing as preprocess
-from ModulesLearning import postprocessing as postprocess
-from ModulesLearning.ModulesCNN import train as cnn
-from ModulesLearning.ModuleLSTM import train as tranformers
+# from ModulesProcessing import collect_data, clean_data
+# from ModulesLearning import preprocessing as preprocess
+# from ModulesLearning import postprocessing as postprocess
+# from ModulesLearning.ModulesCNN import train as cnn
+# from ModulesLearning.ModuleLSTM import train as transformers
 
 
 
@@ -420,16 +420,16 @@ def main():
                 #                                                                              lead))  # "multi_horizon_dcnn", n_outputs=n_output_steps)
 
 
-           #     tranformers.train_LSTM(quantile, X_train, y_train_model, X_valid, y_valid_model, n_timesteps+1, n_features,hidden_size , batch_size, epochs, lr,alphas, q50,
+           #     transformers.train_LSTM(quantile, X_train, y_train_model, X_valid, y_valid_model, n_timesteps+1, n_features,hidden_size , batch_size, epochs, lr,alphas, q50,
             #                              folder_saving + season_flag + "/final_ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved ="model_lag_for_lead_" + str(lead)) #"multi_horizon_dcnn", n_outputs=n_output_steps)
 
-             #   y_pred, y_valid_pred, valid_crps, test_crps  = tranformers.test_LSTM(quantile, X_valid, y_valid,None,None, n_timesteps+1, n_features,hidden_size,alphas, q50,
+             #   y_pred, y_valid_pred, valid_crps, test_crps  = transformers.test_LSTM(quantile, X_valid, y_valid,None,None, n_timesteps+1, n_features,hidden_size,alphas, q50,
               #                                 folder_saving + season_flag + "/final_ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved = "model_lag_for_lead_" + str(lead))#"multi_horizon_dcnn", n_outputs=n_output_steps)
 
-                tranformers.train_transformer(quantile, X_train, y_train_model, X_valid, y_valid_model, n_timesteps+1, n_features, n_layers, num_heads, d_model, batch_size, epochs, lr,alphas, q50,
+                transformers.train_transformer(quantile, X_train, y_train_model, X_valid, y_valid_model, n_timesteps+1, n_features, n_layers, num_heads, d_model, batch_size, epochs, lr,alphas, q50,
                                            folder_saving + season_flag + "/final_ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved ="dcnn_lag_for_lead_" + str(lead)) #"multi_horizon_dcnn", n_outputs=n_output_steps)
 
-                y_pred, y_valid_pred, valid_crps, test_crps  = tranformers.test_transformer(quantile, X_valid, y_valid,None,None, n_timesteps+1, n_features,n_layers,  num_heads, d_model,alphas, q50,
+                y_pred, y_valid_pred, valid_crps, test_crps  = transformers.test_transformer(quantile, X_valid, y_valid,None,None, n_timesteps+1, n_features,n_layers,  num_heads, d_model,alphas, q50,
                                               folder_saving + season_flag + "/final_ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/",model_saved = "dcnn_lag_for_lead_" + str(lead))#"multi_horizon_dcnn", n_outputs=n_output_steps)
 
 

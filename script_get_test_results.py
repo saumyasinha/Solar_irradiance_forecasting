@@ -22,7 +22,7 @@ pd.set_option('display.width', 1000)
 
 
 # city
-city = 'Sioux_Falls_SD'#'Boulder_CO'#'Goodwin_Creek_MS'#'Desert_Rock_NV'
+city = 'Sioux_Falls_SD'#'Boulder_CO'#'Goodwin_Creek_MS'#'Desert_Rock_NV''Penn_State_PA'
 
 # lead time
 lead_times = [24*7] #7days in advance
@@ -61,14 +61,14 @@ endmonth = 12
 testyear = 2018
 
 # hyperparameters
-n_timesteps = 24 #1day (can be 12hrs or 48hrs for a few models)
-n_features = 16 + 51
+n_timesteps = 24#48 #1day (can be 12hrs or 48hrs for a few models)
+n_features = 16 #+51 #+ 1
 quantile = False #False
 
 #hyperparameters for LSTM/Transformer/CNNs
-n_layers = 2 #1 #3
+n_layers = 1 #2 #3
 num_heads = 2 #4
-d_model = 64 #128
+d_model = 96#64 #128
 
 hidden_size= 50
 batch_size = 16 #32 #16 #16
@@ -252,22 +252,23 @@ def get_crps_for_ngboost_scaled(model, X, y,X_before_normalized,index_clearghi,l
 
 
 
-def get_CH_PeEN_baseline_crps(X_test, X_train, col_to_indices_mapping, y_test,lead):
-    index_hour = -n_features + col_to_indices_mapping['hour']
-    index_clearghi = -n_features + col_to_indices_mapping['clear_ghi']
-    index_ghi = -n_features + col_to_indices_mapping['dw_solar']
+def get_CH_PeEN_baseline_crps(X_test, X_train, col_to_indices_mapping, y_test):
+    index_hour = col_to_indices_mapping['hour']
+    index_clearness = col_to_indices_mapping['clearness_index_input']
 
     current_hour_list = X_test[:, index_hour]
 
     CH_PeEN_baseline = []
     CH_PeEN_point_baseline = []
 
+    # X_train_only_last_timestep = X_train[:, :, -1]
+
     for i in range(len(X_test)):
         current_hour = current_hour_list[i]
         # print(current_hour,current_month)
         X_train_for_hour = X_train[X_train[:,index_hour]==current_hour]
 
-        hour_dist =X_train_for_hour[:, index_ghi]/X_train_for_hour[:, index_clearghi]
+        hour_dist = X_train_for_hour[:, index_clearness]#X_train_for_hour[:, index_ghi]/X_train_for_hour[:, index_clearghi]
 
         CH_PeEN_point_baseline.append(np.average(hour_dist))
 
@@ -277,47 +278,37 @@ def get_CH_PeEN_baseline_crps(X_test, X_train, col_to_indices_mapping, y_test,le
     CH_PeEN_baseline_quantiles = np.asarray(CH_PeEN_baseline)
     CH_PeEN_point_baseline = np.reshape(CH_PeEN_point_baseline, (len(CH_PeEN_point_baseline), 1))
 
-    clearghi = np.asarray(X_test[:, index_clearghi])
-    clearghi = np.reshape(clearghi, (clearghi.shape[0], 1))
+    clearsky = y_test[:, 1].reshape(y_test.shape[0], 1)
+    true = y_test[:, 0].reshape(y_test.shape[0], 1)  # np.roll(y_test, lead)
+    y_test = np.multiply(true, clearsky)
 
-    CH_PeEN_baseline_quantiles = np.multiply(CH_PeEN_baseline_quantiles, clearghi)
-    CH_PeEN_point_baseline = np.multiply(CH_PeEN_point_baseline, clearghi)
+    CH_PeEN_baseline_quantiles = np.multiply(CH_PeEN_baseline_quantiles, clearsky)
+    CH_PeEN_point_baseline = np.multiply(CH_PeEN_point_baseline, clearsky)
 
-    crps_CH_PeEN = crps_score(CH_PeEN_baseline_quantiles, y_test, alphas, post_process=True, lead=lead)
+    crps_CH_PeEN = crps_score(CH_PeEN_baseline_quantiles, y_test, alphas)
 
 
     return CH_PeEN_point_baseline, CH_PeEN_baseline_quantiles, crps_CH_PeEN
 
-def get_climatology_baseline_crps(X_test, X_train, col_to_indices_mapping, y_test,lead):
+def get_climatology_baseline_crps(X_test, X_train, col_to_indices_mapping, y_test):
 
 
-    # GHIs_train = X_train[:,index_ghi]
-    #
-    # climatology_point_baseline = np.average(GHIs_train)
-    # climatology_point_baseline = np.full(y_test.shape, climatology_point_baseline)
-    #
-    #
-    # quantiles = np.quantile(GHIs_train, alphas)
-    # climatology_probabilistic_baseline = np.full((y_test.shape[0], len(alphas)), quantiles)
-    #
-    #
-    # crps_climatology = crps_score(climatology_probabilistic_baseline, y_test, alphas, post_process=True, lead=lead)
-    #
-    # return climatology_point_baseline, climatology_probabilistic_baseline, crps_climatology
-
-    index_hour = -n_features + col_to_indices_mapping['hour']
-    index_ghi = -n_features + col_to_indices_mapping['dw_solar']
+    index_hour = col_to_indices_mapping['hour']
+    index_ghi = col_to_indices_mapping['dw_solar']
 
     current_hour_list = X_test[:, index_hour]
+    print(current_hour_list.shape)
 
     climatology_baseline = []
     climatology_point_baseline = []
+
+    # X_train_only_last_timestep = X_train[:,:,-1]
+    # print(X_train_only_last_timestep.shape)
 
     for i in range(len(X_test)):
         current_hour = current_hour_list[i]
         # print(current_hour,current_month)
         X_train_for_hour = X_train[X_train[:, index_hour] == current_hour]
-
         hour_dist = X_train_for_hour[:, index_ghi]
 
         climatology_point_baseline.append(np.average(hour_dist))
@@ -328,185 +319,189 @@ def get_climatology_baseline_crps(X_test, X_train, col_to_indices_mapping, y_tes
     climatology_baseline_quantiles = np.asarray(climatology_baseline)
     climatology_point_baseline = np.reshape(climatology_point_baseline, (len(climatology_point_baseline), 1))
 
-    crps_climatology = crps_score(climatology_baseline_quantiles, y_test, alphas, post_process=True, lead=lead)
+    clearsky = y_test[:, 1].reshape(y_test.shape[0], 1)
+    true = y_test[:, 0].reshape(y_test.shape[0], 1)  # np.roll(y_test, lead)
+    y_test = np.multiply(true, clearsky)
+
+    crps_climatology = crps_score(climatology_baseline_quantiles, y_test, alphas)
 
     return climatology_point_baseline, climatology_baseline_quantiles, crps_climatology
 
 
-def reliability_diagrams(alphas, outputs, outputs_ch_pn, outputs_climatology, target, folder_saving):
-
-
-    outputs_tcn_attn = np.load(
-        "/Users/saumya/Desktop/SolarProject/Boulder_CO/Models/year/ML_models_2018/cnn/1hour/final_tcn_week_ahead_1days_lag_small_kernel_1hr_res_attn_quantile/tcn_attention.npy")
-    outputs_transformers = np.load(
-        "/Users/saumya/Desktop/SolarProject/Boulder_CO/Models/year/ML_models_2018/cnn/1hour/final_transformers_2day_2heads_less_dmodel_lag_week_ahead_1hr_res_quantile/transformer.npy")
-    print(outputs_tcn_attn.shape, outputs_transformers.shape)
-
-    ## had to add the following for boulder, since timesteps were different for tcn/transformers
-    # target = target[24:, :]
-    total_obs = len(target)
-    # outputs = outputs[24:,:]
-    # outputs_tcn_attn = outputs_tcn_attn[24:,:]
-    # outputs_ch_pn = outputs_ch_pn[24:,:]
-    # outputs_climatology = outputs_climatology[24:,:]
-    # print(outputs_tcn_attn.shape, outputs_transformers.shape)
-
-
-    obs_proportion_list = []
-    obs_proportion_list_chpn = []
-    obs_proportion_list_climatology = []
-    obs_proportion_list_tcn_attn =[]
-    obs_proportion_list_transformers = []
-    for i, alpha in zip(range(len(alphas)), alphas):
-        output = outputs[:, i].reshape((-1, 1))
-        output_ch_pn = outputs_ch_pn[:, i].reshape((-1, 1))
-        output_climatology = outputs_climatology[:, i].reshape((-1, 1))
-        output_transformers = outputs_transformers[:, i].reshape((-1, 1))
-        output_tcn_attn = outputs_tcn_attn[:, i].reshape((-1, 1))
-
-        obs_proportion_list.append(np.sum(target<=output)/total_obs)
-        obs_proportion_list_chpn.append(np.sum(target <= output_ch_pn) / total_obs)
-        obs_proportion_list_climatology.append(np.sum(target <= output_climatology) / total_obs)
-        obs_proportion_list_tcn_attn.append(np.sum(target <= output_tcn_attn) / total_obs)
-        obs_proportion_list_transformers.append(np.sum(target <= output_transformers) / total_obs)
-
-    print(obs_proportion_list == obs_proportion_list_climatology)
-
-    fig, ax = plt.subplots()
-    # ax.plot(alphas, alphas)
-    ax.plot(alphas, obs_proportion_list, marker='o', color ='g',label="TCN")
-    ax.plot(alphas, obs_proportion_list_tcn_attn, marker='d', color='y', label="TCN_with_attention")
-    ax.plot(alphas, obs_proportion_list_transformers, marker='h', color='m', label="Transformers")
-    ax.plot(alphas, obs_proportion_list_chpn, marker="s", color ='b',label="CH_PeEN")
-    ax.plot(alphas, obs_proportion_list_climatology, marker="*",color ='k', label="Climatology")
-    ax.set_xlabel('Nominal proportion')
-    ax.set_ylabel('Observed proportion')
-    ax.legend(loc='upper left')
-
-
-    plt.savefig(folder_saving + "reliability_with_all_plots")
-    plt.close()
-
-
-def sharpness_diagrams(alphas, outputs, outputs_ch_pn, outputs_climatology,folder_saving):
-    outputs_tcn_attn = np.load(
-        "/Users/saumya/Desktop/SolarProject/Boulder_CO/Models/year/ML_models_2018/cnn/1hour/final_tcn_week_ahead_1days_lag_small_kernel_1hr_res_attn_quantile/tcn_attention.npy")
-    outputs_transformers = np.load(
-        "/Users/saumya/Desktop/SolarProject/Boulder_CO/Models/year/ML_models_2018/cnn/1hour/final_transformers_2day_2heads_less_dmodel_lag_week_ahead_1hr_res_quantile/transformer.npy")
-
-
-    print(outputs_tcn_attn.shape, outputs_transformers.shape)
-
-
-    intervals = np.array([0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9])
-    sharpness = []
-    sharpness_ch_pn = []
-    sharpness_climatology = []
-    sharpness_tcn_attn = []
-    sharpness_transformers = []
-    for i in intervals:
-
-        h = 0.5+(i/2)
-        l = 0.5-(i/2)
-
-        h = np.where(np.around(alphas,2) == np.around(h,2))[0][0]
-        l = np.where(np.around(alphas,2) == np.around(l,2))[0][0]
-
-        sharpness.append(np.mean(outputs[:,h] - outputs[:,l]))
-        sharpness_ch_pn.append(np.mean(outputs_ch_pn[:, h] - outputs_ch_pn[:, l]))
-        sharpness_climatology.append(np.mean(outputs_climatology[:, h] - outputs_climatology[:, l]))
-        sharpness_tcn_attn.append(np.mean(outputs_tcn_attn[:, h] - outputs_tcn_attn[:, l]))
-        sharpness_transformers.append(np.mean(outputs_transformers[:, h] - outputs_transformers[:, l]))
-
-
-    print(sharpness==sharpness_climatology)
-
-    fig, ax = plt.subplots()
-    # plt.plot(alphas, alphas)
-    ax.plot(intervals, sharpness, marker='o', color ='g',label = "TCN")
-    ax.plot(intervals, sharpness_tcn_attn, marker='d', color='y', label="TCN_with_attention")
-    ax.plot(intervals, sharpness_transformers, marker='h', color='m', label="Transformers")
-    ax.plot(intervals, sharpness_ch_pn, marker="s", color ='b',label="CH_PeEN")
-    ax.plot(intervals, sharpness_climatology, marker="*", color ='k',label=" Hourly Climatology")
-    ax.set_xlabel('intervals')
-    ax.set_ylabel('Average width')
-    ax.legend(loc = 'upper left')
-
-    plt.savefig(folder_saving + "sharpness_with_all_plots")
-    plt.close()
-
-
-def probabilistic_prediction_plots(X_test,outputs,y_test, col_to_indices_mapping,folder_saving):
-    # outputs_tcn_attn = np.load(
-    #     "/Users/saumya/Desktop/SolarProject/Boulder_CO/Models/year/ML_models_2018/cnn/1hour/final_tcn_week_ahead_1days_lag_small_kernel_1hr_res_attn_quantile/tcn_attention.npy")
-    # outputs_tcn = np.load(
-    #     "/Users/saumya/Desktop/SolarProject/Boulder_CO/Models/year/ML_models_2018/cnn/1hour/final_tcn_week_ahead_1days_lag_small_kernel_1hr_res_quantile/tcn.npy")
-    # outputs_lstm = np.load(
-    #     "/Users/saumya/Desktop/SolarProject/Boulder_CO/Models/year/ML_models_2018/cnn/1hour/final_lstm_50_week_ahead_2day_lag_1hr_res_quantile/lstm.npy")
-    #
-    # sub_outputs_tcn_attn = outputs_tcn_attn[7*24:8*24,:]
-    # sub_outputs_tcn = outputs_tcn[7*24:8*24,:]
-    # sub_outputs_lstm = outputs_lstm[6 * 24:7 * 24, :]
-    index_hour = -n_features + col_to_indices_mapping['hour']
-    index_month = -n_features + col_to_indices_mapping['month']
-    print(X_test[X_test[:,index_month]==3][:,index_hour])
-    print(X_test[:,index_month]==3)
-    index_ghi = -n_features + col_to_indices_mapping['dw_solar']
-    true = y_test[X_test[:,index_month]==3][:10*3,:] #X_test[X_test[:,index_month]==3][:10*5,index_ghi]
-    sub_outputs = outputs[X_test[:,index_month]==3][:10*3,:]
-    true  = np.reshape(true,-1)
-    print(sub_outputs.shape, true.shape)
-
-    true_full_day=[]
-    for i in range(3):
-        true_before = [0 for _ in range(13)]
-        print(true_before+true[10*i:10*(i+1)].tolist()+[0])
-        true_full_day.extend(true_before+true[10*i:10*(i+1)].tolist()+[0])
-
-
-
-
-    x_full_day = list(range(len(true_full_day)))
-    # x_only_day = x_full_day[13:23] + x_full_day[24+13:24+23] + x_full_day[48+13:48+23]
-    # x_only_day = list(range(13,23)) + list(range(24+13,24+23)) + list(range(48+13,48+23))
-    # print(x_full_day,x_only_day)
-
-
-    # x = range(len(true))
-    fig, ax = plt.subplots(1)
-    ax.plot(x_full_day, true_full_day, lw=1, label='true', color='g')
-    ax.plot(x_full_day[13:23], sub_outputs[:10,9], lw=1, label='predicted median', color='blue')
-    ax.plot(x_full_day[24+13:24+23], sub_outputs[10:20, 9], lw=1, color='blue')
-    ax.plot(x_full_day[48+13:48+23], sub_outputs[20:30, 9], lw=1, color='blue')
-    # ax.fill_between(x, sub_outputs[:,0],sub_outputs[:,-1], facecolor='gray', alpha=0.5,
-    #                 label='prediction')
-
-    total_quantiles = sub_outputs.shape[1]
-    for i in range(int(total_quantiles/2)):
-        # label = ""
-        print(i,total_quantiles-i-1)
-        print(alphas[i], alphas[total_quantiles - i - 1])
-        c = plt.cm.Blues(0.2 + .6 * (float(i) / total_quantiles * 2))
-        ax.fill_between(x_full_day[13:23], sub_outputs[:10,i], sub_outputs[:10,total_quantiles-i-1], color=c)
-        ax.fill_between(x_full_day[24+13:24+23], sub_outputs[10:20, i], sub_outputs[10:20, total_quantiles - i - 1], color=c)
-        ax.fill_between(x_full_day[48+13:48+23], sub_outputs[20:30, i], sub_outputs[20:30, total_quantiles - i - 1], color=c)
-
-    # plt.legend(framealpha=1)
-    # plt.show()
-
-    # ax.fill_between(x_test[6 * 24:7 * 24], sub_outputs_lstm[:, 0], sub_outputs_lstm[:, -1], facecolor='green', alpha=0.5,
-    #                 label='prediction lstm')
-    # ax.fill_between(x_test[6 * 24:7 * 24], sub_outputs_tcn[:, 0], sub_outputs_tcn[:, -1], facecolor='yellow', alpha=0.5,
-    #                 label='prediction tcn ')
-    # ax.fill_between(x_test[6 * 24:7 * 24], sub_outputs_tcn_attn[:, 0], sub_outputs_tcn_attn[:, -1], facecolor='red', alpha=0.5,
-    #                 label='prediction tcn+attention')
-    ax.set_xticks([])
-    ax.legend(loc='upper left')
-    ax.set_xlabel('Time: 3 days in March 2018')
-    ax.set_ylabel('Irradiance')
-
-    plt.savefig(folder_saving + "probabilistic_prediction_best_plots_include_night")
-    plt.close()
+# def reliability_diagrams(alphas, outputs, outputs_ch_pn, outputs_climatology, target, folder_saving):
+#
+#
+#     outputs_tcn_attn = np.load(
+#         "/Users/saumya/Desktop/SolarProject/Boulder_CO/Models/year/ML_models_2018/cnn/1hour/final_tcn_week_ahead_1days_lag_small_kernel_1hr_res_attn_quantile/tcn_attention.npy")
+#     outputs_transformers = np.load(
+#         "/Users/saumya/Desktop/SolarProject/Boulder_CO/Models/year/ML_models_2018/cnn/1hour/final_transformers_2day_2heads_less_dmodel_lag_week_ahead_1hr_res_quantile/transformer.npy")
+#     print(outputs_tcn_attn.shape, outputs_transformers.shape)
+#
+#     ## had to add the following for boulder, since timesteps were different for tcn/transformers
+#     # target = target[24:, :]
+#     total_obs = len(target)
+#     # outputs = outputs[24:,:]
+#     # outputs_tcn_attn = outputs_tcn_attn[24:,:]
+#     # outputs_ch_pn = outputs_ch_pn[24:,:]
+#     # outputs_climatology = outputs_climatology[24:,:]
+#     # print(outputs_tcn_attn.shape, outputs_transformers.shape)
+#
+#
+#     obs_proportion_list = []
+#     obs_proportion_list_chpn = []
+#     obs_proportion_list_climatology = []
+#     obs_proportion_list_tcn_attn =[]
+#     obs_proportion_list_transformers = []
+#     for i, alpha in zip(range(len(alphas)), alphas):
+#         output = outputs[:, i].reshape((-1, 1))
+#         output_ch_pn = outputs_ch_pn[:, i].reshape((-1, 1))
+#         output_climatology = outputs_climatology[:, i].reshape((-1, 1))
+#         output_transformers = outputs_transformers[:, i].reshape((-1, 1))
+#         output_tcn_attn = outputs_tcn_attn[:, i].reshape((-1, 1))
+#
+#         obs_proportion_list.append(np.sum(target<=output)/total_obs)
+#         obs_proportion_list_chpn.append(np.sum(target <= output_ch_pn) / total_obs)
+#         obs_proportion_list_climatology.append(np.sum(target <= output_climatology) / total_obs)
+#         obs_proportion_list_tcn_attn.append(np.sum(target <= output_tcn_attn) / total_obs)
+#         obs_proportion_list_transformers.append(np.sum(target <= output_transformers) / total_obs)
+#
+#     print(obs_proportion_list == obs_proportion_list_climatology)
+#
+#     fig, ax = plt.subplots()
+#     # ax.plot(alphas, alphas)
+#     ax.plot(alphas, obs_proportion_list, marker='o', color ='g',label="TCN")
+#     ax.plot(alphas, obs_proportion_list_tcn_attn, marker='d', color='y', label="TCN_with_attention")
+#     ax.plot(alphas, obs_proportion_list_transformers, marker='h', color='m', label="Transformers")
+#     ax.plot(alphas, obs_proportion_list_chpn, marker="s", color ='b',label="CH_PeEN")
+#     ax.plot(alphas, obs_proportion_list_climatology, marker="*",color ='k', label="Climatology")
+#     ax.set_xlabel('Nominal proportion')
+#     ax.set_ylabel('Observed proportion')
+#     ax.legend(loc='upper left')
+#
+#
+#     plt.savefig(folder_saving + "reliability_with_all_plots")
+#     plt.close()
+#
+#
+# def sharpness_diagrams(alphas, outputs, outputs_ch_pn, outputs_climatology,folder_saving):
+#     outputs_tcn_attn = np.load(
+#         "/Users/saumya/Desktop/SolarProject/Boulder_CO/Models/year/ML_models_2018/cnn/1hour/final_tcn_week_ahead_1days_lag_small_kernel_1hr_res_attn_quantile/tcn_attention.npy")
+#     outputs_transformers = np.load(
+#         "/Users/saumya/Desktop/SolarProject/Boulder_CO/Models/year/ML_models_2018/cnn/1hour/final_transformers_2day_2heads_less_dmodel_lag_week_ahead_1hr_res_quantile/transformer.npy")
+#
+#
+#     print(outputs_tcn_attn.shape, outputs_transformers.shape)
+#
+#
+#     intervals = np.array([0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9])
+#     sharpness = []
+#     sharpness_ch_pn = []
+#     sharpness_climatology = []
+#     sharpness_tcn_attn = []
+#     sharpness_transformers = []
+#     for i in intervals:
+#
+#         h = 0.5+(i/2)
+#         l = 0.5-(i/2)
+#
+#         h = np.where(np.around(alphas,2) == np.around(h,2))[0][0]
+#         l = np.where(np.around(alphas,2) == np.around(l,2))[0][0]
+#
+#         sharpness.append(np.mean(outputs[:,h] - outputs[:,l]))
+#         sharpness_ch_pn.append(np.mean(outputs_ch_pn[:, h] - outputs_ch_pn[:, l]))
+#         sharpness_climatology.append(np.mean(outputs_climatology[:, h] - outputs_climatology[:, l]))
+#         sharpness_tcn_attn.append(np.mean(outputs_tcn_attn[:, h] - outputs_tcn_attn[:, l]))
+#         sharpness_transformers.append(np.mean(outputs_transformers[:, h] - outputs_transformers[:, l]))
+#
+#
+#     print(sharpness==sharpness_climatology)
+#
+#     fig, ax = plt.subplots()
+#     # plt.plot(alphas, alphas)
+#     ax.plot(intervals, sharpness, marker='o', color ='g',label = "TCN")
+#     ax.plot(intervals, sharpness_tcn_attn, marker='d', color='y', label="TCN_with_attention")
+#     ax.plot(intervals, sharpness_transformers, marker='h', color='m', label="Transformers")
+#     ax.plot(intervals, sharpness_ch_pn, marker="s", color ='b',label="CH_PeEN")
+#     ax.plot(intervals, sharpness_climatology, marker="*", color ='k',label=" Hourly Climatology")
+#     ax.set_xlabel('intervals')
+#     ax.set_ylabel('Average width')
+#     ax.legend(loc = 'upper left')
+#
+#     plt.savefig(folder_saving + "sharpness_with_all_plots")
+#     plt.close()
+#
+#
+# def probabilistic_prediction_plots(X_test,outputs,y_test, col_to_indices_mapping,folder_saving):
+#     # outputs_tcn_attn = np.load(
+#     #     "/Users/saumya/Desktop/SolarProject/Boulder_CO/Models/year/ML_models_2018/cnn/1hour/final_tcn_week_ahead_1days_lag_small_kernel_1hr_res_attn_quantile/tcn_attention.npy")
+#     # outputs_tcn = np.load(
+#     #     "/Users/saumya/Desktop/SolarProject/Boulder_CO/Models/year/ML_models_2018/cnn/1hour/final_tcn_week_ahead_1days_lag_small_kernel_1hr_res_quantile/tcn.npy")
+#     # outputs_lstm = np.load(
+#     #     "/Users/saumya/Desktop/SolarProject/Boulder_CO/Models/year/ML_models_2018/cnn/1hour/final_lstm_50_week_ahead_2day_lag_1hr_res_quantile/lstm.npy")
+#     #
+#     # sub_outputs_tcn_attn = outputs_tcn_attn[7*24:8*24,:]
+#     # sub_outputs_tcn = outputs_tcn[7*24:8*24,:]
+#     # sub_outputs_lstm = outputs_lstm[6 * 24:7 * 24, :]
+#     index_hour = -n_features + col_to_indices_mapping['hour']
+#     index_month = -n_features + col_to_indices_mapping['month']
+#     print(X_test[X_test[:,index_month]==3][:,index_hour])
+#     print(X_test[:,index_month]==3)
+#     index_ghi = -n_features + col_to_indices_mapping['dw_solar']
+#     true = y_test[X_test[:,index_month]==3][:10*3,:] #X_test[X_test[:,index_month]==3][:10*5,index_ghi]
+#     sub_outputs = outputs[X_test[:,index_month]==3][:10*3,:]
+#     true  = np.reshape(true,-1)
+#     print(sub_outputs.shape, true.shape)
+#
+#     true_full_day=[]
+#     for i in range(3):
+#         true_before = [0 for _ in range(13)]
+#         print(true_before+true[10*i:10*(i+1)].tolist()+[0])
+#         true_full_day.extend(true_before+true[10*i:10*(i+1)].tolist()+[0])
+#
+#
+#
+#
+#     x_full_day = list(range(len(true_full_day)))
+#     # x_only_day = x_full_day[13:23] + x_full_day[24+13:24+23] + x_full_day[48+13:48+23]
+#     # x_only_day = list(range(13,23)) + list(range(24+13,24+23)) + list(range(48+13,48+23))
+#     # print(x_full_day,x_only_day)
+#
+#
+#     # x = range(len(true))
+#     fig, ax = plt.subplots(1)
+#     ax.plot(x_full_day, true_full_day, lw=1, label='true', color='g')
+#     ax.plot(x_full_day[13:23], sub_outputs[:10,9], lw=1, label='predicted median', color='blue')
+#     ax.plot(x_full_day[24+13:24+23], sub_outputs[10:20, 9], lw=1, color='blue')
+#     ax.plot(x_full_day[48+13:48+23], sub_outputs[20:30, 9], lw=1, color='blue')
+#     # ax.fill_between(x, sub_outputs[:,0],sub_outputs[:,-1], facecolor='gray', alpha=0.5,
+#     #                 label='prediction')
+#
+#     total_quantiles = sub_outputs.shape[1]
+#     for i in range(int(total_quantiles/2)):
+#         # label = ""
+#         print(i,total_quantiles-i-1)
+#         print(alphas[i], alphas[total_quantiles - i - 1])
+#         c = plt.cm.Blues(0.2 + .6 * (float(i) / total_quantiles * 2))
+#         ax.fill_between(x_full_day[13:23], sub_outputs[:10,i], sub_outputs[:10,total_quantiles-i-1], color=c)
+#         ax.fill_between(x_full_day[24+13:24+23], sub_outputs[10:20, i], sub_outputs[10:20, total_quantiles - i - 1], color=c)
+#         ax.fill_between(x_full_day[48+13:48+23], sub_outputs[20:30, i], sub_outputs[20:30, total_quantiles - i - 1], color=c)
+#
+#     # plt.legend(framealpha=1)
+#     # plt.show()
+#
+#     # ax.fill_between(x_test[6 * 24:7 * 24], sub_outputs_lstm[:, 0], sub_outputs_lstm[:, -1], facecolor='green', alpha=0.5,
+#     #                 label='prediction lstm')
+#     # ax.fill_between(x_test[6 * 24:7 * 24], sub_outputs_tcn[:, 0], sub_outputs_tcn[:, -1], facecolor='yellow', alpha=0.5,
+#     #                 label='prediction tcn ')
+#     # ax.fill_between(x_test[6 * 24:7 * 24], sub_outputs_tcn_attn[:, 0], sub_outputs_tcn_attn[:, -1], facecolor='red', alpha=0.5,
+#     #                 label='prediction tcn+attention')
+#     ax.set_xticks([])
+#     ax.legend(loc='upper left')
+#     ax.set_xlabel('Time: 3 days in March 2018')
+#     ax.set_ylabel('Irradiance')
+#
+#     plt.savefig(folder_saving + "probabilistic_prediction_best_plots_include_night")
+#     plt.close()
 
 def main():
 
@@ -514,11 +509,11 @@ def main():
     # df.to_pickle(processed_file_path + "final_data_At_" + res + "_resolution_2016-2018_updated.pkl")
     df = pd.read_pickle(processed_file_path + "final_data_At_" + res + "_resolution_2016-2018_updated.pkl") ##this files inlcudes the day times - I'll be dropping them later!!
 
-    final_features.extend(ensmeble_col_list)
+    # final_features.extend(ensmeble_col_list)#["ensemble_0"]) #ensmeble_col_list)
     ## name of the regression model (this helps to distinguish the models within a "CNN"/"LSTM"/"Transformer" super-folder)
-    reg = "final_transformers_d64_week_ahead_24_lag_1hr_res_2layers"
-
-
+    # reg = "baselines"
+    reg = "tcn_no_nwp_week_ahead_24_seq_lag_small_kernel_1hr_res"
+    # reg = "final_transformers_no_nwp_d64_week_ahead_24_lag_1hr_res_2layers_quantile"
     for season_flag in seasons:
         ## ML_models_2018 is the folder to save results on testyear 2018
         os.makedirs(
@@ -559,11 +554,7 @@ def main():
                 print("\n\n train and test df shapes ")
                 print(X_train.shape, y_train.shape, X_heldout.shape, y_heldout.shape)
 
-                ## explicitly setting these two indices for using later
-                # index_ghi = col_to_indices_mapping['dw_solar']
-                index_clearness = col_to_indices_mapping['clearness_index_input']
-
-                # including features from prev imestamps
+                # #including features from prev imestamps
                 X_train = include_previous_features(X_train, col_to_indices_mapping)
                 X_heldout = include_previous_features(X_heldout, col_to_indices_mapping)
 
@@ -583,24 +574,16 @@ def main():
                 X_test_before_normalized = X_heldout.copy()
                 X_train_before_normalized = X_train.copy()
 
-                # print("sanity check: ",n_features,len(col_to_indices_mapping))
                 ## normalizing the heldout with the X_train used for training
                 X_train, X_valid, X_test = preprocess.standardize_from_train(X_train, X_valid, X_heldout)
-                # ,folder_saving + season_flag + "/final_ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/")
 
-                y_train_model = y_train[:, 0]
-                y_valid_model = y_valid[:, 0]
-                y_test_model = y_heldout[:, 0]
 
                 print("valid size", X_valid.shape, y_valid.shape)
                 print("heldout size:", X_test.shape, y_heldout.shape)
 
-                y_test=y_heldout
+                y_test = y_heldout
                 y_true = y_test
-
-
-                # index_ghi = -n_features+index_ghi
-                # index_clearness = -n_features+index_clearness
+                y_pred = None
 
 
                 f.write("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season"+"\n")
@@ -610,170 +593,115 @@ def main():
 
                 ## If doing probabilsitic prediction, just use the test function to scale the ys and crps score too
                 ## In case of deterministic use the postprocessing modules
-                # y_pred, y_valid_pred, valid_crps, test_crps_scaled = cnn.test_DCNN_with_attention(quantile, X_valid,y_valid,
-                #                                                                            X_test, y_test,
-                #                                                                            n_timesteps + 1, n_features,
-                #                                                                            folder_saving + season_flag + "/final_ML_models_" + str(
-                #                                                                                testyear) + "/cnn/" + str(
-                #                                                                                res) + "/" + reg + "/",
-                #                                                                            "dcnn_lag_for_lead_" + str(
-                #                                                                                lead),  X_test_before_normalized, lead)  # "multi_horizon_dcnn", n_outputs=n_output_steps)
+
+                y_pred, y_valid_pred, valid_crps, test_crps_scaled = cnn.test_DCNN_with_attention(quantile, X_valid,y_valid,
+                                                                                           X_test, y_test,
+                                                                                           n_timesteps + 1, n_features,
+                                                                                           folder_saving + season_flag + "/final_ML_models_" + str(
+                                                                                               testyear) + "/cnn/" + str(
+                                                                                               res) + "/" + reg + "/",
+                                                                                           "dcnn_lag_for_lead_" + str(
+                                                                                               lead),  X_test_before_normalized, lead)  # "multi_horizon_dcnn", n_outputs=n_output_steps)
 
                 # y_pred, y_valid_pred, valid_crps, test_crps_scaled  = tranformers.test_LSTM(quantile, X_valid, y_valid,X_test, y_test, n_timesteps+1, n_features,hidden_size,alphas, q50,
                 #                                folder_saving + season_flag + "/final_ML_models_"+str(testyear)+"/cnn/"+str(res)+"/"+reg+"/","model_lag_for_lead_" + str(lead),X_test_before_normalized, lead)#"multi_horizon_dcnn", n_outputs=n_output_steps)
 
-                y_pred, y_valid_pred, valid_crps, test_crps_scaled = tranformers.test_transformer(quantile, X_valid, y_valid,
-                                                                                          X_test, y_test, n_timesteps + 1,
-                                                                                           n_features, n_layers,
-                                                                                           num_heads, d_model, alphas,
-                                                                                           q50,
-                                                                                           folder_saving + season_flag + "/final_ML_models_" + str(
-                                                                                               testyear) + "/cnn/" + str(
-                                                                                               res) + "/" + reg + "/",
-                                                                                          "dcnn_lag_for_lead_" + str(
-                                                                                               lead),X_test_before_normalized, lead)  # "multi_horizon_dcnn", n_outputs=n_output_steps)
+                # y_pred, y_valid_pred, valid_crps, test_crps_scaled = tranformers.test_transformer(quantile, X_valid, y_valid,
+                #                                                                           X_test, y_test, n_timesteps + 1,
+                #                                                                            n_features, n_layers,
+                #                                                                            num_heads, d_model, alphas,
+                #                                                                            q50,
+                #                                                                            folder_saving + season_flag + "/final_ML_models_" + str(
+                #                                                                                testyear) + "/cnn/" + str(
+                #                                                                                res) + "/" + reg + "/",
+                #                                                                           "dcnn_lag_for_lead_" + str(
+                #                                                                                lead),X_test_before_normalized, lead)  # "multi_horizon_dcnn", n_outputs=n_output_steps)
+                #
+                #
 
 
-            #
-            # #
-                # probabilistic_prediction_plots(X_test_before_normalized,y_pred, y_test, col_to_indices_mapping, folder_saving + season_flag + "/ML_models_" + str(
-                 #                                                                              testyear) + "/cnn/" + str(
-                  #                                                                             res) + "/" )
-            # # #
-            #     y_CH_PeEN, CH_PeEN_baseline_quantiles, crps_CH_PeEN = get_CH_PeEN_baseline_crps(X_test_before_normalized, X_train_before_normalized, col_to_indices_mapping, y_test, lead)
-            #     y_climatology, climatology_probabilistic_baseline, crps_climatology = get_climatology_baseline_crps(X_test_before_normalized, X_train_before_normalized, col_to_indices_mapping, y_test, lead)
-
-            #     # reliability_diagrams(np.arange(0.05, 1.0, 0.05), y_pred, CH_PeEN_baseline_quantiles, climatology_probabilistic_baseline, y_test,
-            # #                          folder_saving + season_flag + "/ML_models_" + str(
-            # #                              testyear) + "/cnn/" + str(
-            # #                              res) + "/")
-            # #
-            # #     sharpness_diagrams(np.arange(0.05, 1.0, 0.05),  y_pred, CH_PeEN_baseline_quantiles, climatology_probabilistic_baseline,
-            # #                        folder_saving + season_flag + "/ML_models_" + str(
-            # #                            testyear) + "/cnn/" + str(
-            # #                            res) + "/")
-            #
-            #
-                #
-                # y_test = np.reshape(y_heldout, -1)
-                # y_valid = np.reshape(y_valid, -1)
-                #
-                # y_true = y_test
-                #
-                # y_pred = model.predict(X_test) #.reshape((X_test.shape[0], n_timesteps+1, n_features)))
-                #
-                # y_pred = np.reshape(y_pred, -1)
-
-            #
-            # #
-            # #
-            #
                 print("\n" + city + " at Lead " + str(lead) + " and " + season_flag + " Season")
 
-                print("#####TEST#################")
-            #     # postprocessing on test
-                y_true, y_pred = postprocess.postprocessing_target(y_pred, y_true) #, X_test_before_normalized, index_ghi, index_clearghi, lead)
-                # # normal and smart persistence model
-            #     y_np = postprocess.normal_persistence_model(X_test_before_normalized, index_ghi, lead)
-                print(len(X_test_before_normalized), index_clearness)
-                y_sp = postprocess.smart_persistence_model(X_test_before_normalized, y_test, index_clearness, lead)
-            #     # y_climatology = postprocess.climatology_baseline(X_test_before_normalized, df_2017, col_to_indices_mapping, n_features)
-            #     true_day_test, pred_day_test, np_day_test, sp_day_test, climatology_test, CH_PeEN_test = postprocess.final_true_pred_sp_np(y_true, y_pred, y_np, y_sp, y_climatology, y_CH_PeEN, lead, X_test_before_normalized, index_zen, index_clearghi)
-            #     #
+            #     print("#####TEST#################")
+            #     # postprocessing on test and model's RMSE
+                y_true, y_pred = postprocess.postprocessing_target(y_pred, y_true)
+
+
                 rmse_our, mae_our, mb_our, sd_our, r2_our = postprocess.evaluation_metrics(y_true, y_pred)
                 #
                 print("Performance of our model (rmse, mae, mb, sd, r2): \n\n", round(rmse_our, 2), round(mae_our, 2),
                       round(mb_our, 2), round(sd_our, 2), round(r2_our, 2))
 
-
-                rmse_sp, mae_sp, mb_sp, sd_sp, r2_sp = postprocess.evaluation_metrics(y_true, y_sp)
-                print("Performance of smart persistence model (rmse, mae, mb, sd, r2): \n\n", round(rmse_sp, 2),
-                      round(mae_sp, 2),
-                      round(mb_sp, 2), round(sd_sp, 2), round(r2_sp, 2))
-            #
-            #     rmse_np, mae_np, mb_np, sd_np, r2_np = postprocess.evaluation_metrics(true_day_test, np_day_test)
-            #     print("Performance of normal persistence model (rmse, mae, mb, sd, r2): \n\n", round(rmse_np, 2),
-            #           round(mae_np, 2),
-            #           round(mb_np, 2), round(sd_np, 2), round(r2_np, 2))
-            #
-            #     rmse_clm, mae_clm, mb_clm, sd_clm, r2_clm = postprocess.evaluation_metrics(true_day_test, climatology_test)
-            #     print("Performance of hourly climatology baseline model (rmse, mae, mb, sd, r2): \n\n", round(rmse_clm, 2),
-            #           round(mae_clm, 2),
-            #           round(mb_clm, 2), round(sd_clm, 2), round(r2_clm, 2))
-            #
-            #     rmse_chp, mae_chp, mb_chp, sd_chp, r2_chp = postprocess.evaluation_metrics(true_day_test,
-            #                                                                                CH_PeEN_test)
-            #     print("Performance of CH_PeEN baseline model (rmse, mae, mb, sd, r2): \n\n", round(rmse_chp, 2),
-            #           round(mae_chp, 2),
-            #           round(mb_chp, 2), round(sd_chp, 2), round(r2_chp, 2))
-            #
-            #     # calculate the skill score of our model over persistence model
-            #     skill_sp = postprocess.skill_score(rmse_our, rmse_sp)
-            #     print("\nSkill rmse of our model over smart persistence: ", round(skill_sp, 2))
-            #
-            #     skill_np = postprocess.skill_score(rmse_our, rmse_np)
-            #     print("\nSkill rmse of our model over normal persistence: ", round(skill_np, 2))
-            #
-            #     skill_clm = postprocess.skill_score(rmse_our, rmse_clm)
-            #     print("\nSkill rmse of our model over hourly climatology baseline: ", round(skill_clm, 2))
-            #
-            #     skill_chp = postprocess.skill_score(rmse_our, rmse_chp)
-            #     print("\nSkill rmse of our model over CH_PeEN baseline: ", round(skill_chp, 2))
-            #
-            #     f.write('skill rmse score on heldout data for year 2018 for lead' + str(lead) + '=' + str(round(skill_sp, 2)) + '\n')
-            #     f.write('skill wrt hourly climatology rmse score on heldout data for year 2018 for lead' + str(lead) + '=' + str(
-            #         round(skill_clm, 2)) + '\n')
-            #     f.write(
-            #         'skill wrt CH_PeEN rmse score on heldout data for year 2018 for lead' + str(lead) + '=' + str(
-            #             round(skill_chp, 2)) + '\n')
-            #
-            #     skill_sp = postprocess.skill_score(mae_our, mae_sp)
-            #     print("\nSkill mae of our model over smart persistence: ", round(skill_sp, 2))
-            #
-            #     skill_np = postprocess.skill_score(mae_our, mae_np)
-            #     print("\nSkill mae of our model over normal persistence: ", round(skill_np, 2))
-            #
-            #     skill_clm = postprocess.skill_score(mae_our, mae_clm)
-            #     print("\nSkill mae of our model over climatology baseline: ", round(skill_clm, 2))
-            #
-            #     skill_chp = postprocess.skill_score(mae_our, mae_chp)
-            #     print("\nSkill mae of our model over climatology baseline: ", round(skill_chp, 2))
-            #
-            #     f.write('skill mae score on heldout data for year 2018 for lead' + str(lead) + '=' + str(
-            #         round(skill_sp, 2)) + '\n')
-            #     f.write(
-            #         'skill wrt hourly climatology mae score on heldout data for year 2018 for lead' + str(lead) + '=' + str(
-            #             round(skill_clm, 2)) + '\n')
-            #     f.write(
-            #         'skill wrt CH_PeEN mae score on heldout data for year 2018 for lead' + str(lead) + '=' + str(
-            #             round(skill_chp, 2)) + '\n')
-            # # #     # #
-            #     valid_crps = get_crps_for_ngboost(model, X_valid, y_valid)
-            #     # test_crps = get_crps_for_ngboost(model, X_test, y_test)
-            # #     # print("before crps",y_test.shape)
-            #     test_crps_scaled = get_crps_for_ngboost_scaled(model, X_test, y_test, X_test_before_normalized, index_clearghi, lead)
-            # #
-            #     print('CRPS score on valid data for lead' + str(lead) + '=' + str(
-            #         round(valid_crps, 2)) + '\n')
-            # # #     # # # # print('CRPS score on heldout data for year 2018 for lead' + str(lead) + '=' + str(round(test_crps, 2)) + '\n')
-            # # #     # # # # f.write('CRPS score on heldout data for year 2018 for lead' + str(lead) + '=' + str(round(test_crps, 2)) + '\n')
-            # #     # # #
-            #     print('CRPS scaled score on heldout data for year 2018 for lead' + str(lead) + '=' + str(
-            #         round(test_crps_scaled, 2)) + '\n')
-            #     f.write('CRPS scaled score on heldout data for year 2018 for lead' + str(lead) + '=' + str(
-            #         round(test_crps_scaled, 2)) + '\n')
-            # #     #
+            #     #
+                # # baseliens and plots
+                # index_clearness = col_to_indices_mapping['clearness_index_input']
+                # y_sp = postprocess.smart_persistence_model(X_test_before_normalized, y_test, index_clearness, lead)
+                #
+                #
+                # rmse_sp, mae_sp, mb_sp, sd_sp, r2_sp = postprocess.evaluation_metrics(y_true, y_sp)
+                # print("Performance of smart persistence model (rmse, mae, mb, sd, r2): \n\n", round(rmse_sp, 2),
+                #       round(mae_sp, 2),
+                #       round(mb_sp, 2), round(sd_sp, 2), round(r2_sp, 2))
+                #
+                #
+                #
+                # y_CH_PeEN, CH_PeEN_baseline_quantiles, crps_CH_PeEN = get_CH_PeEN_baseline_crps(X_test_before_normalized, X_train_before_normalized, col_to_indices_mapping, y_test)
+                # y_climatology, climatology_probabilistic_baseline, crps_climatology = get_climatology_baseline_crps(X_test_before_normalized, X_train_before_normalized, col_to_indices_mapping, y_test)
+                #
+                # rmse_clm, mae_clm, mb_clm, sd_clm, r2_clm = postprocess.evaluation_metrics(y_true, y_climatology)
+                # print("Performance of hourly climatology baseline model (rmse, mae, mb, sd, r2): \n\n",
+                #       round(rmse_clm, 2),
+                #       round(mae_clm, 2),
+                #       round(mb_clm, 2), round(sd_clm, 2), round(r2_clm, 2))
+                #
+                # rmse_chp, mae_chp, mb_chp, sd_chp, r2_chp = postprocess.evaluation_metrics(y_true, y_CH_PeEN)
+                # print("Performance of CH_PeEN baseline model (rmse, mae, mb, sd, r2): \n\n", round(rmse_chp, 2),
+                #       round(mae_chp, 2),
+                #       round(mb_chp, 2), round(sd_chp, 2), round(r2_chp, 2))
+                #
+                #     # reliability_diagrams(np.arange(0.05, 1.0, 0.05), y_pred, CH_PeEN_baseline_quantiles, climatology_probabilistic_baseline, y_test,
+                # #                          folder_saving + season_flag + "/ML_models_" + str(
+                # #                              testyear) + "/cnn/" + str(
+                # #                              res) + "/")
+                # #
+                # #     sharpness_diagrams(np.arange(0.05, 1.0, 0.05),  y_pred, CH_PeEN_baseline_quantiles, climatology_probabilistic_baseline,
+                # #                        folder_saving + season_flag + "/ML_models_" + str(
+                # #                            testyear) + "/cnn/" + str(
+                # #                            res) + "/")
+                #
+                # # probabilistic_prediction_plots(X_test_before_normalized,y_pred, y_test, col_to_indices_mapping, folder_saving + season_flag + "/ML_models_" + str(
+                # #                                                                              testyear) + "/cnn/" + str(
+                # #                                                                             res) + "/" )
+                # # # #
                 # print('CRPS CH_PeEN scaled score on heldout data for year 2018 for lead' + str(lead) + '=' + str(
                 #     round(crps_CH_PeEN, 2)) + '\n')
                 # f.write('CRPS CH_PeEN scaled score on heldout data for year 2018 for lead' + str(lead) + '=' + str(
                 #     round(crps_CH_PeEN, 2)) + '\n')
                 #
-                # print('CRPS hourly Climatology scaled score on heldout data for year 2018 for lead' + str(lead) + '=' + str(
+                # print('CRPS hourly Climatology scaled score on heldout data for year 2018 for lead' + str(
+                #     lead) + '=' + str(
                 #     round(crps_climatology, 2)) + '\n')
-                # f.write('CRPS hourly Climatology scaled score on heldout data for year 2018 for lead' + str(lead) + '=' + str(
+                # f.write('CRPS hourly Climatology scaled score on heldout data for year 2018 for lead' + str(
+                #     lead) + '=' + str(
                 #     round(crps_climatology, 2)) + '\n')
+                #
 
-                ## saving predictions with and without night times
+                # valid_crps = get_crps_for_ngboost(model, X_valid, y_valid)
+                # test_crps = get_crps_for_ngboost(model, X_test, y_test)
+            #     # print("before crps",y_test.shape)
+            #     test_crps_scaled = get_crps_for_ngboost_scaled(model, X_test, y_test, X_test_before_normalized, index_clearghi, lead)
+            #
+            #     print('CRPS score on valid data for lead' + str(lead) + '=' + str(
+            #         round(valid_crps, 2)) + '\n')
+            #
+            #     print('CRPS scaled score on heldout data for year 2018 for lead' + str(lead) + '=' + str(
+            #         round(test_crps_scaled, 2)) + '\n')
+            #     f.write('CRPS scaled score on heldout data for year 2018 for lead' + str(lead) + '=' + str(
+            #         round(test_crps_scaled, 2)) + '\n')
+                # #
+            #
+            #
+            #     ## saving predictions with and without night times (makes sense with deterministic forecasts, otherwise it the 50th percentile predictions)
                 test_with_predictions_array = X_test_before_normalized[:,[col_to_indices_mapping['month'], col_to_indices_mapping['day'], col_to_indices_mapping['hour']],-1]
                 # test_with_predictions_array['true_GHI'] = y_test
                 test_with_predictions_array = pd.DataFrame(test_with_predictions_array, columns=['month', 'day', 'hour'])
@@ -795,11 +723,55 @@ def main():
                     res) + "/" + reg + "/" + 'model_predictions_with_all_info_including_night_times.npy',
                         test_with_predictions_array_with_night_times)
 
-            # else:
-            #     print("not enough data for the season: ", season_flag, "and lead: ", lead)
+            else:
+                print("not enough data for the season: ", season_flag, "and lead: ", lead)
 
         f.close()
 
 
 if __name__=='__main__':
     main()
+
+
+
+# In case you want to find skill score
+#     # calculate the skill score of our model over persistence model
+#     skill_sp = postprocess.skill_score(rmse_our, rmse_sp)
+#     print("\nSkill rmse of our model over smart persistence: ", round(skill_sp, 2))
+#
+#     skill_np = postprocess.skill_score(rmse_our, rmse_np)
+#     print("\nSkill rmse of our model over normal persistence: ", round(skill_np, 2))
+#
+#     skill_clm = postprocess.skill_score(rmse_our, rmse_clm)
+#     print("\nSkill rmse of our model over hourly climatology baseline: ", round(skill_clm, 2))
+#
+#     skill_chp = postprocess.skill_score(rmse_our, rmse_chp)
+#     print("\nSkill rmse of our model over CH_PeEN baseline: ", round(skill_chp, 2))
+#
+#     f.write('skill rmse score on heldout data for year 2018 for lead' + str(lead) + '=' + str(round(skill_sp, 2)) + '\n')
+#     f.write('skill wrt hourly climatology rmse score on heldout data for year 2018 for lead' + str(lead) + '=' + str(
+#         round(skill_clm, 2)) + '\n')
+#     f.write(
+#         'skill wrt CH_PeEN rmse score on heldout data for year 2018 for lead' + str(lead) + '=' + str(
+#             round(skill_chp, 2)) + '\n')
+#
+#     skill_sp = postprocess.skill_score(mae_our, mae_sp)
+#     print("\nSkill mae of our model over smart persistence: ", round(skill_sp, 2))
+#
+#     skill_np = postprocess.skill_score(mae_our, mae_np)
+#     print("\nSkill mae of our model over normal persistence: ", round(skill_np, 2))
+#
+#     skill_clm = postprocess.skill_score(mae_our, mae_clm)
+#     print("\nSkill mae of our model over climatology baseline: ", round(skill_clm, 2))
+#
+#     skill_chp = postprocess.skill_score(mae_our, mae_chp)
+#     print("\nSkill mae of our model over climatology baseline: ", round(skill_chp, 2))
+#
+#     f.write('skill mae score on heldout data for year 2018 for lead' + str(lead) + '=' + str(
+#         round(skill_sp, 2)) + '\n')
+#     f.write(
+#         'skill wrt hourly climatology mae score on heldout data for year 2018 for lead' + str(lead) + '=' + str(
+#             round(skill_clm, 2)) + '\n')
+#     f.write(
+#         'skill wrt CH_PeEN mae score on heldout data for year 2018 for lead' + str(lead) + '=' + str(
+#             round(skill_chp, 2)) + '\n')
